@@ -62,6 +62,14 @@
         "acceptance_json": { "type": "string", "minLength": 1 }
       }
     },
-    "calibration_check": { "type": "object" }
+    "calibration_check": { "type": "object" },
+    "perceptual_warnings": {
+      "type": "array",
+      "description": "Measured-but-ungated perceptual findings, carried here because this is the artefact the delivery chain quotes. Empty means none were measured, not that none exist."
+    },
+    "perceptual_measured": {
+      "type": "object",
+      "description": "Raw perceptual measurements (duplicate/distinct colours, contrast status). Statuses are pass/warn/exempt/not_applicable; exempt and not_applicable are never passes."
+    }
   }
 }

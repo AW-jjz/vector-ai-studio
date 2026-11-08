@@ -122,7 +122,7 @@ def _perceptual_block(colors, spec, th):
                                "is not silently treated as passing"),
                     "pairs": []}
     else:
-        rows, failed = [], False
+        rows, failed, checked, exempted = [], False, 0, 0
         for pair in pairs:
             fg, bg = pair.get("fg"), pair.get("bg")
             role = pair.get("role", "meaning")
@@ -140,12 +140,14 @@ def _perceptual_block(colors, spec, th):
                 rows.append({"fg": fg, "bg": bg, "role": role,
                              "status": "exempt",
                              "normal": round(P.wcag_ratio(rf, rb), 6)})
+                exempted += 1
                 continue
             ratios = P.contrast_under_cvd(rf, rb)
             floor = (C["contrast_large_text_ratio"] if pair.get("large_text")
                      else C["contrast_text_ratio"]) if role == "text" \
                 else C["contrast_graphic_ratio"]
             ok = ratios["normal"] >= floor and ratios["min"] >= C["cvd_contrast_floor"]
+            checked += 1
             failed = failed or not ok
             rows.append({"fg": fg, "bg": bg, "role": role,
                          "status": "pass" if ok else "fail",
@@ -159,8 +161,23 @@ def _perceptual_block(colors, spec, th):
                 warns.append("contrast below floor for " + str(fg) + " on "
                              + str(bg) + ": normal " + str(round(ratios["normal"], 2))
                              + ", worst observer " + str(round(ratios["min"], 2)))
-        contrast = {"status": ("warn" if failed else "pass"),
-                    "reason": "declared pairs", "pairs": rows}
+        # A pair that was never compared against a floor must not read as a
+        # pass. Before this branch existed, a spec whose every pair carried
+        # role=decorative produced status="pass" with zero comparisons made --
+        # the exact shape of "nothing was checked, so it is green".
+        if failed:
+            c_status, c_reason = "warn", "declared pairs"
+        elif checked == 0:
+            c_status = "exempt"
+            c_reason = ("all " + str(exempted) + " declared pair(s) carry "
+                        "role=decorative; none was compared against a floor, "
+                        "so this is an exemption, not a pass")
+        else:
+            c_status = "pass"
+            c_reason = ("declared pairs: " + str(checked) + " checked, "
+                        + str(exempted) + " exempt")
+        contrast = {"status": c_status, "reason": c_reason, "pairs": rows,
+                    "checked": checked, "exempted": exempted}
 
     measured = {"palette_duplicates": {"threshold": C["duplicate_delta_e_2000_max"],
                                        "pairs": dups,

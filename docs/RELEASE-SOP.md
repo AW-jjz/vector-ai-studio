@@ -11,6 +11,22 @@
 
 不满足即视为污染，**先移出发布目录再谈其他**，不要在原地覆盖了事——覆盖会让人失去「上一版是什么」的线索。移出目标：`03-源码/_dev-logs/superseded/`，文件名带旧版本标识与 `SUPERSEDED`。
 
+### 包只能由打包器产出，不接受手工 zip
+
+r20 踩过这个坑：`validate_skill` 报了 2 个 error，官方 `package_skill.py` 因而拒绝出包，
+但 `05-发布/` 里却有一份 54 文件、与冻结态逐字节一致的包——**它只能是绕过闸门手工压的**。
+文件内容没错，错在这条纪律的反面：闸门存在的意义就是「不过就不许出包」，
+绕过去之后，闸门再严也等于没有。
+
+```
+python <toolkit>/scripts/validate_skill.py --platform workbuddy --channel marketplace <技能目录>
+python <toolkit>/scripts/package_skill.py  --platform workbuddy --channel marketplace <技能目录> <输出目录>
+```
+
+`package_skill.py` 内置强制校验，**校验不过会 exit 1 且产物目录为空**。所以「打包器跑成功了」
+本身就是「校验通过了」的证据；手工 zip 没有这层保证。
+
+
 ## 二、每次发布必须留下三样东西
 
 | 物 | 作用 |

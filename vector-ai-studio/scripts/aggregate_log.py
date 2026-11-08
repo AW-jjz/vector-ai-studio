@@ -635,6 +635,14 @@ def main():
         },
         "calibration_check": {"ok": not calib_problems,
                               "problems": [p["code"] for p in calib_problems]},
+        # Measured-but-ungated findings have to reach a file someone actually
+        # reads. score.json carries them already, but acceptance.json is the
+        # artefact the delivery chain quotes; a warning that exists only in the
+        # intermediate file is decoration, not a report.
+        "perceptual_warnings": list((score_doc or {}).get("perceptual_warnings") or []),
+        "perceptual_measured": ((score_doc or {}).get("scores", {})
+                                .get("C", {}).get("measured", {})
+                                .get("perceptual", {})),
     }
 
     # Mechanical acceptance-log validation (budget / isolation / anti-fabrication / quick).

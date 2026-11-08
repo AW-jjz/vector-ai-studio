@@ -286,7 +286,7 @@ CONTRAST_ANCHORS = [
     ((255, 0, 0), (0, 0, 0), 5.25),
 ]
 
-# CVD anchors: red through a dichromatic eye, PINNED as unrounded floats.
+# CVD drift pins: red through a dichromatic eye, PINNED as unrounded floats.
 #
 # These are not rounded to 0-255 on purpose. The first version of this check
 # compared rounded integers with a tolerance of +/-1 per channel, and a mutation
@@ -294,12 +294,18 @@ CONTRAST_ANCHORS = [
 # output by 0.0255 units, which rounds to the same integer and passes. A guard
 # that cannot see a one-digit change is decoration.
 #
-# The values below are the published matrix applied to pure red, kept to six
-# decimals. Editing any matrix coefficient MUST break this pin -- that is the
-# point. If the pin has to move, move it deliberately and say why in the commit,
-# because "adjust the expectation until it is green" is how the real bug gets
-# buried.
-CVD_ANCHORS = [
+# WHAT THIS PROVES, AND WHAT IT DOES NOT. These numbers are the same matrix
+# multiplied by pure red. So a green pin proves the matrix has not been edited
+# since the pin was written -- it CANNOT prove the matrix was transcribed
+# correctly from Machado et al. in the first place. A wrong coefficient baked in
+# from the start, with the pin taken from that same wrong matrix, is invisible
+# here. Contrast this with CONTRAST_ANCHORS and the Sharma vectors above: those
+# expectations come from published tables produced by other people, so they do
+# test accuracy.
+#
+# The name says "pin" rather than "anchor" on purpose. Calling both by the same
+# word would let a reader assume the external backing that only one of them has.
+CVD_DRIFT_PINS = [
     ((255, 0, 0), "prot", (38.832930, 29.198265, -0.989910)),
     ((255, 0, 0), "deut", (93.667110, 71.421675, -3.014100)),
 ]
@@ -331,7 +337,7 @@ def selfcheck():
         if abs(got - expected) > 0.005:
             problems.append("contrast %s/%s = %.4f, expected %.2f"
                             % (c1, c2, got, expected))
-    for rgb, kind, expected in CVD_ANCHORS:
+    for rgb, kind, expected in CVD_DRIFT_PINS:
         got = simulate_cvd_raw(rgb, kind)
         worst = max(abs(a - b) for a, b in zip(got, expected))
         if worst > 1e-4:
@@ -350,7 +356,7 @@ if __name__ == "__main__":
     bad = selfcheck()
     print("CIEDE2000 max error vs Sharma 2005 (34 pairs): %.6e"
           % sharma_max_error())
-    for rgb, kind, expected in CVD_ANCHORS:
+    for rgb, kind, expected in CVD_DRIFT_PINS:
         got = simulate_cvd_raw(rgb, kind)
         print("simulate_cvd_raw(%s, %r) = (%.6f, %.6f, %.6f)  pinned (%.6f, %.6f, %.6f)"
               % ((rgb, kind) + tuple(got) + tuple(expected)))
