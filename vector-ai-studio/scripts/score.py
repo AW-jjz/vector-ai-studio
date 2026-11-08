@@ -319,13 +319,23 @@ def main():
     # degeneracy test. Keeping the band in the config while it decides nothing
     # would be decoration; it is listed in the threshold block as deprecated.
     anchors_ok = _in_band(sig["anchor_count"], th["D"]["anchor_count_excellent"])
+    # Measured, not gated -- same reason as the anchor band above.
+    #
+    # The short-segment share threshold comes from fontspector's font-outline
+    # check, where a short segment means a redundant point left by auto-tracing.
+    # A hand-drawn illustration sampled evenly produces short segments too, with
+    # nothing redundant about them: the same wave measured at 60 / 120 / 180
+    # samples scored a share of 0.000 / 0.118 / 0.559 while its shape never
+    # changed. Gating on that punished sampling density, not quality. QA produced
+    # that measurement; there is no counter-evidence that the share means
+    # redundancy in illustration, so it stops deciding and keeps reporting.
     short_ok = sig["short_segment_ratio"] <= th["D"]["short_segment_ratio_max"]
     rev_ok = sig["tangent_reversal_count"] <= th["D"]["tangent_reversal_max"]
     text_policy = bool(args.text_policy)
     d_pass = (not (sig["has_image"] or sig["has_base64"]) and not sig["forbidden"]
               and sig["degenerate_paths"] <= th["D"]["degenerate_paths"]
               and len(sig["g_ids"]) >= th["D"]["min_groups"])
-    d_exc = d_pass and readable_names and short_ok and rev_ok and text_policy
+    d_exc = d_pass and readable_names and rev_ok and text_policy
     scores["D"] = _dim(EXC if d_exc else (PASS if d_pass else FAIL),
                        {"bitmap": sig["has_image"] or sig["has_base64"],
                         "forbidden": list(sig["forbidden"]),
@@ -334,8 +344,12 @@ def main():
                         "anchor_count": sig["anchor_count"],
                         "anchor_count_in_band": anchors_ok,
                         "short_segment_ratio": sig["short_segment_ratio"],
+                        "short_segment_ratio_within_max": short_ok,
                         "tangent_reversal_count": sig["tangent_reversal_count"],
                         "dense_paths": sig["dense_paths"],
+                        "dense_short_segments": sig["dense_short_segments"],
+                        "dense_turns_deg": list(sig["dense_turns_deg"]),
+                        "dense_corner_fracs": list(sig["dense_corner_fracs"]),
                         "short_segment_note": sig["short_segment_note"],
                         "semantic_group_names": readable_names,
                         "text_policy": args.text_policy or "not-declared",

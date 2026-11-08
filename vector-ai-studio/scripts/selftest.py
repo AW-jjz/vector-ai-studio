@@ -964,6 +964,53 @@ def main():
         add("A34-contrast-catches-cvd-collapse", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+    # A35: a path that trips the short-segment escape valve must still leave
+    # evidence -- in the FILE, not merely in the library return value.
+    #
+    # The escape valve (borrowed from fontspector) exists so that genuinely
+    # detailed artwork is not punished for being detailed. The first
+    # implementation wrote `short += count if not dense else 0`, which kept the
+    # path out of the ratio -- correct -- and ALSO threw away the count, so
+    # "a circle cut into 200 chords" and "nothing to report" looked identical.
+    #
+    # The first version of THIS assertion called analyze_svg() directly and
+    # checked its return dict. That proved the library kept the numbers while
+    # score.json still dropped them: the fix had reached the function and
+    # stopped there. Same shape as the failures this project keeps closing --
+    # measured, but not in any file a reader opens. So it now runs score.py
+    # end to end and reads score.json, which is what a reviewer actually gets.
+    try:
+        import math as _m
+        _n = 200
+        _d = "M" + " L".join(
+            "%.4f,%.4f" % (100 + 70 * _m.cos(2 * _m.pi * i / _n),
+                           100 + 70 * _m.sin(2 * _m.pi * i / _n))
+            for i in range(_n)) + " Z"
+        _svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+                '<g id="a"><path d="' + _d + '" fill="none" stroke="#000"/></g></svg>')
+        _p35 = tmp / "a35-flattened.svg"
+        _p35.write_text(_svg, encoding="utf-8")
+        _out35 = tmp / "a35-score.json"
+        _call("score.py", ["--svg", str(_p35),
+                           "--judge", str(GOOD / "judge.json"),
+                           "--spec", str(GOOD / "spec.json"),
+                           "--out", str(_out35),
+                           "--run-id", "a35", "--json"], tmp)
+        _d35 = json.loads(_out35.read_text(encoding="utf-8"))["scores"]["D"]["measured"]
+        _turns = _d35.get("dense_turns_deg") or []
+        kept = (_d35.get("dense_paths") == 1
+                and _d35.get("dense_short_segments") == _n
+                and len(_turns) == 1 and _turns[0] < 5.0
+                and (_d35.get("dense_corner_fracs") or [1])[0] == 0.0)
+        add("A35-dense-path-keeps-evidence", kept,
+            "in score.json: dense=" + str(_d35.get("dense_paths"))
+            + " kept_short=" + str(_d35.get("dense_short_segments"))
+            + " turns=" + str(_turns)
+            + " corner=" + str(_d35.get("dense_corner_fracs")))
+    except Exception as e:                      # noqa: BLE001
+        add("A35-dense-path-keeps-evidence", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
     # optional: fixtures regression (now includes the six v1.3 samples)
     if args.fixtures:
         frc, fenv, _ = _call("run_fixtures.py", ["--json", "--log-dir", str(log_dir)], tmp)

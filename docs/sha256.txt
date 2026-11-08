@@ -1,36 +1,23 @@
 vector-ai-studio 发布校验留痕
 
 文件数        : 54
-字节数        : 151995
-sha256        : 7c6cdbb410ab61bf6de6a2cedb245c39a2ae52976a061009fa68baba214ee3cb
-对应冻结基线  : 04-QA/test-log-r21/00-freeze-r21-manifest.txt（54 文件，2026-11-08 17:03:40）
-基线 sha256   : 9acf75041ecb683d3cf1adf69d1f3448d63f14fb6df698a3ce9120fff5f10dea
+字节数        : 154113
+sha256        : 2fd9c57ee4d2f87331a2dec04a830cd05eb18dede923d35a7767ef9def66ee04
+对应冻结基线  : 04-QA/test-log-r23/00-freeze-r23-manifest.txt（54 文件，2026-11-08 17:31:10）
+基线 sha256   : c3f318444954017e4c7b54a0689cf065fddc57132986352f63149269498973ec
 
-本版包含      : 双引擎 · A1–A34 · H3 三态口径 · deliverable schema 对齐实发字段
-                C 维感知色彩：WCAG 2.1 对比度 + 色觉缺陷模拟（Machado 2009）
-                  + CIEDE2000（重复色）+ HyAB（显著差异），本轮仅测量、不判失败
-                D 维弃用绝对锚点数，改用短段占比 0.6% + 切线回折 0.25rad
-                修正：只有描边的水平细线（分隔线）不再被误判为退化路径
-相对 r20 变更 : 关闭 QA 第 14 轮的 1 项 P1 与 3 项 P2，共改 5 个文件，新增 0、删除 0
-                scripts/score.py               contrast 零受检配对记 exempt，不再记 pass
-                scripts/aggregate_log.py       perceptual_warnings 与实测值进入 acceptance.json
-                references/schemas/acceptance.schema.json  同步声明上述两个字段
-                scripts/perceptual.py          CVD_ANCHORS 改名 CVD_DRIFT_PINS，
-                                               并写明「只防漂移、不证矩阵抄对」
-                SKILL.md                       4 级标题降为粗体；裸 perceptual.py 补 scripts/ 前缀
+本版包含      : 双引擎 · A1–A35 · C 维感知色彩（仅测量）· D 维转相对指标
+相对 r22 变更 : 2 个文件，新增 0、删除 0
+                scripts/score.py       D.measured 补 dense_short_segments / dense_turns_deg /
+                                       dense_corner_fracs；short_segment_ratio 移出 d_exc（改测不判）
+                scripts/selftest.py     A35 改为端到端：跑 score.py 读 score.json，不再只验库返回值
 
-出包方式      : 官方 package_skill.py 产出，不接受手工 zip
-                （r20 那份 150,892 B 的包是在 validate 报 2 error 的情况下手工打的，
-                 已归档为 superseded 并标注 HANDZIP）
+出包方式      : 官方 package_skill.py 产出（validate 0 error / 0 warning 后才出包）
 
 校验方式:
   1) 解压后逐文件 md5 与基线清单比对，应 54/54 完全一致
-  2) selftest.py --fixtures 期望 34/34；run_fixtures.py 期望 24/24
+  2) selftest.py --fixtures 期望 35/35；run_fixtures.py 期望 24/24
   3) validate_skill.py 期望 ok / 0 error / 0 warning
-  4) package_skill.py 必须 exit 0（校验不过会拒绝出包，产物目录为空）
-  5) 发布前必须跑一次 VECTOR_AI_STUDIO_REAL_AI=1 的 selftest（真机覆盖 A31 的 AI 半边）
-  注：未装 VectorCraft 时 A30/A31 标 skipped，运行标 partial、退出码 3、
-      计数为 32 passed + 2 skipped；H3 仍可通过（仅当跳过的全是可选项）。
-      此时若同时设了 REAL_AI=1 却没找到真机产物，A31 判红、退出码 1，不再退化成 partial。
+  4) 发布前必须跑一次 VECTOR_AI_STUDIO_REAL_AI=1 的 selftest
 
-被替换的旧包: 03-源码/_dev-logs/superseded/vector-ai-studio_r20-54files_HANDZIP-SUPERSEDED_20261108-1704.zip
+被替换的旧包: 03-源码/_dev-logs/superseded/vector-ai-studio_r22-54files_SUPERSEDED_20261108-1731.zip

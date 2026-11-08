@@ -369,6 +369,7 @@ def parse_path_points(d):
 _SHORT_SEG_FRACTION = 0.006     # fontspector outline_short_segments
 _SHORT_SEG_ESCAPE = 100         # fontspector stops reporting past this count
 _JAG_ANGLE_RAD = 0.25           # fontspector outline_jaggy_segments (14.32 deg)
+_CORNER_ANGLE_RAD = 1.22173     # Blender curve.draw corner_angle default (~70 deg)
 
 
 def _cubic_points(p0, p1, p2, p3, steps=12):
@@ -412,7 +413,8 @@ def path_metrics(d):
     and irrelevant at this sampling density.
     """
     out = {"segments": 0, "total_len": 0.0, "short_count": 0,
-           "short_ratio": 0.0, "reversals": 0, "dense": False}
+           "short_ratio": 0.0, "reversals": 0, "dense": False,
+           "dense_short_count": 0, "corner_frac": 0.0, "mean_turn_deg": 0.0}
     if not d:
         return out
 
@@ -562,6 +564,12 @@ def path_metrics(d):
     if short > _SHORT_SEG_ESCAPE:
         out["dense"] = True
         out["short_ratio"] = 0.0
+        # The escape valve still keeps this path out of the ratio, so nothing
+        # starts failing that used to pass. But the count itself is preserved:
+        # "this path was skipped" must not also mean "nothing is known about
+        # this path". Zeroing the evidence is how a flattened circle stayed
+        # invisible while the report said the check had run.
+        out["dense_short_count"] = short
     else:
         out["short_ratio"] = round(short / float(len(segs)), 6)
 
@@ -575,6 +583,31 @@ def path_metrics(d):
         if math.acos(dot) <= _JAG_ANGLE_RAD:
             rev += 1
     out["reversals"] = rev
+
+    # How sharply does the path actually bend at each join? Measured on the
+    # forward tangents (not reversed), so this is the ordinary turning angle.
+    #
+    # Why it is recorded even for dense paths: a circle cut into 200 chords
+    # turns 1.8 degrees at every join and is a flattening artefact; a 40-tooth
+    # gear turns 144 degrees and is genuine detail. Both trip the short-segment
+    # escape valve, so the valve alone cannot tell them apart -- but the turn
+    # angle separates them by two orders of magnitude, and costs nothing
+    # because the tangents are already computed above.
+    #
+    # The corner threshold is Blender's curve.draw corner_angle default
+    # (1.22173 rad, ~70 degrees), the one published number found for
+    # "this vertex is a corner, not a smooth transition".
+    turns = []
+    for k in range(len(segs) - 1):
+        a, b = t_ends[k], t_starts[k + 1]
+        if a == (0.0, 0.0) or b == (0.0, 0.0):
+            continue
+        d = max(-1.0, min(1.0, a[0] * b[0] + a[1] * b[1]))
+        turns.append(math.acos(d))
+    if turns:
+        out["corner_frac"] = round(
+            sum(1 for t in turns if t > _CORNER_ANGLE_RAD) / float(len(turns)), 6)
+        out["mean_turn_deg"] = round(math.degrees(sum(turns) / len(turns)), 3)
     return out
 
 
@@ -628,6 +661,8 @@ def analyze_svg(text):
         "degenerate_paths": 0, "element_count": 0,
         "short_segment_ratio": 0.0, "tangent_reversal_count": 0,
         "dense_paths": 0, "short_segment_note": "",
+        "dense_short_segments": 0, "dense_turns_deg": [],
+        "dense_corner_fracs": [],
     }
     low = text.lower()
     out["has_image"] = ("<image" in low) or ("data:image" in low)
@@ -699,6 +734,12 @@ def analyze_svg(text):
                     out["tangent_reversal_count"] += pm["reversals"]
                     if pm["dense"]:
                         out["dense_paths"] += 1
+                        # Keep what the escape valve would otherwise discard.
+                        # A dense path contributes 0 to the ratio above by
+                        # design; it must not also contribute 0 to the record.
+                        out["dense_short_segments"] += pm["dense_short_count"]
+                        out["dense_turns_deg"].append(pm["mean_turn_deg"])
+                        out["dense_corner_fracs"].append(pm["corner_frac"])
             # A zero-extent bounding box is not by itself junk. A stroke-only
             # horizontal rule has height 0 and is a legitimate design element
             # (dividers, underlines, table rules). What is actually junk is a
@@ -745,10 +786,13 @@ def analyze_svg(text):
     if _segs:
         out["short_segment_ratio"] = round(_short / float(_segs), 6)
     if out["dense_paths"]:
+        turns = out["dense_turns_deg"]
         out["short_segment_note"] = (
             "short-segment share not scored on " + str(out["dense_paths"]) +
             " path(s): past 100 short segments the drawing is simply dense, "
-            "and the check stops discriminating")
+            "and the check stops discriminating. Kept as evidence: "
+            + str(out["dense_short_segments"]) + " short segment(s) total, "
+            "mean turn " + "/".join("%.1f" % t for t in turns) + " deg")
     for gi in out["groups"]:
         gi["colors"] = sorted(set(gi["colors"]))
 
