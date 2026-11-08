@@ -1,0 +1,27 @@
+{
+  "schema": "vector-ai-studio/acceptance-sample-v1",
+  "note": "回归样例（非真机产物）：landing-only 轨道却声明 grading_entered=true，期望 E-EXEMPTION-ABUSE",
+  "mode": "landing-only",
+  "grading_entered": true,
+  "h2": null,
+  "h2_status": "not_evaluated",
+  "tier": null,
+  "grade": null,
+  "headline": "跨轨声明样例",
+  "degraded": false,
+  "needs_human_review": false,
+  "reason": null,
+  "capability_missing": null,
+  "quick": false,
+  "f_verified": true,
+  "f_data_isolated": true,
+  "generation_count": 0,
+  "f_source_runs": [],
+  "c2_revisions": [],
+  "scores": {},
+  "hard_gates": {
+    "H2": { "pass": null },
+    "H3": { "pass": null },
+    "H4": { "pass": null }
+  }
+}

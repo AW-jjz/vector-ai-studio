@@ -1,0 +1,16 @@
+# Byte-exact checkout. No EOL conversion in either direction.
+#
+# Why: docs/sha256.txt tells readers they can verify this repository against a
+# md5 baseline. With autocrlf on, a fresh clone on Windows would rewrite every
+# LF to CRLF and every hash would differ. Reproducibility beats local comfort
+# here, so all files are stored and checked out exactly as committed.
+* -text
+
+# These three are still recognised as text for tooling that asks git for type
+# information (diff, merge), but without any conversion.
+*.md    diff
+*.py    diff
+*.json  diff
+
+# Windows-only launcher; keep it executable-cross-platform irrelevant but marked
+*.ps1   diff

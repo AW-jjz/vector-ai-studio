@@ -1,0 +1,41 @@
+{
+  "schema": "vector-ai-studio/acceptance-sample-v1",
+  "note": "回归样例（非真机产物）：full 轨六键日志删掉 scores.F，期望 E-NO-SCORE（F 是 grade 必需维）",
+  "mode": "full",
+  "grading_entered": true,
+  "h2": true,
+  "h2_status": "pass",
+  "headline": "已达质量阈值，可进入人工终审（可选）",
+  "grade": "达标",
+  "internal_excellent": true,
+  "tier": "pass",
+  "degraded": false,
+  "needs_human_review": false,
+  "reason": "none",
+  "capability_missing": false,
+  "status": "ok",
+  "quick": false,
+  "f_verified": true,
+  "f_data_isolated": true,
+  "generation_count": 3,
+  "generation_budget": { "pass": 9, "excellent": 15 },
+  "f_source_runs": [
+    { "run_id": "run-1", "h1": true, "draft_sha256": "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111" },
+    { "run_id": "run-2", "h1": true, "draft_sha256": "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222" },
+    { "run_id": "run-3", "h1": true, "draft_sha256": "cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333" }
+  ],
+  "c2_revisions": [],
+  "scores": {
+    "A": { "score": 2 },
+    "B": { "score": 2 },
+    "C": { "score": 1 },
+    "D": { "score": 1 },
+    "E": "N/A"
+  },
+  "hard_gates": {
+    "H1": { "pass": true },
+    "H2": { "pass": true },
+    "H3": { "pass": true },
+    "H4": { "pass": true }
+  }
+}

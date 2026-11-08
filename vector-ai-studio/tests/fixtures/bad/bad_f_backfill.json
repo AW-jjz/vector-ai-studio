@@ -1,0 +1,30 @@
+{
+  "schema": "vector-ai-studio/acceptance-sample-v1",
+  "note": "回归样例（非真机产物）：C2 收敛产物跨 run 回填进 F 统计，期望 E-F-DATA-ISOLATION",
+  "headline": "未达质量阈值，需人工终审",
+  "grade": "不达标",
+  "degraded": false,
+  "needs_human_review": true,
+  "reason": "quality_fail",
+  "capability_missing": false,
+  "f_verified": true,
+  "f_data_isolated": true,
+  "quick": false,
+  "generation_count": 6,
+  "f_source_runs": [
+    { "run_id": "run-1", "h1": true, "score": {}, "draft_sha256": "aaaa1111" },
+    { "run_id": "run-2", "h1": true, "score": {}, "draft_sha256": "bbbb2222" },
+    { "run_id": "run-3", "h1": true, "score": {}, "draft_sha256": "cccc3333" }
+  ],
+  "c2_revisions": [
+    { "run_id": "run-1", "round": 2, "score": {}, "change_only": ["C"], "draft_sha256": "dddd4444", "f_run_id": "run-2", "counted_in_f": true }
+  ],
+  "scores": {
+    "A": { "score": 1 },
+    "B": { "score": 1 },
+    "C": { "score": 1 },
+    "D": { "score": 1 },
+    "E": "N/A",
+    "F": { "score": 1 }
+  }
+}

@@ -1,0 +1,20 @@
+# vector-ai-studio runtime dependencies
+#
+# Default pipeline: Python 3.13 standard library ONLY.
+# Required third-party packages: NONE.
+# Local install is zero-friction: no network, no credentials, no extra components.
+# All judgment JSON is read/written with the standard library json module.
+#
+# Optional enhancers (commented out = not installed by default):
+#   Missing optional enhancers auto-degrade and never block the default chain.
+#   See references/pipeline-contract.md for the MISSING table.
+#
+#   cairosvg        # optional enhancement: higher-fidelity PNG rendering
+#   resvg           # optional enhancement: PNG rendering binary on PATH
+#   svgo (Node.js)  # optional enhancement: SVG optimization
+#
+# PyYAML is intentionally NOT used: configuration is JSON read by the
+# standard library, so there is no parser fork between runtimes.
+#
+# Illustrator COM (Windows PowerShell) is a real-machine capability, not a
+# pip package; it is detected at runtime by scripts/detect_deps.py.

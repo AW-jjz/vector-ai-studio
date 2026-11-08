@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vector-ai-studio.local/schemas/deliverable.schema.json",
+  "title": "vector-ai-studio delivery manifest",
+  "description": "What was actually measured in the delivered .ai, plus the warnings a client must see. Every value here is observed from the file's own bytes; nothing is a promise.",
+  "type": "object",
+  "required": [
+    "schema",
+    "file",
+    "profile",
+    "save_options",
+    "observed",
+    "warnings",
+    "verify_yourself"
+  ],
+  "properties": {
+    "schema": {
+      "const": "vector-ai-studio/deliverable-v1"
+    },
+    "file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "enum": [
+        "screen",
+        "print",
+        "handoff"
+      ]
+    },
+    "save_options": {
+      "type": "object",
+      "required": [
+        "pdf_compatible",
+        "embed_icc",
+        "cmyk",
+        "bleed_mm"
+      ],
+      "properties": {
+        "compatibility": {
+          "type": "string"
+        },
+        "pdf_compatible": {
+          "type": "boolean"
+        },
+        "embed_icc": {
+          "type": "boolean"
+        },
+        "cmyk": {
+          "type": "boolean"
+        },
+        "bleed_mm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bleed_pt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "layers_from_groups": {
+          "type": "boolean"
+        }
+      }
+    },
+    "observed": {
+      "type": "object",
+      "required": [
+        "bytes",
+        "sha256",
+        "has_ai_private",
+        "pdf_compatible"
+      ],
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pdf_compatible": {
+          "type": "boolean"
+        },
+        "pdf_header": {
+          "type": "string"
+        },
+        "has_ai_private": {
+          "type": "boolean"
+        },
+        "device_rgb": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "device_cmyk": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_intent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "iccbased": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fonts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "images": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artboard_mm": {
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "content_ops": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "可解码内容流里的颜色算子计数；全部不可解码时为 null",
+          "properties": {
+            "rg": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "RG": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "k": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "K": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "content_streams": {
+          "type": "object",
+          "properties": {
+            "streams": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "decoded": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "properties": {
+        "trimmarks_ink": {
+          "type": "string"
+        }
+      }
+    },
+    "jsx_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unverified": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verify_yourself": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "trimmarks_ink": {
+      "type": "string"
+    }
+  }
+}

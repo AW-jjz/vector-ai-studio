@@ -1,0 +1,12 @@
+{
+  "schema": "vector-ai-studio/spec-v1",
+  "prompt": "@@PROMPT@@",
+  "elements": [
+    { "id": "@@ELEMENT_ID_1@@", "desc": "@@ELEMENT_DESC_1@@" }
+  ],
+  "attributes": [
+    { "id": "@@ATTR_ID_1@@", "desc": "@@ATTR_DESC_1@@", "kind": "@@ATTR_KIND@@" }
+  ],
+  "palette": ["@@PALETTE_COLOR_1@@"],
+  "rounds": { "current": 1, "K_max_ref": "config/thresholds.json" }
+}

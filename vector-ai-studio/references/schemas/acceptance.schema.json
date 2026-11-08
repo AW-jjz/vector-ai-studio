@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vector-ai-studio.local/schemas/acceptance.schema.json",
+  "title": "vector-ai-studio acceptance log",
+  "description": "Machine-readable contract for acceptance.json. Before this file existed the field contract lived only in prose and in the code that wrote it, so any consumer had to trust the producer. Required fields are the ones a grader or a client actually reads; everything else is optional so the log can grow without breaking readers.",
+  "type": "object",
+  "required": [
+    "schema", "headline", "mode", "grading_entered", "grade", "tier",
+    "h1", "h2", "h2_status", "scores", "artifacts"
+  ],
+  "properties": {
+    "schema": { "const": "vector-ai-studio/acceptance-v1" },
+    "headline": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string" },
+    "mode": { "enum": ["full", "landing-only"] },
+    "grading_entered": { "type": "boolean" },
+    "grade": { "type": ["string", "null"], "enum": ["达标", "不达标", null] },
+    "tier": { "type": ["string", "null"], "enum": ["pass", "not-pass", null] },
+    "status": { "type": "string" },
+    "reason": { "type": ["string", "null"] },
+    "degraded": { "type": "boolean" },
+    "needs_human_review": { "type": "boolean" },
+    "capability_missing": { "type": ["boolean", "null"] },
+    "quick": { "type": "boolean" },
+    "f_verified": { "type": "boolean" },
+    "f_data_isolated": { "type": "boolean" },
+    "generation_count": { "type": "integer", "minimum": 0 },
+    "generation_budget": { "type": "object" },
+    "h1": { "type": "boolean" },
+    "h2": { "type": ["boolean", "null"] },
+    "h2_status": { "enum": ["pass", "fail", "not_evaluated"] },
+    "h3": { "type": ["boolean", "null"] },
+    "h4": { "type": ["boolean", "null"] },
+    "scores": {
+      "type": "object",
+      "description": "A/B/C/D/F are required for a graded log; E may be absent when no style reference exists. A dimension value is either a scored object or the capability-missing status string.",
+      "patternProperties": {
+        "^[A-F]$": {
+          "anyOf": [
+            { "type": "object", "required": ["score"], "properties": { "score": { "type": "integer", "minimum": 0, "maximum": 2 } } },
+            { "type": "string" }
+          ]
+        }
+      }
+    },
+    "scores_source": { "type": "object" },
+    "discarded_scores": { "type": "object" },
+    "degraded_dims": { "type": "array", "items": { "type": "string" } },
+    "hard_gates": { "type": "object" },
+    "degradation": { "type": "array" },
+    "rounds": { "type": "array" },
+    "runs": { "type": "array" },
+    "f_source_runs": { "type": "array" },
+    "c2_revisions": { "type": "array" },
+    "artifacts": {
+      "type": "object",
+      "required": ["acceptance_json"],
+      "properties": {
+        "final_ai": { "type": "string" },
+        "final_svg": { "type": "string" },
+        "preview_png": { "type": "string" },
+        "acceptance_json": { "type": "string", "minLength": 1 }
+      }
+    },
+    "calibration_check": { "type": "object" }
+  }
+}

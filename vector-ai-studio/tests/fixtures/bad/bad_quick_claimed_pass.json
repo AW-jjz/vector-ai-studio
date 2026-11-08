@@ -1,0 +1,26 @@
+{
+  "schema": "vector-ai-studio/acceptance-sample-v1",
+  "note": "回归样例（非真机产物）：quick 单 run 预览却宣称达标，期望 E-QUICK-UNVERIFIED",
+  "headline": "F 未验证，不宣称达标",
+  "grade": "达标",
+  "degraded": false,
+  "needs_human_review": false,
+  "reason": "none",
+  "capability_missing": false,
+  "f_verified": false,
+  "f_data_isolated": true,
+  "quick": true,
+  "generation_count": 1,
+  "f_source_runs": [
+    { "run_id": "run-1", "h1": true, "score": {}, "draft_sha256": "aaaa1111" }
+  ],
+  "c2_revisions": [],
+  "scores": {
+    "A": { "score": 1 },
+    "B": { "score": 1 },
+    "C": { "score": 1 },
+    "D": { "score": 1 },
+    "E": "N/A",
+    "F": { "score": 1 }
+  }
+}

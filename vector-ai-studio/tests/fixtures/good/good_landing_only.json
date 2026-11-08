@@ -1,0 +1,27 @@
+{
+  "schema": "vector-ai-studio/acceptance-sample-v1",
+  "note": "回归样例（非真机产物）：landing-only 轨道只取证 H1，H2/H3/H4 不评估，期望校验器接受",
+  "mode": "landing-only",
+  "grading_entered": false,
+  "h2": null,
+  "h2_status": "not_evaluated",
+  "tier": null,
+  "grade": null,
+  "headline": "H1 取证专用：原生矢量文件结构回读通过，未进入评级",
+  "degraded": false,
+  "needs_human_review": false,
+  "reason": null,
+  "capability_missing": null,
+  "quick": false,
+  "f_verified": false,
+  "f_data_isolated": true,
+  "generation_count": 0,
+  "f_source_runs": [],
+  "c2_revisions": [],
+  "scores": {},
+  "hard_gates": {
+    "H2": { "pass": null },
+    "H3": { "pass": null },
+    "H4": { "pass": null }
+  }
+}

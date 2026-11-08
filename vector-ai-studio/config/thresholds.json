@@ -1,0 +1,116 @@
+{
+  "schema": "vector-ai-studio/thresholds-v1",
+  "version": "1.0.0",
+  "source": "需求说明书 7.2/7.3/7.4（定稿初值，主理人裁决 O2）",
+  "score_levels": { "fail": 0, "pass": 1, "excellent": 2 },
+  "A": {
+    "min_elements": 1,
+    "hit_rate_pass": 1.0,
+    "excellent_min_elements": 5,
+    "excellent_attr_hit_rate": 0.8
+  },
+  "B": {
+    "whitespace_pass": [0.15, 0.6],
+    "whitespace_excellent": [0.25, 0.45],
+    "centroid_offset_pass": 0.20,
+    "centroid_offset_excellent": 0.10,
+    "align_pass_rate": 1.0
+  },
+  "C": {
+    "max_colors_pass": 8,
+    "max_colors_excellent": 5,
+    "max_stroke_widths_pass": 3,
+    "max_stroke_widths_excellent": 2,
+    "group_reuse_excellent": 0.70
+  },
+  "D": {
+    "min_groups": 3,
+    "degenerate_paths": 0,
+    "anchor_count_excellent": [20, 500],
+    "forbid": ["image", "data:image", "base64", "clipPath", "filter", "blend", "use"]
+  },
+  "E": {
+    "jaccard_pass": 0.6,
+    "jaccard_excellent": 0.8,
+    "palette_jaccard_excellent": 1.0,
+    "tokens": ["palette", "stroke_width", "corner_radius", "font_family"]
+  },
+  "F": {
+    "N_pass": 3,
+    "N_excellent": 5,
+    "h1_pass_rate": 1.0,
+    "ad_pass_rate_pass": 0.6667,
+    "ad_pass_rate_excellent": 1.0
+  },
+  "grade": {
+    "pass_requires_dims": ["A", "B", "C", "D", "F"],
+    "excellent_requires": { "A": 2, "B": 2, "min_twos": 3 },
+    "e_applicable_min": 1
+  },
+  "iterate": { "K_max": 3 },
+  "orchestration": {
+    "schema": "per-run-converge-then-f",
+    "note": "按需求 §7.5.1 原编排实现，无编排变更：每个独立 run 内部各自走完至多 K 轮定向收敛（C2 早退）后，由 N 个收敛后的 run 汇总计算 F；K 为每 run 上限、非全局上限；预算上界由 F.N × iterate.K_max 运行时派生",
+    "quick_mode": {
+      "f_verified": false,
+      "headline": "F 未验证，不宣称达标"
+    }
+  },
+  "messages": {
+    "l1_headline": "未达质量阈值，需人工终审",
+    "l2_headline": "语义 / 构图判读未取证，需人工终审",
+    "l2_outward_note": "降级交付，需人工终审",
+    "l2_grade": "不达标",
+    "l2_capability_missing": "N/A (capability_missing)",
+    "l4_note": "非原生 .ai，格式底线未满足",
+    "semi_manual_note": "需人工在 Illustrator 内执行一次脚本",
+    "fallback_png_note": "预览保真度受限",
+    "grade_pass": "达标",
+    "grade_fail": "不达标",
+    "reason_capability_missing": "capability_missing",
+    "reason_quality_fail": "quality_fail",
+    "reason_none": "none"
+  },
+  "degradation_levels": {
+    "L0": "默认零凭据本地链路",
+    "L1": "质量未达标，进入定向收敛",
+    "L2": "宿主 LLM 读图不可用，A/B 记 N/A (capability_missing)、grade 不达标、交付不阻断",
+    "L3": "商业增强档（用户自行提供凭据）",
+    "L4": "依赖缺失（Illustrator COM / 渲染器）",
+    "L5": "无风格参考，E 记 N/A"
+  },
+  "calibration_policy": {
+    "note": "阈值校准白名单与审批流。判据定义类一律不可校准。",
+    "calibratable": [
+      "B.whitespace_*",
+      "B.centroid_offset_*",
+      "C.max_colors_*",
+      "C.max_stroke_widths_*",
+      "C.group_reuse_excellent",
+      "D.anchor_count_excellent",
+      "D.min_groups"
+    ],
+    "calibratable_note": "仅限几何/统计类，且必须附真机样本日志（字段路径通配匹配）。",
+    "locked": [
+      "A.*",
+      "E.jaccard_*",
+      "E.palette_jaccard_excellent",
+      "F.N_*",
+      "F.h1_pass_rate",
+      "F.ad_pass_rate_*",
+      "grade.*",
+      "iterate.K_max",
+      "H1", "H2", "H3", "H4"
+    ],
+    "locked_note": "判据定义，任何情况不得校准（含放宽与收紧）。",
+    "approval_flow": [
+      "QA 申请：真实样本日志 + 前后值 + 理由 + 样本数",
+      "主理人复核批准",
+      "改 config 并写 calibration_log（含裁决引用 ruling_ref）",
+      "重测回归"
+    ],
+    "tightening": "收紧（更严）可留痕自行，无需裁决引用。",
+    "loosening": "任何放宽必须标 loosening: true 且有裁决引用 ruling_ref，否则 selftest 判失败。"
+  },
+  "calibration_log": []
+}

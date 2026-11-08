@@ -1,0 +1,17 @@
+{
+  "schema": "vector-ai-studio/spec-v1",
+  "prompt": "a minimal flat badge with one central subject, an outer frame, two symmetric accent bars and an inner dot",
+  "elements": [
+    { "id": "e1", "desc": "central circular subject" },
+    { "id": "e2", "desc": "outer frame" },
+    { "id": "e3", "desc": "top accent bar" },
+    { "id": "e4", "desc": "bottom accent bar" },
+    { "id": "e5", "desc": "inner dot" }
+  ],
+  "attributes": [
+    { "id": "a1", "desc": "exactly one central subject", "kind": "count" },
+    { "id": "a2", "desc": "accent bars symmetric about center", "kind": "relation" }
+  ],
+  "palette": ["#2f6fed", "#ffb020", "#111111", "#ffffff"],
+  "rounds": { "current": 1, "K_max_ref": "config/thresholds.json" }
+}

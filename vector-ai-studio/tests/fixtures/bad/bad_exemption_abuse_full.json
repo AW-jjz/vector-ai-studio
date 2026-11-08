@@ -1,0 +1,31 @@
+{
+  "schema": "vector-ai-studio/acceptance-sample-v1",
+  "note": "回归样例（非真机产物）：full 轨道却声明 grading_entered=false 且携带 h2，期望 E-EXEMPTION-ABUSE",
+  "mode": "full",
+  "grading_entered": false,
+  "h2": true,
+  "h2_status": "pass",
+  "tier": null,
+  "grade": null,
+  "headline": "跨轨声明样例",
+  "degraded": false,
+  "needs_human_review": false,
+  "reason": null,
+  "capability_missing": null,
+  "quick": false,
+  "f_verified": true,
+  "f_data_isolated": true,
+  "generation_count": 3,
+  "f_source_runs": [
+    { "run_id": "run-1", "draft_sha256": "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111" },
+    { "run_id": "run-2", "draft_sha256": "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222" },
+    { "run_id": "run-3", "draft_sha256": "cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333" }
+  ],
+  "c2_revisions": [],
+  "scores": {},
+  "hard_gates": {
+    "H2": { "pass": true },
+    "H3": { "pass": true },
+    "H4": { "pass": true }
+  }
+}
