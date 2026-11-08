@@ -21,12 +21,31 @@
     "max_colors_excellent": 5,
     "max_stroke_widths_pass": 3,
     "max_stroke_widths_excellent": 2,
-    "group_reuse_excellent": 0.70
+    "group_reuse_excellent": 0.70,
+
+    "duplicate_delta_e_2000_max": 2.3,
+    "_src_duplicate": "gemini-testing/looks-same lib/constants.js:19 定义 JND=2.3 并用 CIEDE2000 判'肉眼可辨'。但该常量在业界通常被追溯到 ΔE*ab 的 JND，直接套在 ΔE00 上属口传，原始论文未坐实。ΔE00 在近中性区比 ΔE*ab 略小，故此处偏保守。",
+
+    "distinct_hyab_min": 10.0,
+    "_src_distinct": "无权威出处。HyAB 算子见 Abasi/Amani Tehran/Fairchild 2020 (Color Res. Appl. 45:208-223)；门限 10.0 为本项目按 CIELAB 大色差区间取的工程值，未标定。",
+
+    "contrast_text_ratio": 4.5,
+    "contrast_large_text_ratio": 3.0,
+    "contrast_graphic_ratio": 3.0,
+    "_src_contrast": "WCAG 2.1 SC 1.4.3（正文 4.5:1、大字 3:1）与 SC 1.4.11（graphical objects required to understand the content，3:1）。SC 1.4.11 原文限定为'理解内容所必需的图形'并豁免纯装饰，故本实现只在 spec 显式声明 contrast_pairs 时检查，未声明记 not_applicable。Understanding 文档明确 2.999:1 不达标，不得四舍五入。",
+
+    "cvd_contrast_floor": 3.0,
+    "_src_cvd": "本项目扩展，非标准：将 SC 1.4.11 的 3:1 作用于 Machado 等 (2009) 模拟后的颜色。WCAG 本身不要求模拟色觉缺陷，故此阈值无标准依据、未标定；设它是因为正常视觉达标而色盲几乎看不见的配色大量存在（纯红 #FF0000 在黑底上 WCAG 5.25 通过，红色盲视角仅 1.26）。"
   },
   "D": {
     "min_groups": 3,
     "degenerate_paths": 0,
     "anchor_count_excellent": [20, 500],
+    "_deprecated_anchor_count_excellent": "仅作描述性输出，不参与判定。绝对锚点数随画布尺寸与曲线复杂度漂移，同一区间无法同时适用于 200x200 图标与 2000x2000 海报；svgo / svglint / fontspector / QGIS 均不使用绝对点数。改用下面的相对指标。",
+    "short_segment_ratio_max": 0.006,
+    "_src_short_segment": "fonttools/fontspector outline_short_segments：单段长度 < 该路径总长的 0.6% 记为异常短。同一路径短段超过 100 条时该检查整体失效，实现里照抄了这个逃生阀（降级为 dense_paths 计数，不参与评分）。",
+    "tangent_reversal_max": 0,
+    "_src_tangent_reversal": "fonttools/fontspector outline_jaggy_segments，JAG_ANGLE = 0.25 rad (≈14.32°)。语义为路径沿原路折返/出尖刺，不是尖角：平滑连接时前段末切线反向与后段起切线夹角接近 π，不会命中。",
     "forbid": ["image", "data:image", "base64", "clipPath", "filter", "blend", "use"]
   },
   "E": {
@@ -87,10 +106,18 @@
       "C.max_colors_*",
       "C.max_stroke_widths_*",
       "C.group_reuse_excellent",
-      "D.anchor_count_excellent",
+      "D.short_segment_ratio_max",
+      "D.tangent_reversal_max",
       "D.min_groups"
     ],
-    "calibratable_note": "仅限几何/统计类，且必须附真机样本日志（字段路径通配匹配）。",
+    "calibratable_note": "仅限几何/统计类，且必须附真机样本日志（字段路径通配匹配）。D.anchor_count_excellent 已移出：该阈值只作描述性输出、不参与判定，给一个不判定的数保留校准流程没有意义。",
+    "uncalibrated_perceptual": [
+      "C.duplicate_delta_e_2000_max",
+      "C.distinct_hyab_min",
+      "C.contrast_*",
+      "C.cvd_contrast_floor"
+    ],
+    "uncalibrated_perceptual_note": "感知阈值目前只测量、不判失败，因此不进入校准流程：校准的前提是它已经是个闸门。等 24 个 fixture 的真实分布出来、决定升格为判据之后，再按上面的审批流处理。",
     "locked": [
       "A.*",
       "E.jaccard_*",

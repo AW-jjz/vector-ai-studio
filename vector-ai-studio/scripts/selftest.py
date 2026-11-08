@@ -859,13 +859,22 @@ def main():
         # --- vectorcraft shape: the real thing, if the CLI is present.
         vc_extra = vc_missing = vc_typebad = vc_nested = []
         if _cli is None:
-            a31_skip = True
-            a31_ok = True
+            # A missing optional engine normally downgrades this assertion to a
+            # skip, which is honest: that half genuinely was not evaluated.
+            # But "real coverage was requested and not found" is a known miss,
+            # not an unknown. Skipping it would turn a definite failure into
+            # "not evaluated", and an exit-code-only gate (0 vs non-zero) would
+            # read the resulting exit 3 the same way it reads "optional engine
+            # absent". Failure has to outrank skip here.
+            a31_skip = not _real_missing
+            a31_ok = not _real_missing
             a31_detail = ("ai(" + ai_label + ") extra=" + str(ai_extra or "-") +
                           " missing=" + str(ai_missing or "-") +
                           " typebad=" + str(ai_typebad or "-") +
                           " nested=" + str(ai_nested or "-") +
-                          " | vectorcraft skipped (no CLI)")
+                          " | vectorcraft " +
+                          ("skipped (no CLI) but REAL_AI was requested"
+                           if _real_missing else "skipped (no CLI)"))
         else:
             vdir2 = tmp / "schema-diff-vc"
             _call("land_vc.py", ["--svg", str(GOOD / "sample.svg"),
@@ -891,6 +900,69 @@ def main():
     except Exception as e:                      # noqa: BLE001
         a31_detail = type(e).__name__ + ": " + str(e)[:140]
     add("A31-deliverable-schema-no-drift", a31_ok, a31_detail, skipped=a31_skip)
+
+    # Determinism: NOT added as a new assertion. QA asked for "same input twice,
+    # identical numbers" when the perceptual layer brought floating point in.
+    # A3-idempotent-byte-identical already runs the whole chain twice on one
+    # input and byte-compares seven artefacts including score.json, which is
+    # strictly stronger than re-running score.py alone.
+    #
+    # This was verified rather than assumed: injecting a set-ordered field into
+    # score.json (string hash randomisation reorders it per process) turned BOTH
+    # a candidate A32 and the existing A3 red. A second assertion for a property
+    # the first one already catches would inflate the count without adding
+    # coverage -- exactly the sort of decorative guard this suite exists to
+    # avoid. A3 had simply never been mutation-tested before.
+
+    # A33: the perceptual primitives still reproduce their published reference
+    # vectors. Deliberately a re-run of the module's own self-check rather than
+    # a copy of its numbers: a matrix edited in the module would otherwise be
+    # checked against a fixture carrying the same mistake.
+    try:
+        import perceptual as _P
+        problems = _P.selfcheck()
+        add("A33-perceptual-reference-vectors", not problems,
+            ("dE2000 max err %.3e over %d pairs; 4 contrast anchors; "
+             "2 CVD pins; 9 matrix row sums = 1"
+             % (_P.sharma_max_error(), len(_P.SHARMA_VECTORS)))
+            if not problems else "; ".join(problems[:3]))
+    except Exception as e:                      # noqa: BLE001
+        add("A33-perceptual-reference-vectors", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # A34: the contrast path actually runs, and it catches the case that
+    # motivated the whole perceptual layer.
+    #
+    # Without a declared pair the check reports not_applicable, which is honest
+    # but means the code is never exercised -- a guard that no default run
+    # reaches is a guard nobody would notice breaking. This drives a real pair
+    # through score.py: pure red on black. WCAG alone passes it at 5.25:1; the
+    # dichromatic observer sees 1.26:1. If the simulated-observation layer is
+    # ever dropped or the matrices rot, this goes red.
+    try:
+        spec34 = json.loads((GOOD / "spec.json").read_text(encoding="utf-8"))
+        spec34["contrast_pairs"] = [{"fg": "#FF0000", "bg": "#000000",
+                                     "role": "meaning"}]
+        p34 = tmp / "a34-spec.json"
+        p34.write_text(json.dumps(spec34), encoding="utf-8")
+        out34 = tmp / "a34-score.json"
+        _call("score.py", ["--svg", str(GOOD / "sample.svg"),
+                           "--judge", str(GOOD / "judge.json"),
+                           "--spec", str(p34), "--out", str(out34),
+                           "--run-id", "a34", "--json"], tmp)
+        s34 = json.loads(out34.read_text(encoding="utf-8"))
+        c34 = s34["scores"]["C"]["measured"]["perceptual"]["contrast"]
+        pair = (c34.get("pairs") or [{}])[0]
+        caught = (c34.get("status") == "warn"
+                  and pair.get("status") == "fail"
+                  and pair.get("min", 9) < 3.0
+                  and pair.get("normal", 0) > 4.5)
+        add("A34-contrast-catches-cvd-collapse", caught,
+            "normal=" + str(pair.get("normal")) + " min=" + str(pair.get("min"))
+            + " status=" + str(c34.get("status")))
+    except Exception as e:                      # noqa: BLE001
+        add("A34-contrast-catches-cvd-collapse", False,
+            type(e).__name__ + ": " + str(e)[:140])
 
     # optional: fixtures regression (now includes the six v1.3 samples)
     if args.fixtures:

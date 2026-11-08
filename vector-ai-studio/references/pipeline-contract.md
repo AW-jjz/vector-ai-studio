@@ -83,6 +83,9 @@ run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言
 - 判定类 JSON spec.json / score.json / judge.json / revision.json / acceptance.json / deps.json 不含 wall-clock，固定键顺序，同一输入两次逐字节一致。
 - 写文件用临时文件加原子覆盖（os.replace），重入结果不变；时间只进 run.log。
 - 原生 .ai 二进制字节级一致由 Illustrator 决定，不承诺；幂等断言施加于 JSON 日志与结构计数。
+- **舍入统一 6 位小数**（v1.4 新增）。规则是：内部计算全程保留全精度，只在写出 JSON 时 `round(x, 6)`；禁止在中间步骤提前舍入——提前舍入会让误差沿链条累积，且不同调用顺序会得到不同结果。所有分数、比值、色差、对比度均适用此规则。
+- **浮点确定性由 A3 守护，不另设重复断言**（v1.4 记）。A3-idempotent-byte-identical 对同一输入跑两遍整条链，逐字节比对 spec.json / final.svg / judge.json / score.json / acceptance.json / preview.png / preview.meta.json 七个产物，比"单独重跑 score.py"更强。该断言的判别力经变异验证：向 score.json 注入一个 set 序字段（字符串哈希随机化会逐进程改变其顺序），A3 立即转红。**曾计划新增 A32 专测确定性，因与 A3 完全重叠而撤除——为已有性质再加一条断言，只会让通过数变大，覆盖面不变。**
+
 
 ## 编排实现登记（按需求 §7.5.1 原编排实现，无编排变更）
 
@@ -211,3 +214,41 @@ VECTOR_AI_STUDIO_OUT=<dir>   # 去哪里找（默认 ~/.vector-ai-studio/output�
 最后一行是关键：**只要不是绿**。一句「not found」的标签挂在一盏绿灯下，比错的结论更难被发现。
 
 **发布前必须至少跑一次 `VECTOR_AI_STUDIO_REAL_AI=1`**，否则这份发布就没有真机覆盖。日常自检不设该变量，保持 30 秒级。
+
+## 感知色彩层与标签传播（v1.4 新增）
+
+`../scripts/perceptual.py` 提供四个算子，全部为公开公式或公开查表，无第三方依赖：WCAG 2.x 对比度、Machado 等 (2009) 色觉缺陷模拟、CIEDE2000、HyAB。
+
+### 三个测量互不替代
+
+| 问题 | 算子 | 理由 |
+|---|---|---|
+| 两个色是不是同一个 | CIEDE2000 < 2.3 | 小色差场景，ΔE00 的拟合区间就在这里 |
+| 声明要区分的色是否拉开 | HyAB < 10 | 大色差场景，此时 ΔE00 会失真（Abasi/Amani Tehran/Fairchild 2020） |
+| 前景背景能否读 | WCAG 对比度，四种观察者取最小 | 见下 |
+
+用同一个算子兼判"是否重复"和"是否明显不同"是方法论错误：CIEDE2000 是为小色差拟合的，在大色差区间会压缩差异。
+
+### 对比度的作用域刻意收窄
+
+WCAG 2.1 SC 1.4.11 的规范原文限定为 "parts of graphics required to understand the content"，并豁免纯装饰图形；Understanding 文档另明确 2.999:1 不达标、不得四舍五入。因此：
+
+- 只有 spec 显式声明 `contrast_pairs` 时才检查；未声明一律记 `not_applicable`，**绝不显示为通过**。
+- `role` 三态严格校验：`text`（走 SC 1.4.3，正文 4.5 / 大字 3.0）、`meaning`（走 SC 1.4.11，3:1）、`decorative`（豁免，但仍记录实测比值，便于复核豁免是否正当）。未知 role 直接报 E-EMPTY-SPEC，**不得降级成 meaning**——降级会让标准明文豁免的图形开始被判失败。
+- 对整份调色板套 4.5 是误用标准：插画里低对比配色是正当表达，全量套用会把正常作品判死，然后生成端会学会"永远灰底黑字"。
+
+### 色觉缺陷层是本项目扩展，非标准
+
+WCAG 不要求模拟色觉缺陷。保留这一层是因为"正常视觉达标、色盲几乎看不见"的配色大量存在：纯红 `#FF0000` 在黑底上 WCAG 判 5.25 通过 AA，红色盲视角只有 1.26。`cvd_contrast_floor` 因此在配置里标注"无标准依据、未标定"。
+
+### 本轮只测量，不判失败
+
+`duplicate_delta_e_2000_max`、`distinct_hyab_min`、`cvd_contrast_floor` 三个阈值均无权威出处（配置 `_src_*` 已逐条写明）。未标定的数字当闸门，等于把噪声点成红灯。三个测量的结果进 `scores.C.measured.perceptual`，配套文案进顶层 `perceptual_warnings`，**均不参与 `c_pass`**。等 24 个 fixture 的真实分布出来再定切点。
+
+### 参考向量自检
+
+`../scripts/perceptual.py` 内置：Sharma 等 (2005) 的 34 组 CIEDE2000（最大误差须 < 1e-4）、4 个 WCAG 对比度锚点、2 个色觉缺陷**未舍入**锚点、9 个矩阵行和（每行必须为 1，白色映射到白色）。由 A33 复跑。
+
+**锚点不能舍入到 0-255 再比。** 第一版就是这么写的，容差 ±1/通道；变异测试证明它形同虚设：把矩阵系数改动 0.0001，输出只变 0.0255 个单位，四舍五入后仍是同一个整数，断言照绿。改为比较未舍入浮点（容差 1e-4）并加行和约束后，同一变异立刻被两条独立信号抓住（锚点偏 0.0255、行和 1.00010100）。**改矩阵必须同时改锚点，这是设计意图，不是不便。**
+
+A34 则把整条链路钉住：以 `#FF0000` 作前景、`#000000` 作背景、role=meaning 真跑一次 `../scripts/score.py`，要求 `normal > 4.5` 且 `min < 3.0` 且 status=warn。这两个条件同时成立，只可能是模拟层真的在工作。

@@ -10,6 +10,7 @@ enters a judgment JSON; it is only appended to run.log.
 
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -365,6 +366,218 @@ def parse_path_points(d):
     return points
 
 
+_SHORT_SEG_FRACTION = 0.006     # fontspector outline_short_segments
+_SHORT_SEG_ESCAPE = 100         # fontspector stops reporting past this count
+_JAG_ANGLE_RAD = 0.25           # fontspector outline_jaggy_segments (14.32 deg)
+
+
+def _cubic_points(p0, p1, p2, p3, steps=12):
+    pts = []
+    for k in range(steps + 1):
+        t = k / float(steps)
+        mt = 1.0 - t
+        a, b, c, d = mt * mt * mt, 3 * mt * mt * t, 3 * mt * t * t, t * t * t
+        pts.append((a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
+                    a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1]))
+    return pts
+
+
+def _unit(v):
+    n = math.hypot(v[0], v[1])
+    return (0.0, 0.0) if n < 1e-12 else (v[0] / n, v[1] / n)
+
+
+def path_metrics(d):
+    """Segment-level measurements for one path `d`.
+
+    Two numbers that professional vector tooling uses instead of counting
+    anchors, because an absolute anchor count drifts with canvas size:
+
+    short_ratio  share of segments shorter than 0.6% of the path's own length
+                 (fonttools/fontspector outline_short_segments). Excluded for
+                 paths carrying more than `_SHORT_SEG_ESCAPE` short segments:
+                 past that point the drawing is genuinely dense and the check
+                 stops discriminating -- the escape valve is borrowed from the
+                 same check, which admits it over-reports on detailed artwork.
+
+    reversals    joins where the path doubles back on itself, i.e. the previous
+                 segment's end tangent pointing backwards and the next one's
+                 start tangent pointing the same way, within 0.25 rad
+                 (fontspector outline_jaggy_segments). This is NOT a sharp
+                 corner detector: at a smooth or merely angled join the
+                 reversed end tangent is roughly opposite the next tangent, so
+                 the angle is near pi and nothing fires. Only a spike does.
+
+    Arcs are approximated by their chord; the error is bounded by the sagitta
+    and irrelevant at this sampling density.
+    """
+    out = {"segments": 0, "total_len": 0.0, "short_count": 0,
+           "short_ratio": 0.0, "reversals": 0, "dense": False}
+    if not d:
+        return out
+
+    seq = []
+    for letter, number in re.findall(
+            r"([MmLlHhVvCcSsQqTtAaZz])|(-?\d*\.?\d+(?:[eE][-+]?\d+)?)", d):
+        seq.append(("cmd", letter) if letter else ("num", float(number)))
+
+    cx = cy = sx = sy = 0.0
+    prev_c2 = None          # last cubic control point, for S
+    prev_q = None           # last quadratic control point, for T
+    segs = []
+    i, cmd = 0, None
+    params = {"M": 2, "L": 2, "T": 2, "H": 1, "V": 1,
+              "C": 6, "S": 4, "Q": 4, "A": 7, "Z": 0}
+    while i < len(seq):
+        kind, val = seq[i]
+        if kind == "cmd":
+            cmd = val
+            i += 1
+            if cmd in "Zz":
+                if (cx, cy) != (sx, sy):
+                    segs.append(((cx, cy), (cx, cy), (sx, sy), (sx, sy)))
+                cx, cy = sx, sy
+                prev_c2 = prev_q = None
+            continue
+        if cmd is None:
+            i += 1
+            continue
+        up, rel = cmd.upper(), cmd.islower()
+        n = params.get(up, 2)
+        nums, j = [], i
+        while j < len(seq) and seq[j][0] == "num" and len(nums) < n:
+            nums.append(seq[j][1])
+            j += 1
+        if not nums:
+            i += 1
+            continue
+        i = j
+        p0 = (cx, cy)
+        if up in ("M", "L"):
+            if len(nums) < 2:
+                continue
+            x, y = nums[0], nums[1]
+            x, y = (cx + x, cy + y) if rel else (x, y)
+            if up == "L":
+                segs.append((p0, p0, (x, y), (x, y)))
+            else:
+                sx, sy = x, y
+                prev_c2 = prev_q = None
+            cx, cy = x, y
+        elif up == "H":
+            x = cx + nums[0] if rel else nums[0]
+            segs.append((p0, p0, (x, cy), (x, cy)))
+            cx = x
+        elif up == "V":
+            y = cy + nums[0] if rel else nums[0]
+            segs.append((p0, p0, (cx, y), (cx, y)))
+            cy = y
+        elif up == "C":
+            if len(nums) < 6:
+                continue
+            c1 = (nums[0], nums[1])
+            c2 = (nums[2], nums[3])
+            p3 = (nums[4], nums[5])
+            if rel:
+                c1 = (cx + c1[0], cy + c1[1])
+                c2 = (cx + c2[0], cy + c2[1])
+                p3 = (cx + p3[0], cy + p3[1])
+            segs.append((p0, c1, c2, p3))
+            cx, cy = p3
+            prev_c2, prev_q = c2, None
+        elif up == "S":
+            if len(nums) < 4:
+                continue
+            c2 = (nums[0], nums[1])
+            p3 = (nums[2], nums[3])
+            if rel:
+                c2 = (cx + c2[0], cy + c2[1])
+                p3 = (cx + p3[0], cy + p3[1])
+            c1 = ((2 * cx - prev_c2[0], 2 * cy - prev_c2[1])
+                  if prev_c2 else p0)
+            segs.append((p0, c1, c2, p3))
+            cx, cy = p3
+            prev_c2, prev_q = c2, None
+        elif up in ("Q", "T"):
+            if up == "Q":
+                if len(nums) < 4:
+                    continue
+                q = (nums[0], nums[1])
+                p3 = (nums[2], nums[3])
+                if rel:
+                    q = (cx + q[0], cy + q[1])
+                    p3 = (cx + p3[0], cy + p3[1])
+            else:
+                if len(nums) < 2:
+                    continue
+                p3 = (nums[0], nums[1])
+                if rel:
+                    p3 = (cx + p3[0], cy + p3[1])
+                q = ((2 * cx - prev_q[0], 2 * cy - prev_q[1])
+                     if prev_q else p0)
+            c1 = (p0[0] + 2.0 / 3.0 * (q[0] - p0[0]),
+                  p0[1] + 2.0 / 3.0 * (q[1] - p0[1]))
+            c2 = (p3[0] + 2.0 / 3.0 * (q[0] - p3[0]),
+                  p3[1] + 2.0 / 3.0 * (q[1] - p3[1]))
+            segs.append((p0, c1, c2, p3))
+            cx, cy = p3
+            prev_q, prev_c2 = q, None
+        elif up == "A":
+            if len(nums) < 7:
+                continue
+            x, y = nums[5], nums[6]
+            x, y = (cx + x, cy + y) if rel else (x, y)
+            segs.append((p0, p0, (x, y), (x, y)))
+            cx, cy = x, y
+            prev_c2 = prev_q = None
+
+    if not segs:
+        return out
+
+    lengths, t_starts, t_ends = [], [], []
+    for p0, p1, p2, p3 in segs:
+        pts = _cubic_points(p0, p1, p2, p3)
+        length = sum(math.hypot(pts[k + 1][0] - pts[k][0],
+                                pts[k + 1][1] - pts[k][1])
+                     for k in range(len(pts) - 1))
+        lengths.append(length)
+        ts = _unit((p1[0] - p0[0], p1[1] - p0[1]))
+        if ts == (0.0, 0.0):
+            ts = _unit((p3[0] - p0[0], p3[1] - p0[1]))
+        te = _unit((p3[0] - p2[0], p3[1] - p2[1]))
+        if te == (0.0, 0.0):
+            te = _unit((p3[0] - p0[0], p3[1] - p0[1]))
+        t_starts.append(ts)
+        t_ends.append(te)
+
+    total = sum(lengths)
+    out["segments"] = len(segs)
+    out["total_len"] = round(total, 6)
+    if total <= 0:
+        return out
+
+    limit = total * _SHORT_SEG_FRACTION
+    short = sum(1 for L_ in lengths if L_ < limit)
+    out["short_count"] = short
+    if short > _SHORT_SEG_ESCAPE:
+        out["dense"] = True
+        out["short_ratio"] = 0.0
+    else:
+        out["short_ratio"] = round(short / float(len(segs)), 6)
+
+    rev = 0
+    for k in range(len(segs) - 1):
+        back = (-t_ends[k][0], -t_ends[k][1])     # reversed end tangent
+        nxt = t_starts[k + 1]
+        if back == (0.0, 0.0) or nxt == (0.0, 0.0):
+            continue
+        dot = max(-1.0, min(1.0, back[0] * nxt[0] + back[1] * nxt[1]))
+        if math.acos(dot) <= _JAG_ANGLE_RAD:
+            rev += 1
+    out["reversals"] = rev
+    return out
+
+
 def _bbox_of_points(points):
     if not points:
         return None
@@ -413,6 +626,8 @@ def analyze_svg(text):
         "colors": [], "stroke_widths": [], "anchor_count": 0,
         "forbidden": [], "has_image": False, "has_base64": False,
         "degenerate_paths": 0, "element_count": 0,
+        "short_segment_ratio": 0.0, "tangent_reversal_count": 0,
+        "dense_paths": 0, "short_segment_note": "",
     }
     low = text.lower()
     out["has_image"] = ("<image" in low) or ("data:image" in low)
@@ -441,9 +656,12 @@ def analyze_svg(text):
 
     g_index = {}
     color_occurrences = []
+    _segs = 0
+    _short = 0
     sw_occurrences = []
 
     def walk(elem, cur_g):
+        nonlocal _segs, _short
         for child in list(elem):
             tag = _local(child.tag)
             if tag in _FORBIDDEN_TAGS and tag not in ("image",):
@@ -473,8 +691,37 @@ def analyze_svg(text):
             pts = parse_path_points(a.get("d", "")) if tag == "path" else []
             anchors = len(pts) if tag == "path" else (4 if bbox else 0)
             out["anchor_count"] += anchors
-            if bbox is None or (bbox[2] - bbox[0]) <= 0 or (bbox[3] - bbox[1]) <= 0:
+            if tag == "path":
+                pm = path_metrics(a.get("d", ""))
+                if pm["segments"]:
+                    _segs += pm["segments"]
+                    _short += pm["short_count"] if not pm["dense"] else 0
+                    out["tangent_reversal_count"] += pm["reversals"]
+                    if pm["dense"]:
+                        out["dense_paths"] += 1
+            # A zero-extent bounding box is not by itself junk. A stroke-only
+            # horizontal rule has height 0 and is a legitimate design element
+            # (dividers, underlines, table rules). What is actually junk is a
+            # FILL with no area, or an element that paints nothing at all.
+            # Note that geometry validity checks do not catch these either:
+            # both JTS and Shapely consider a near-zero-area sliver valid, so
+            # this has to stay its own rule rather than ride on validity.
+            zero_extent = (bbox is not None and
+                           ((bbox[2] - bbox[0]) <= 0 or (bbox[3] - bbox[1]) <= 0))
+            # SVG's initial fill is black, so a <line> reports fill="black"
+            # whether or not the author wrote one. A line has no interior to
+            # fill, so that fill can never paint. Everything else (path,
+            # polygon, polyline) is implicitly closed for filling and would
+            # paint something.
+            fill_paints = fill is not None and tag != "line"
+            if bbox is None:
                 out["degenerate_paths"] += 1
+            elif zero_extent:
+                if fill_paints:
+                    out["degenerate_paths"] += 1        # zero-area fill
+                elif stroke is None:
+                    out["degenerate_paths"] += 1        # paints nothing
+                # else: stroke-only with no thickness in one axis -> a line
             else:
                 out["elements"].append({
                     "tag": tag, "bbox": bbox, "fill": fill, "stroke": stroke,
@@ -495,6 +742,13 @@ def analyze_svg(text):
     walk(root, None)
     out["colors"] = sorted(set(color_occurrences))
     out["stroke_widths"] = sorted(set(sw_occurrences))
+    if _segs:
+        out["short_segment_ratio"] = round(_short / float(_segs), 6)
+    if out["dense_paths"]:
+        out["short_segment_note"] = (
+            "short-segment share not scored on " + str(out["dense_paths"]) +
+            " path(s): past 100 short segments the drawing is simply dense, "
+            "and the check stops discriminating")
     for gi in out["groups"]:
         gi["colors"] = sorted(set(gi["colors"]))
 

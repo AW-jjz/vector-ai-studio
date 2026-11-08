@@ -15,6 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import perceptual as P
 
 SCRIPT = "score.py"
 SPEC_SCHEMA = "vector-ai-studio/spec-v1"
@@ -49,6 +50,126 @@ def _svg_tokens(text, sig):
 def _dim(score, measured, threshold, degraded=False):
     return {"score": score, "measured": measured,
             "threshold": threshold, "degraded": degraded}
+
+
+def _perceptual_block(colors, spec, th):
+    """Measure colour perception. Records findings; gates nothing yet.
+
+    Three separate questions, three separate metrics -- collapsing them into one
+    "colour score" would hide which one failed:
+
+      duplicates  are two palette members the same colour?  CIEDE2000, which is
+                  fitted for SMALL differences and is the right tool here.
+      distinct    are declared-distinct colours actually apart?  HyAB, because
+                  this is a LARGE-difference question and CIEDE2000 distorts
+                  there (Abasi/Amani Tehran/Fairchild 2020).
+      contrast    can the pair be read?  WCAG 2.1. Scope is deliberately narrow:
+                  SC 1.4.11 constrains only graphics "required to understand the
+                  content" and exempts decoration, so an undeclared pair is
+                  reported as not_applicable -- never as a silent pass.
+
+    Nothing here flips a dimension to FAIL. Thresholds for the first two are
+    uncalibrated by construction (see _src_* in thresholds.json), and a gate set
+    on an uncalibrated number is noise with a red light on it.
+    """
+    C = th["C"]
+    warns = []
+    labs = {}
+    for c in colors:
+        rgb = P.parse_hex(c)
+        if rgb is not None:
+            labs[c] = P.srgb_to_lab(rgb)
+
+    keys = sorted(labs)
+    dups = []
+    for i in range(len(keys)):
+        for j in range(i + 1, len(keys)):
+            d = P.delta_e_2000(labs[keys[i]], labs[keys[j]])
+            if d < C["duplicate_delta_e_2000_max"]:
+                dups.append({"a": keys[i], "b": keys[j],
+                             "delta_e_2000": round(d, 6)})
+    if dups:
+        warns.append("palette contains colours that read as one: "
+                     + ", ".join(d["a"] + "/" + d["b"] + " (dE00 "
+                                 + str(d["delta_e_2000"]) + ")" for d in dups))
+
+    distinct = {"status": "not_applicable",
+                "reason": "spec does not declare palette_distinct",
+                "pairs_below": [], "min_hyab": None}
+    if spec.get("palette_distinct") is True:
+        below, minh = [], None
+        for i in range(len(keys)):
+            for j in range(i + 1, len(keys)):
+                h = P.hyab(labs[keys[i]], labs[keys[j]])
+                minh = h if minh is None else min(minh, h)
+                if h < C["distinct_hyab_min"]:
+                    below.append({"a": keys[i], "b": keys[j],
+                                  "hyab": round(h, 6)})
+        distinct = {"status": "warn" if below else "pass",
+                    "reason": "declared distinct", "pairs_below": below,
+                    "min_hyab": None if minh is None else round(minh, 6)}
+        if below:
+            warns.append("declared-distinct colours are too close under HyAB: "
+                         + ", ".join(b["a"] + "/" + b["b"] + " ("
+                                     + str(b["hyab"]) + ")" for b in below))
+
+    pairs = spec.get("contrast_pairs") or []
+    if not pairs:
+        contrast = {"status": "not_applicable",
+                    "reason": ("spec declares no contrast_pairs; WCAG 2.1 SC "
+                               "1.4.11 covers only graphics required to "
+                               "understand the content, so an undeclared pair "
+                               "is not silently treated as passing"),
+                    "pairs": []}
+    else:
+        rows, failed = [], False
+        for pair in pairs:
+            fg, bg = pair.get("fg"), pair.get("bg")
+            role = pair.get("role", "meaning")
+            rf, rb = P.parse_hex(fg), P.parse_hex(bg)
+            if rf is None or rb is None:
+                rows.append({"fg": fg, "bg": bg, "role": role,
+                             "status": "invalid",
+                             "reason": "unparseable colour"})
+                failed = True
+                continue
+            if role == "decorative":
+                # SC 1.4.11 exempts purely aesthetic graphics. Recording the
+                # ratio anyway keeps the exemption honest: a reviewer can see
+                # what was skipped instead of taking the label on faith.
+                rows.append({"fg": fg, "bg": bg, "role": role,
+                             "status": "exempt",
+                             "normal": round(P.wcag_ratio(rf, rb), 6)})
+                continue
+            ratios = P.contrast_under_cvd(rf, rb)
+            floor = (C["contrast_large_text_ratio"] if pair.get("large_text")
+                     else C["contrast_text_ratio"]) if role == "text" \
+                else C["contrast_graphic_ratio"]
+            ok = ratios["normal"] >= floor and ratios["min"] >= C["cvd_contrast_floor"]
+            failed = failed or not ok
+            rows.append({"fg": fg, "bg": bg, "role": role,
+                         "status": "pass" if ok else "fail",
+                         "normal": round(ratios["normal"], 6),
+                         "prot": round(ratios["prot"], 6),
+                         "deut": round(ratios["deut"], 6),
+                         "trit": round(ratios["trit"], 6),
+                         "min": round(ratios["min"], 6),
+                         "floor": floor})
+            if not ok:
+                warns.append("contrast below floor for " + str(fg) + " on "
+                             + str(bg) + ": normal " + str(round(ratios["normal"], 2))
+                             + ", worst observer " + str(round(ratios["min"], 2)))
+        contrast = {"status": ("warn" if failed else "pass"),
+                    "reason": "declared pairs", "pairs": rows}
+
+    measured = {"palette_duplicates": {"threshold": C["duplicate_delta_e_2000_max"],
+                                       "pairs": dups,
+                                       "status": "warn" if dups else "pass"},
+                "palette_distinct": distinct,
+                "contrast": contrast,
+                "note": ("measured only: no threshold below is calibrated, so "
+                         "none of these can fail a run")}
+    return measured, warns
 
 
 def main():
@@ -166,27 +287,48 @@ def main():
                         "max_stroke_widths_excellent": th["C"]["max_stroke_widths_excellent"],
                         "group_reuse_excellent": th["C"]["group_reuse_excellent"],
                         "frozen_palette": sorted(frozen)})
+    # Perception is measured alongside the count, not instead of it. The count
+    # stays the gate until the perceptual thresholds have been calibrated on
+    # real samples; swapping a calibrated-looking number in front of an
+    # unvalidated threshold would make the gate weaker while looking stronger.
+    perc, perc_warn = _perceptual_block(colors, spec, th)
+    scores["C"]["measured"]["perceptual"] = perc
 
     # ---- D: path cleanliness / editability (static structure) ----
     readable_names = all(not re.fullmatch(r"g\d+", gid) for gid in sig["g_ids"])
+    # Reported, not gated. An absolute anchor band cannot mean the same thing
+    # at 200x200 and 2000x2000, and none of the vector tooling surveyed scores
+    # on an absolute count -- they use a relative share (short segments) or a
+    # degeneracy test. Keeping the band in the config while it decides nothing
+    # would be decoration; it is listed in the threshold block as deprecated.
     anchors_ok = _in_band(sig["anchor_count"], th["D"]["anchor_count_excellent"])
+    short_ok = sig["short_segment_ratio"] <= th["D"]["short_segment_ratio_max"]
+    rev_ok = sig["tangent_reversal_count"] <= th["D"]["tangent_reversal_max"]
     text_policy = bool(args.text_policy)
     d_pass = (not (sig["has_image"] or sig["has_base64"]) and not sig["forbidden"]
               and sig["degenerate_paths"] <= th["D"]["degenerate_paths"]
               and len(sig["g_ids"]) >= th["D"]["min_groups"])
-    d_exc = d_pass and readable_names and anchors_ok and text_policy
+    d_exc = d_pass and readable_names and short_ok and rev_ok and text_policy
     scores["D"] = _dim(EXC if d_exc else (PASS if d_pass else FAIL),
                        {"bitmap": sig["has_image"] or sig["has_base64"],
                         "forbidden": list(sig["forbidden"]),
                         "degenerate_paths": sig["degenerate_paths"],
                         "g_count": len(sig["g_ids"]), "g_ids": list(sig["g_ids"]),
                         "anchor_count": sig["anchor_count"],
+                        "anchor_count_in_band": anchors_ok,
+                        "short_segment_ratio": sig["short_segment_ratio"],
+                        "tangent_reversal_count": sig["tangent_reversal_count"],
+                        "dense_paths": sig["dense_paths"],
+                        "short_segment_note": sig["short_segment_note"],
                         "semantic_group_names": readable_names,
                         "text_policy": args.text_policy or "not-declared",
                         "readback": "delegated_to_H1"},
                        {"min_groups": th["D"]["min_groups"],
                         "degenerate_paths": th["D"]["degenerate_paths"],
-                        "anchor_count_excellent": th["D"]["anchor_count_excellent"],
+                        "short_segment_ratio_max": th["D"]["short_segment_ratio_max"],
+                        "tangent_reversal_max": th["D"]["tangent_reversal_max"],
+                        "anchor_count_excellent_deprecated":
+                            th["D"]["anchor_count_excellent"],
                         "forbid": th["D"]["forbid"]})
 
     # ---- E: brand / style reuse (restricted; N/A when no reference) ----
@@ -237,6 +379,7 @@ def main():
         "failed_dims": failed_dims,
         "passed_dims": passed_dims,
         "signals": signals,
+        "perceptual_warnings": perc_warn,
         "measured_summary": {
             "whitespace": sig["whitespace"],
             "centroid_offset_ratio": sig["centroid_offset_ratio"],
@@ -246,6 +389,8 @@ def main():
             "g_count": len(sig["g_ids"]),
             "degenerate_paths": sig["degenerate_paths"],
             "anchor_count": sig["anchor_count"],
+            "short_segment_ratio": sig["short_segment_ratio"],
+            "tangent_reversal_count": sig["tangent_reversal_count"],
             "artboard": sig["artboard"],
             "viewBox": sig["viewBox"],
         },

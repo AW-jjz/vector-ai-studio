@@ -60,7 +60,51 @@ def _validate(obj):
                           "kind": str(a.get("kind", "")).strip()})
     rounds = obj.get("rounds", {}) or {}
     current = rounds.get("current", 1) if isinstance(rounds, dict) else 1
-    return {
+
+    # Optional perception declarations. These are carried through rather than
+    # dropped: a spec that declares "these two colours must be readable" and
+    # then has that declaration silently discarded would make the contrast
+    # check report not_applicable forever, which reads as "nothing to check"
+    # rather than "the check never saw your requirement".
+    distinct = obj.get("palette_distinct")
+    if distinct is not None and not isinstance(distinct, bool):
+        raise L.ToolError("E-EMPTY-SPEC",
+                          "palette_distinct must be a boolean when present",
+                          L.EXIT_FAIL)
+    pairs = []
+    raw_pairs = obj.get("contrast_pairs")
+    if raw_pairs is not None:
+        if not isinstance(raw_pairs, list):
+            raise L.ToolError("E-EMPTY-SPEC",
+                              "contrast_pairs must be a list when present",
+                              L.EXIT_FAIL)
+        for p in raw_pairs:
+            if not isinstance(p, dict):
+                raise L.ToolError("E-EMPTY-SPEC",
+                                  "each contrast_pairs entry must be an object",
+                                  L.EXIT_FAIL)
+            fg = L.normalize_color(p.get("fg"))
+            bg = L.normalize_color(p.get("bg"))
+            if fg is None or bg is None:
+                raise L.ToolError("E-EMPTY-SPEC",
+                                  "contrast_pairs needs valid fg and bg colours",
+                                  L.EXIT_FAIL)
+            role = str(p.get("role", "meaning")).strip()
+            # 'meaning' is the default because SC 1.4.11 governs graphics that
+            # carry content. An unknown role is rejected instead of being
+            # coerced: coercing 'logo' or 'brand' to 'meaning' would start
+            # failing artwork that the standard explicitly exempts.
+            if role not in ("text", "meaning", "decorative"):
+                raise L.ToolError(
+                    "E-EMPTY-SPEC",
+                    "contrast_pairs.role must be text / meaning / decorative, got "
+                    + repr(role), L.EXIT_FAIL)
+            entry = {"fg": fg, "bg": bg, "role": role}
+            if role == "text":
+                entry["large_text"] = bool(p.get("large_text", False))
+            pairs.append(entry)
+
+    out = {
         "schema": SPEC_SCHEMA,
         "prompt": prompt,
         "elements": norm_els,
@@ -68,6 +112,11 @@ def _validate(obj):
         "palette": norm_pal,
         "rounds": {"current": current, "K_max_ref": "config/thresholds.json"},
     }
+    if distinct is not None:
+        out["palette_distinct"] = distinct
+    if pairs:
+        out["contrast_pairs"] = pairs
+    return out
 
 
 def main():
