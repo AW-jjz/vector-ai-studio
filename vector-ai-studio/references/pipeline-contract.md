@@ -160,3 +160,54 @@ schemas/acceptance.schema.json 与 deliverable.schema.json（draft 2020-12）。
 ### 错误码
 
 全部错误码登记在 `error-codes.md`，由 `../scripts/selftest.py` 的 A28 断言双向强制：代码里有的必须在表里，表里的必须还在代码里。
+
+## 自检三态与 H3 的口径（v1.2 新增）
+
+`selftest` 的每条断言有三个取值，不是两个：
+
+| `ok` | 含义 | 计入 |
+|---|---|---|
+| `true` | 已评估且通过 | `passed` |
+| `false` | 已评估且失败 | `failed` |
+| `null` | **未评估**——依赖的能力不在本机 | `skipped`，并让运行标 `partial`、退出码 `3` |
+
+对齐既有的 `h2=null` + `h2_status=not_evaluated`：同一个项目对「未评估」只能有一种表达。
+
+### H3 判定（显式策略，不藏在计数公式里）
+
+`aggregate_log` 的 H3 通过条件：
+
+1. `passed + failed + skipped == assertions 总数`（**计入 skipped**——旧公式 `passed + failed == all` 写于没有 skip 的年代，一旦有跳过就恒不成立，与状态无关地关死闸）
+2. `failed == 0` 且 `passed >= 1`
+3. 状态为 `ok`（无跳过）**或** `partial` 且**每一个跳过的断言都在 `OPTIONAL_ASSERTIONS` 里**
+
+当前可选项：`A30-vectorcraft-chain-h1-h2`、`A31-deliverable-schema-no-drift`——它们依赖 VectorCraft CLI，而 VectorCraft 是本技能的可选引擎。
+
+**跳过任何非可选断言，H3 一律 fail，并在 reason 里指名是哪一条。** 这条比"允许 partial 通过"更重要：可选引擎缺席不该让整台机器判不达标，但任何**守卫**没跑都必须拦下。
+
+## A31 的覆盖范围与真机开关（v1.3 新增）
+
+`A31-deliverable-schema-no-drift` 检查交付清单与它的 schema 是否双向一致（多余键 / 声明缺失 / 类型不符 / 嵌套多余）。它的 **Illustrator 半边默认是合成形状**：直接调 `_deliverable()` 造一份，不需要装 Illustrator。
+
+**这个默认值有代价，必须写明**：合成形状只证明「构造器输出合规」，**不能证明真机链路把输入供全了**。举例：若 JSX 哪天不再回报 `app_version`，真机产物会是 engine_version 为 unknown，而合成形状仍写死 28.3.0——断言照旧绿。
+
+**覆盖开关**：
+
+```
+VECTOR_AI_STUDIO_REAL_AI=1   # 该半边改用真机产物
+VECTOR_AI_STUDIO_OUT=<dir>   # 去哪里找（默认 ~/.vector-ai-studio/output）
+```
+
+行为：设了开关就在输出根下（最多 200 个候选，按 mtime 从新到旧）找真机产物。**挑选依据不是 engine 字段**——那是 A31 要守护的字段之一，用它筛选会让「engine 缺失」这个回归把检查自己关掉：候选被排除 → 退化为合成 → 合成必然合规 → 绿。改用同目录 structure_readback.json 的 source 是否为 illustrator-saveAs-reopen 作为独立信号；选中后再正常比 schema，engine 缺失就会自己变红。
+
+**三种结局都会写进 detail**：
+
+| detail | 含义 | 判据 |
+|---|---|---|
+| ai(synthetic) | 未要求真机 | 正常比对 |
+| ai(real:run-dir) | 用上了真机产物 | 正常比对 |
+| ai(real requested, not found under root) | **要求了真机但没找到** | **判红** |
+
+最后一行是关键：**只要不是绿**。一句「not found」的标签挂在一盏绿灯下，比错的结论更难被发现。
+
+**发布前必须至少跑一次 `VECTOR_AI_STUDIO_REAL_AI=1`**，否则这份发布就没有真机覆盖。日常自检不设该变量，保持 30 秒级。

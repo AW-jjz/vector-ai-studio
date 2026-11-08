@@ -8,6 +8,7 @@ proves cwd independence. Real-machine checks live only in smoke_ai.py (L2).
 
 import argparse
 import importlib.util
+import os
 import json
 import re
 import shutil
@@ -146,8 +147,14 @@ def main():
     tmp = Path(tempfile.mkdtemp(prefix="vector-ai-selftest-"))
     a = []
 
-    def add(aid, ok, detail=""):
-        a.append({"id": aid, "ok": bool(ok), "detail": str(detail)[:220]})
+    def add(aid, ok, detail="", skipped=False):
+        # ok is True / False / None. None means "not evaluated", matching how
+        # this project already expresses an unevaluated gate (h2=null with
+        # h2_status=not_evaluated). A skip must not read as a pass to anything
+        # that aggregates assertions[].ok -- that was the hole: exit 0, status
+        # ok, and ok=true on an assertion that never ran.
+        a.append({"id": aid, "ok": (None if skipped else bool(ok)),
+                  "detail": str(detail)[:220], "skipped": bool(skipped)})
 
     # A1 envelope / exit codes + A3 idempotency + A4 cwd independence
     # Graded assertions (A6/A7/A10) need a non-L2 run, so the main chains use the
@@ -643,19 +650,269 @@ def main():
         a29_detail = type(e).__name__ + ": " + str(e)[:140]
     add("A29-content-ops-measurement", a29_ok, a29_detail)
 
+    # A30: the alternate engine's artefacts must survive the DOWNSTREAM chain.
+    #
+    # The defects this guards against were all invisible to the other 30
+    # assertions: a hardcoded engine version, a missing structure_readback.json
+    # (which makes aggregate_log mark H1 "unverified" for a perfectly good
+    # file), and missing final.svg/preview.png (which makes H2 fail). Every
+    # gate was green while the chain was broken end to end.
+    #
+    # When the optional CLI is absent the check reports skipped, never passed.
+    a30_ok, a30_detail, a30_skip = False, "not run", False
+    try:
+        _spec2 = importlib.util.spec_from_file_location("land_vc_under_test",
+                                                        ROOT / "scripts" / "land_vc.py")
+        _lv = importlib.util.module_from_spec(_spec2)
+        _spec2.loader.exec_module(_lv)
+        _cli = _lv.find_cli("")
+        if _cli is None:
+            a30_skip, a30_ok = True, True
+            a30_detail = "skipped: vectorcraft-cli not found (optional engine)"
+        else:
+            # A SQUARE sample cannot detect a transposed or scaled artboard:
+            # 200x200 -> [200,200] either way. Generate a non-square one so the
+            # width/height comparison in this assertion actually discriminates.
+            wide = tmp / "wide.svg"
+            wide.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" '
+                'width="300" height="200">'
+                '<rect x="10" y="10" width="120" height="80" fill="#2f6fed"/>'
+                '<circle cx="220" cy="100" r="60" fill="#ffb020"/></svg>',
+                encoding="utf-8")
+            vdir = tmp / "vc-chain"
+            rc_l, env_l, _ = _call("land_vc.py",
+                                   ["--svg", str(wide),
+                                    "--out", str(vdir), "--profile", "print",
+                                    "--run-id", "a30", "--json"], tmp)
+            rc_a, env_a, _ = _call("aggregate_log.py",
+                                   ["--run-dir", str(vdir), "--run-id", "a30", "--json"], tmp)
+            # aggregate_log puts the acceptance fields at data level; older
+            # envelopes nested them under "acceptance". Accept both rather than
+            # betting on one shape -- betting on one shape is exactly how this
+            # assertion first reported a false red.
+            _data = env_a.get("data") or {}
+            _acc = _data.get("acceptance") or _data
+            _gates = _acc.get("hard_gates") or _data.get("hard_gates") or {}
+            h1 = (_gates.get("H1") or {}).get("pass") is True
+            h2 = (_gates.get("H2") or {}).get("pass") is True
+            # Read the artefact back and check the *emitted* numbers. The
+            # in-code guard checked the raw rect, so reverting only the value
+            # that gets written left every gate green with artboard=[200,-200].
+            _sr = {}
+            try:
+                _sr = json.loads((vdir / "structure_readback.json").read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+            _ab = _sr.get("artboard") or []
+            _vb = _sr.get("viewBox") or []
+            ab_positive = (len(_ab) == 2 and all(isinstance(x, (int, float)) and x > 0 for x in _ab))
+            # "> 0" only catches sign errors. A transposed or scaled value still
+            # passes it, and nothing compared the emitted numbers to the source
+            # dimensions -- so a 2% inflation or a swap was invisible to every
+            # gate. Compare the artefact against viewBox with the tolerance the
+            # in-code dims_ok already uses; that kills sign, transpose, scale and
+            # unit errors at once without inventing a new threshold.
+            ab_matches_vb = (len(_ab) == 2 and len(_vb) == 4 and
+                             abs(_ab[0] - _vb[2]) <= 1 and abs(_ab[1] - _vb[3]) <= 1)
+            deliv = (env_l.get("data") or {}).get("deliverable") or {}
+            ver = str(deliv.get("engine_version") or "")
+            # A version string that is not what the binary reports means the
+            # manifest is guessing again.
+            ver_ok = bool(ver) and ver != "unknown"
+            a30_ok = (rc_l == 0 and h1 and h2 and ver_ok and ab_positive and ab_matches_vb)
+            a30_detail = ("land=" + str(rc_l) + " h1=" + str(h1) + " h2=" + str(h2) +
+                          " version=" + (ver or "?") +
+                          " artboard=" + str(_ab) + " viewBox=" + str(_vb) +
+                          " positive=" + str(ab_positive) +
+                          " matches_viewBox=" + str(ab_matches_vb) +
+                          " agg_exit=" + str(rc_a))
+    except Exception as e:                      # noqa: BLE001
+        a30_detail = type(e).__name__ + ": " + str(e)[:140]
+    add("A30-vectorcraft-chain-h1-h2", a30_ok, a30_detail, skipped=a30_skip)
+
+    # A31: the manifest must not drift from its own schema, for BOTH engines.
+    #
+    # Round 8 found 13 fields emitted but undeclared on one engine and absent on
+    # the other, and the schema still validated because it never forbade extra
+    # keys. A contract that validates while omitting half the payload is worse
+    # than no contract: it certifies nothing. So compare both directions, per
+    # engine, and treat a mismatch as a failure.
+    a31_ok, a31_detail, a31_skip = False, "not run", False
+    try:
+        _spec3 = importlib.util.spec_from_file_location("land_ai_schema", ROOT / "scripts" / "land_ai.py")
+        _la = importlib.util.module_from_spec(_spec3)
+        _spec3.loader.exec_module(_la)
+        _schema = json.loads((ROOT / "references" / "schemas" /
+                              "deliverable.schema.json").read_text(encoding="utf-8"))
+
+        def _type_ok(v, spec):
+            t = spec.get("type")
+            if t is None:
+                return True
+            names = [t] if isinstance(t, str) else list(t)
+            for n in names:
+                if n == "object" and isinstance(v, dict): return True
+                if n == "array" and isinstance(v, list): return True
+                if n == "string" and isinstance(v, str): return True
+                if n == "boolean" and isinstance(v, bool): return True
+                if n == "integer" and isinstance(v, int) and not isinstance(v, bool): return True
+                if n == "number" and isinstance(v, (int, float)) and not isinstance(v, bool): return True
+                if n == "null" and v is None: return True
+            return False
+
+        def _diff(doc, label):
+            props = _schema.get("properties") or {}
+            # Three dimensions, not one. Only checking `required` let three
+            # declared-but-never-written fields pass unnoticed for a whole round.
+            extra = sorted(set(doc) - set(props))
+            missing = sorted(k for k in props if k not in doc)          # declared, absent
+            typebad = sorted(k for k in props if k in doc and not _type_ok(doc[k], props[k]))
+            nested = {}
+            for obj in ("save_options", "observed", "structure", "source_probe"):
+                sub = (props.get(obj) or {}).get("properties")
+                if not sub:
+                    continue
+                val = doc.get(obj)
+                if val is None:
+                    continue
+                if not isinstance(val, dict):
+                    nested[obj] = "not-an-object"
+                    continue
+                nx = sorted(set(val) - set(sub))
+                if nx:
+                    nested[obj] = {"extra": nx}
+            return extra, missing, typebad, nested
+
+        # --- Illustrator shape: built through the same constructor the real
+        # path uses, so no Illustrator install is needed to check the contract.
+        _obs = {"bytes": 1000, "sha256": "0" * 64, "pdf_compatible": True,
+                "pdf_header": "%PDF-1.6", "has_ai_private": True,
+                "device_rgb": 1, "device_cmyk": 0, "output_intent": 0,
+                "iccbased": 0, "fonts": 0, "images": 0, "layers": 1,
+                "artboard_pt": [200.0, 200.0], "artboard_mm": [70.6, 70.6],
+                "content_ops": {"rg": 1, "RG": 0, "k": 0, "K": 0},
+                "content_streams": {"streams": 1, "decoded": 1},
+                "color_mode": "rgb(operators)"}
+        _kv = {"layers": "1", "trimmarks_ink": "GrayColor:gray=100:n=8",
+               "artboard": "200x200", "open_paths": "5", "reopen_paths": "5",
+               "raster": "0", "placed": "0", "viewBox": "0_0_200_200",
+               "app_version": "28.3.0", "notes": "compat:app_default"}
+        _opts = {"profile": "screen", "compat": "latest", "pdf": 1, "icc": 0,
+                 "cmyk": 0, "bleed_mm": 0.0, "bleed_pt": 0.0, "layers": 0}
+        # The Illustrator half is synthetic by default: building it needs no
+        # Illustrator, so self-check stays fast. That proves the constructor's
+        # output but NOT that the real chain feeds it -- if the JSX stopped
+        # reporting app_version, the real run would say "unknown" and this would
+        # still be green.
+        #
+        # VECTOR_AI_STUDIO_REAL_AI=1 switches that half to a real AI deliverable
+        # when one exists, so a release can be gated on real evidence while the
+        # everyday run stays cheap. Which one ran is written into the detail.
+        # A real-artefact search must not use a field it is meant to guard.
+        # Selecting on `engine` meant: delete `engine` -> candidate rejected ->
+        # fall back to synthetic -> synthetic is produced by the constructor and
+        # therefore always conforms -> green. The regression switched off the
+        # check that exists to catch it. Pick by an INDEPENDENT signal instead:
+        # each run dir carries a structure_readback.json whose `source` names the
+        # engine that produced it. Once selected, a missing `engine` shows up as
+        # missing like any other field.
+        ai_label = "synthetic"
+        ai_doc = None
+        if os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1":
+            _root = Path(os.environ.get("VECTOR_AI_STUDIO_OUT")
+                         or (Path.home() / ".vector-ai-studio" / "output"))
+            _cands = []
+            if _root.is_dir():
+                # bounded: newest 200 only, so a large output tree cannot turn
+                # the self-check into a directory walk
+                _all = sorted(_root.rglob("deliverable.json"),
+                              key=lambda q: q.stat().st_mtime, reverse=True)
+                _cands = _all[:200]
+            for _c in _cands:
+                _sib = _c.parent / "structure_readback.json"
+                try:
+                    _srchk = json.loads(_sib.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                if _srchk.get("source") != "illustrator-saveAs-reopen":
+                    continue                     # that run was another engine
+                try:
+                    ai_doc = json.loads(_c.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                ai_label = "real:" + _c.parent.name
+                break
+            if ai_doc is None:
+                # Asked for real coverage and did not get it: this must not be
+                # green. A label that reads "not found" under a passing light is
+                # the quietest form of the failure this whole assertion prevents.
+                ai_label = "real requested, not found under " + str(_root)
+
+        _real_missing = False
+        if ai_doc is None:
+            _real_missing = (os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1")
+            ai_doc = _la._deliverable(Path("final.ai"), _opts, _obs, _kv,
+                                      engine="illustrator", engine_version="28.3.0")
+        ai_extra, ai_missing, ai_typebad, ai_nested = _diff(ai_doc, "ai")
+
+        # --- vectorcraft shape: the real thing, if the CLI is present.
+        vc_extra = vc_missing = vc_typebad = vc_nested = []
+        if _cli is None:
+            a31_skip = True
+            a31_ok = True
+            a31_detail = ("ai(" + ai_label + ") extra=" + str(ai_extra or "-") +
+                          " missing=" + str(ai_missing or "-") +
+                          " typebad=" + str(ai_typebad or "-") +
+                          " nested=" + str(ai_nested or "-") +
+                          " | vectorcraft skipped (no CLI)")
+        else:
+            vdir2 = tmp / "schema-diff-vc"
+            _call("land_vc.py", ["--svg", str(GOOD / "sample.svg"),
+                                 "--out", str(vdir2), "--profile", "print",
+                                 "--run-id", "a31", "--json"], tmp)
+            vc_doc = json.loads((vdir2 / "deliverable.json").read_text(encoding="utf-8"))
+            vc_extra, vc_missing, vc_typebad, vc_nested = _diff(vc_doc, "vc")
+            # Requested real coverage and did not get it => red, not green.
+            a31_ok = (not _real_missing) and not (
+                          ai_extra or ai_missing or ai_typebad or ai_nested or
+                          vc_extra or vc_missing or vc_typebad or vc_nested)
+            # "ai synthetic" is part of the detail on purpose: this half checks
+            # the constructor's output, not the real Illustrator chain feeding it.
+            a31_detail = ("ai(" + ai_label + ") extra=" + str(ai_extra or "-") +
+                          " missing=" + str(ai_missing or "-") +
+                          " typebad=" + str(ai_typebad or "-") +
+                          " nested=" + str(ai_nested or "-") +
+                          " | vc extra=" + str(vc_extra or "-") +
+                          " missing=" + str(vc_missing or "-") +
+                          " typebad=" + str(vc_typebad or "-") +
+                          " nested=" + str(vc_nested or "-") +
+                          " engine=" + str(vc_doc.get("engine")))
+    except Exception as e:                      # noqa: BLE001
+        a31_detail = type(e).__name__ + ": " + str(e)[:140]
+    add("A31-deliverable-schema-no-drift", a31_ok, a31_detail, skipped=a31_skip)
+
     # optional: fixtures regression (now includes the six v1.3 samples)
     if args.fixtures:
         frc, fenv, _ = _call("run_fixtures.py", ["--json", "--log-dir", str(log_dir)], tmp)
         add("A13-fixtures-regression", frc == 0 and fenv.get("data", {}).get("all_ok") is True,
             "exit=" + str(frc))
 
-    passed = sum(1 for x in a if x["ok"])
-    failed = [x["id"] for x in a if not x["ok"]]
+    passed = sum(1 for x in a if x["ok"] is True)
+    skipped = [x["id"] for x in a if x.get("skipped")]
+    # A skip is not a pass and not a failure: it is a capability that was not
+    # present. It is reported separately and marks the run "partial", so it
+    # can never be mistaken for coverage.
+    failed = [x["id"] for x in a if x["ok"] is False]
     doc = {
         "schema": "vector-ai-studio/selftest-v1",
-        "status": "ok" if not failed else "fail",
+        # Three states, not two. "partial" means at least one guard could not
+        # run; a caller that only checks exit code or status must not read that
+        # as success.
+        "status": "fail" if failed else ("partial" if skipped else "ok"),
         "run_id": rid,
-        "passed": passed, "failed": len(failed),
+        "passed": passed, "failed": len(failed), "skipped": skipped,
+        "partial": bool(skipped),
         "assertions": a,
         "chain": chain,
         "optional_deps": optional,
@@ -665,11 +922,14 @@ def main():
     }
     L.write_json_atomic(log_dir / "selftest.json", doc)
     L.append_run_log(log_dir, SCRIPT + " passed=" + str(passed) + "/" + str(len(a)))
+    _code = L.EXIT_FAIL if failed else (L.EXIT_MISSING if skipped else L.EXIT_OK)
     return L.emit(SCRIPT, status=doc["status"],
-                  code=L.EXIT_OK if not failed else L.EXIT_FAIL,
+                  code=_code,
                   run_id=rid, data=doc,
                   errors=([L.err("E-SELFTEST", "failed assertions: " + ",".join(failed))]
-                          if failed else []),
+                          if failed else
+                          ([L.err("E-SELFTEST", "not evaluated (missing capability): " +
+                                  ",".join(skipped))] if skipped else [])),
                   artifacts={"selftest": "selftest.json"})
 
 

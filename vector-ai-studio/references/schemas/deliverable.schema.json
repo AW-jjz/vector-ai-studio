@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vector-ai-studio.local/schemas/deliverable.schema.json",
   "title": "vector-ai-studio delivery manifest",
-  "description": "What was actually measured in the delivered .ai, plus the warnings a client must see. Every value here is observed from the file's own bytes; nothing is a promise.",
+  "description": "What was actually measured in the delivered .ai, plus the warnings a client must see. Every value here is observed from the file's own bytes; nothing is a promise. Fields added 2026-11-08 (engine, engine_version, export_steps, source_probe, tool_warnings, observed.color_mode/layers/artboard_pt) are declared here because the schema had drifted from what the script actually emits; a contract that omits real fields is not a contract.",
   "type": "object",
   "required": [
     "schema",
@@ -155,14 +155,86 @@
               "minimum": 0
             }
           }
+        },
+        "artboard_pt": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "number"
+          }
+        },
+        "layers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "optional-content groups counted from the file bytes"
+        },
+        "color_mode": {
+          "type": "string",
+          "description": "verdict from the content-stream operators (cmyk|rgb|mixed|declared-only|unknown), not from the resource dictionary"
         }
       }
     },
     "structure": {
       "type": "object",
+      "description": "structural readback; keys mirror the Illustrator JSX and the vectorcraft info report",
       "properties": {
+        "open_paths": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reopen_paths": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "layers": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reopen_layers": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "raster": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "placed": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "artboard": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "e.g. 200x200"
+        },
+        "viewBox": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "e.g. 0_0_200_200"
+        },
         "trimmarks_ink": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
@@ -192,7 +264,40 @@
       "minItems": 1
     },
     "trimmarks_ink": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "ink of the crop marks; null where the engine draws none"
+    },
+    "engine": {
+      "enum": [
+        "illustrator",
+        "vectorcraft"
+      ],
+      "description": "which engine produced the file"
+    },
+    "engine_version": {
+      "type": "string",
+      "description": "reported by the tool itself, never hardcoded"
+    },
+    "export_steps": {
+      "type": "array",
+      "description": "raw per-step output from the vectorcraft CLI, kept verbatim"
+    },
+    "source_probe": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "what the engine said about the source before converting; null where the engine has no such phase"
+    },
+    "tool_warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "warnings emitted by the engine during export, verbatim"
     }
   }
 }

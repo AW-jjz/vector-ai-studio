@@ -34,7 +34,15 @@ python vector-ai-studio/scripts/selftest.py --fixtures
 python vector-ai-studio/scripts/run_fixtures.py
 ```
 
-期望 `30/30` 与 `24/24`，均 exit 0。**这两条不依赖 Illustrator**，纯脚本层就能跑通——如果这里就失败，先别往下走。
+期望结果取决于是否装了 VectorCraft 引擎，**两种都不算失败，但退出码不同**：
+
+| 环境 | `selftest --fixtures` | `run_fixtures` |
+|---|---|---|
+| 装了 VectorCraft CLI | **32/32**，`status=ok`，**exit 0** | **24/24**，exit 0 |
+| 没装 | 30 passed + **2 skipped**（A30/A31 的 VectorCraft 半边），`status=partial`，**exit 3** | 24/24，exit 0 |
+
+**`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。
+这两条都不依赖 Illustrator，纯脚本层就能跑通；如果这里就失败，先别往下走。
 
 探测本机依赖（含真实 COM 创建尝试）：
 
@@ -74,6 +82,18 @@ python vector-ai-studio/scripts/aggregate_log.py --run-dir <RUN> --run-id <ID>
 
 其中 `unverified` 字段专门记录「**要求了但没兑现**」的项。例如要求转 CMYK 而 PDF 兼容层仍写入 RGB 时，这一条会出现在那里——工具不会因为命令返回成功就宣称完成。
 
+## 两条引擎，不是二选一
+
+| | Illustrator 引擎 | VectorCraft 引擎 |
+|---|---|---|
+| 依赖 | Illustrator + COM（Windows） | 只要 `vectorcraft-cli`，跨平台 |
+| 落盘 | `saveAs()` → `structure_readback.json` 回读校验 | CLI 导出 → 回读 |
+| CMYK | 逐对象转换，**PDF 兼容层仍写 RGB**（实测 `rg`/`RG` 存在） | **内容流里全是 CMYK 算子**（实测 `rg=0, RG=0, k=4, K=1`） |
+| 活字 | 保留（`textFrames` 仍在） | 在 Illustrator 里打开会**变轮廓**（能否改字看客户用哪个软件） |
+
+两条链写同一份 `deliverable.json` 契约，断言 A31 用**同一份 schema** 卡两者——
+结构漂移不会因为换了引擎就漏掉。选哪条取决于客户拿什么打开，不取决于哪个更好写。
+
 ## 已知限制（如实列出，不假装已解决）
 
 | 项 | 实际情况 |
@@ -87,7 +107,7 @@ python vector-ai-studio/scripts/aggregate_log.py --run-dir <RUN> --run-id <ID>
 ## 仓库结构
 
 ```
-vector-ai-studio/     技能本体（52 文件，与发布基线逐字节一致）
+vector-ai-studio/     技能本体（53 文件，与发布基线逐字节一致）
 docs/                 发布说明、发布纪律、校验留痕
 ```
 

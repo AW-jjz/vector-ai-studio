@@ -373,20 +373,46 @@ def main():
                 break
     h3_status = "unverified"
     h3_reason = "no selftest.json next to the run artifacts"
+    # Assertions that legitimately may not run on a given machine. A skip in
+    # anything NOT listed here means a guard silently did not run, which must
+    # not be able to pass as H3. Keep this list explicit: a policy that lives
+    # inside a counting formula cannot be reviewed.
+    #
+    # Registration condition: the capability itself is optional (an engine or an
+    # external binary that may legitimately be absent). Never add an assertion
+    # here to make a run go green -- that turns a guard into decoration.
+    OPTIONAL_ASSERTIONS = ("A30-vectorcraft-chain-h1-h2",
+                           "A31-deliverable-schema-no-drift")
     if isinstance(selftest_log, dict):
         n_pass = selftest_log.get("passed")
         n_fail = selftest_log.get("failed")
         n_all = len(selftest_log.get("assertions") or [])
+        skipped_ids = list(selftest_log.get("skipped") or [])
+        n_skip = len(skipped_ids)
+        # The old formula (pass + fail == all) predates skips: with an optional
+        # engine absent it read 29 + 0 != 31 and shut the gate regardless of
+        # status. A count that cannot express "not evaluated" will always
+        # misjudge one.
         consistent = (isinstance(n_pass, int) and isinstance(n_fail, int)
-                      and n_pass + n_fail == n_all)
-        if selftest_log.get("status") == "ok" and consistent and n_fail == 0 and n_pass >= 1:
+                      and n_pass + n_fail + n_skip == n_all)
+        optional_only = all(x in OPTIONAL_ASSERTIONS for x in skipped_ids)
+        status_ok = ((selftest_log.get("status") == "ok" and n_skip == 0) or
+                     (selftest_log.get("status") == "partial" and optional_only))
+        if status_ok and consistent and n_fail == 0 and n_pass >= 1:
             h3_status = "pass"
-            h3_reason = "selftest " + str(n_pass) + "/" + str(n_all) + " from " + Path(h3_source).name
+            h3_reason = ("selftest " + str(n_pass) + "/" + str(n_all) +
+                         (" (+" + str(n_skip) + " optional skipped)" if n_skip else "") +
+                         " from " + Path(h3_source).name)
         else:
             h3_status = "fail"
+            why = ""
+            if not status_ok and selftest_log.get("status") == "partial":
+                why = " skipped=" + ",".join(x for x in skipped_ids
+                                             if x not in OPTIONAL_ASSERTIONS) + " (not optional)"
             h3_reason = ("selftest log present but not a clean pass: status=" +
                          str(selftest_log.get("status")) + " passed=" + str(n_pass) +
-                         " failed=" + str(n_fail) + " assertions=" + str(n_all))
+                         " failed=" + str(n_fail) + " skipped=" + str(n_skip) +
+                         " assertions=" + str(n_all) + why)
     creds = L.assert_no_credentials()
     h4_ok, h4_status = True, "pass"  # default chain never reads credential values
 

@@ -146,7 +146,36 @@ python scripts/land_ai.py --svg path/to/round/sanitized.svg --out path/to/run --
 
 单项可覆盖：`--compat` / `--pdf-compatible` / `--embed-icc` / `--cmyk` / `--bleed-mm` / `--layers-from-groups`。所有保存选项都显式写入 `IllustratorSaveOptions`，不依赖 Illustrator 默认值——`pdfCompatible` 默认恰好为真、`embedICCProfile` 默认恰好为假，靠默认值等于把交付质量交给安装环境。
 
-落地成功会额外产出交付清单 deliverable.json（见输出规范）。其中的 `unverified` 字段记录「要求了但没兑现」的项：例如 `--cmyk 1` 已对原生对象逐个转换，但 PDF 兼容层仍以 RGB 写入（内容流为 `rg` 算子），此时代码不会假装成功，而是把这条差异写进清单，并提示印刷交付改用 Illustrator 另存 PDF/X 或由印厂转换。
+落地成功会额外产出交付清单 deliverable.json（见输出规范）。其中的 `unverified` 字段记录「要求了但没兑现」的项：例如请求了 CMYK 而产物未以 CMYK 着色时，这条差异会连着实测到的算子计数写进清单，代码不会假装成功。
+
+**色彩模式的判定依据是内容流算子，不是资源字典。** 未声明的 `k` 操作数按 PDF 规范即 DeviceCMYK；只数 `/DeviceCMYK` 会把一份合格的 CMYK 文件误判成 RGB——这在两条引擎上都发生过。
+
+### 备选引擎：VectorCraft（不依赖 Illustrator）
+
+```
+python scripts/land_vc.py --svg path/to/final.svg --out path/to/run --profile print
+```
+
+`scripts/land_vc.py` 走 VectorCraft 的 CLI（`vectorcraft-cli`），不需要 Illustrator、不需要 COM、跨平台。档位行为：
+
+| 档位 | 行为 |
+|---|---|
+| `screen` | 导出 PDF 兼容 `.ai`（RGB） |
+| `print` | 先 `file.documentColorMode {mode:"cmyk",convert:true}`，再导出 `.ai` **与** `.pdf` |
+| `handoff` | 同 screen；SVG 的 `<g>` 自动成为命名图层 |
+
+**两条引擎是并行关系，不是替代**：产出同一套产物与同一份交付清单契约，`engine` 字段记录实际用的是哪一个，一条路出问题不会污染另一条。
+
+实测差异（vectorcraft 0.22.0，2026-11-08）：
+
+- **CMYK 在这条路上是真的**（内容流出现 k/K 算子、rg/RG 归零）；Illustrator 脚本路径做不到，PDF 层始终写 RGB
+- **文字在 Illustrator 里会变成轮廓**：实测同一份产物在 VectorCraft 中 `kinds.Type=2`（文字对象仍在、字体仍挂着），在 Illustrator 中 `textFrames=0`、`pathItems` 增加。**能否改字取决于客户用哪个软件打开**；以 Illustrator 为交付环境时应改走 Illustrator 引擎保住活字。清单会写明这一条
+- **字体缺失会被静默替换**：源文件的字体若本机没有，产物用回退字体渲染。工具会报出来，清单照抄进 `warnings`
+- **图层不完全可靠**：5 个「只含单个元素」的 `<g>` 实测生成 5 个命名图层；另两个「`<g>` 内含多个子元素」的复杂样本都只有 1 层——**其中一个并没有 defs 也没有剪切蒙版**，所以塌层与它们无关。规律尚未确认，清单里的层数取自文件的 /OCGs，是实测值、不是承诺值
+- 产物**不含输出意图与 ICC**：是 CMYK、不是 PDF/X，印刷条件未声明
+- 不支持出血，`--bleed-mm` 仅对 Illustrator 引擎有效
+
+**这两条（文字转轮廓、字体替换）都是复杂样本才暴露的**，只拿干净的小图测会漏掉——所以换引擎前必须用带文字、渐变、剪切蒙版的样本压一遍。
 
 `scripts/render_png.py` 的渲染器按 resvg → cairosvg → 无头浏览器 → **Illustrator 导出** → 内置兜底依次尝试；其中 Illustrator 导出由 `scripts/render_export.jsx` 经同一个 `scripts/ai_bridge.ps1` 通道执行 `exportFile(..., ExportType.PNG24, ...)`。Illustrator 本来就是产出原生 `.ai` 的硬依赖，因此只要能交付 `.ai`，就必然能导出与 `.ai` 一致的忠实预览，无需额外安装第三方渲染器。
 

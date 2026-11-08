@@ -1,17 +1,22 @@
 vector-ai-studio 发布校验留痕
 
-包文件        : vector-ai-studio.zip
-文件数        : 52
-字节数        : 116624
-sha256        : 5623ec1de5819a035eec68e2871c6d9289d94c5b4daebe16b9432c07d481666a
-对应冻结基线  : 04-QA/test-log-r9/00-freeze-r9-manifest.txt（52 文件，2026-11-08 10:39:23）
-基线 sha256   : 0101ab61120eb539ca634306788d70cf08a1bc9fe8c90f5c3e34f46135e44d05
+文件数        : 53
+字节数        : 132859
+sha256        : d394141cf9cc8f4e005d85e92a961a789337d8299a17f21db8732660080da3f4
+对应冻结基线  : 04-QA/test-log-r19/00-freeze-r19-manifest.txt（53 文件，2026-11-08 14:58:48）
+基线 sha256   : 9b622785a464c3d7b34406a981fd2e118c6d85ec4b3f61cb714d6904444230ff
 
-校验方式（任何拿到包的人都能自己跑）:
-  1) 解压后逐文件 md5 与基线清单比对，应 52/52 完全一致
-  2) 在解压目录的上一层执行 python vector-ai-studio/scripts/selftest.py --fixtures
-     期望 30/30；python vector-ai-studio/scripts/run_fixtures.py 期望 24/24
+本版包含      : 双引擎 · A26–A31 · H3 三态口径 · deliverable schema 对齐实发字段
+                A31 真机筛选改用独立信号 structure_readback.source（不再用被守护字段 engine 自选），
+                REAL_AI=1 但未找到真机产物判红（real requested, not found）
+                A31 支持 VECTOR_AI_STUDIO_REAL_AI=1 真机覆盖（默认合成）
+相对 r18 变更 : references/pipeline-contract.md · scripts/selftest.py（新增 0 / 删除 0）
+
+校验方式:
+  1) 解压后逐文件 md5 与基线清单比对，应 53/53 完全一致
+  2) selftest.py --fixtures 期望 32/32；run_fixtures.py 期望 24/24
   3) validate_skill.py 期望 0 error / 0 warning
+  4) 发布前必须跑一次 VECTOR_AI_STUDIO_REAL_AI=1 的 selftest（真机覆盖 A31 的 AI 半边）
+  注：未装 VectorCraft 时 A30/A31 标 skipped，运行标 partial、退出码 3；H3 仍可通过（仅当跳过的全是可选项）
 
-被替换的旧包: 03-源码/_dev-logs/superseded/vector-ai-studio_r3-48files_SUPERSEDED_20261107-2212.zip
-（48 文件，缺 error-codes.md、两份 schema、schema_check.py，另有 6 个文件为旧版）
+被替换的旧包: 03-源码/_dev-logs/superseded/vector-ai-studio_r18-53files_SUPERSEDED_20261108-1447.zip

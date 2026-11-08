@@ -287,6 +287,7 @@
                       "|cmyk=" + (TO_CMYK ? 1 : 0) +
                       "|bleed_pt=" + BLEED_PT +
                       "|trimmarks_ink=" + markInk +
+                      "|app_version=" + app.version +
                       "|notes=" + notes.join(",") +
                       "|artboard=" + W + "x" + H +
                       "|viewBox=" + readViewBox(SVG_PATH));

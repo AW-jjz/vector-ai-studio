@@ -199,6 +199,42 @@ def _content_ops(raw):
     return (ops if decoded else None), stats
 
 
+def _layer_count(text):
+    """Number of optional-content groups, i.e. layers, read from the file."""
+    oc = re.search(r"/OCGs\s*\[([^\]]*)\]", text)
+    return len(re.findall(r"\d+\s+\d+\s+R", oc.group(1))) if oc else 0
+
+
+def _color_mode(ops, device_cmyk, device_rgb, iccbased):
+    """What the file actually paints, not what its resource dictionary declares.
+
+    These two disagree in practice. A file converted to CMYK by vectorcraft
+    carries k/K operators and no /DeviceCMYK entry at all -- an undeclared k
+    operand means DeviceCMYK by definition -- so counting /DeviceCMYK marked a
+    correct CMYK file as RGB. The content stream is the authority; the resource
+    dictionary is a hint.
+
+    When no stream can be decoded the answer is qualified, never silent.
+    """
+    if not ops:
+        if device_cmyk:
+            return "cmyk(declared-only)"
+        if device_rgb:
+            return "rgb(declared-only)"
+        if iccbased:
+            return "icc(declared-only)"
+        return "unknown"
+    k = ops["k"] + ops["K"]
+    rgb = ops["rg"] + ops["RG"]
+    if k and not rgb:
+        return "cmyk(operators)"
+    if rgb and not k:
+        return "rgb(operators)"
+    if k and rgb:
+        return "mixed(operators)"
+    return "unknown"
+
+
 def _observe_ai(path):
     """Read back what the .ai actually is, from its own bytes.
 
@@ -228,12 +264,22 @@ def _observe_ai(path):
         "images": len(re.findall(r"/Subtype\s*/Image", t)),
         "artboard_pt": [w, h],
         "artboard_mm": [round(w * 25.4 / 72.0, 1), round(h * 25.4 / 72.0, 1)] if w else None,
+        # Layer count from the optional-content groups, i.e. from the file.
+        # land_vc.py has no JSX to report it, and passing 0 made the manifest
+        # claim "only 1 layer" for a document that had five named ones.
+        "layers": _layer_count(t),
         "content_ops": ops,
         "content_streams": op_stats,
+        # Derived verdict: operators first, declarations only as fallback.
+        "color_mode": _color_mode(ops,
+                                  len(re.findall(r"/DeviceCMYK", t)),
+                                  len(re.findall(r"/DeviceRGB", t)),
+                                  len(re.findall(r"/ICCBased", t))),
     }
 
 
-def _deliverable(path, opts, obs, kv):
+def _deliverable(path, opts, obs, kv, engine="", engine_version="",
+                 export_steps=None, source_probe=None, tool_warnings=None):
     """The document a client can check instead of arguing.
 
     Everything here is a measured value or an explicit warning; nothing is a
@@ -246,23 +292,25 @@ def _deliverable(path, opts, obs, kv):
     if not opts["pdf"]:
         warns.append("已关闭 PDF 兼容：非 Illustrator 软件无法置入本文件")
 
-    if opts["cmyk"] and obs["device_cmyk"] == 0:
-        ops = obs.get("content_ops") or {}
-        st = obs.get("content_streams") or {}
-        measured = ("实测 /DeviceCMYK " + str(obs["device_cmyk"]) +
-                    " 处、/DeviceRGB " + str(obs["device_rgb"]) + " 处")
-        if ops:
-            measured += ("；可解码内容流 " + str(st.get("decoded", 0)) + "/" +
-                         str(st.get("streams", 0)) + " 段中，填充 rg=" + str(ops["rg"]) +
-                         "、描边 RG=" + str(ops["RG"]) +
-                         "、填充 k=" + str(ops["k"]) + "、描边 K=" + str(ops["K"]))
-        else:
-            measured += "；内容流均不可解码，未统计算子"
+    ops = obs.get("content_ops") or {}
+    st = obs.get("content_streams") or {}
+    mode = str(obs.get("color_mode") or "unknown")
+    measured = ("色彩模式判定 " + mode + "；/DeviceCMYK " + str(obs["device_cmyk"]) +
+                " 处、/DeviceRGB " + str(obs["device_rgb"]) + " 处")
+    if ops:
+        measured += ("；可解码内容流 " + str(st.get("decoded", 0)) + "/" +
+                     str(st.get("streams", 0)) + " 段中，填充 rg=" + str(ops["rg"]) +
+                     "、描边 RG=" + str(ops["RG"]) +
+                     "、填充 k=" + str(ops["k"]) + "、描边 K=" + str(ops["K"]))
+
+    if opts["cmyk"] and mode.startswith("cmyk"):
+        # Real conversion, evidenced by the operators that painted the page.
+        warns.append("CMYK 已生效，但文件内未声明输出意图（无 /OutputIntent、无 /ICCBased）："
+                     "用的是哪个色彩配置无法从文件得知，印刷前需与印厂确认")
+    elif opts["cmyk"]:
         unverified.append(
-            "已对原生对象执行 CMYK 转换，但 PDF 兼容层未写入 DeviceCMYK（" + measured +
-            "）→ 印刷交付请用 Illustrator 另存 PDF/X，或由印厂转换")
-    if opts["cmyk"] and obs["device_cmyk"] > 0:
-        warns.append("CMYK 为逐对象算术转换，未做色彩管理：鲜艳色相会变，印刷前需打样确认")
+            "已请求 CMYK，但产物未以 CMYK 着色（" + measured +
+            "）→ 印刷交付请改用 PDF/X 或由印厂转换")
     if opts["icc"] and obs["iccbased"] == 0 and obs["output_intent"] == 0:
         unverified.append("要求嵌入 ICC，但文件中未见 ICCBased / OutputIntent")
     if not opts["cmyk"]:
@@ -295,6 +343,10 @@ def _deliverable(path, opts, obs, kv):
     return {
         "schema": "vector-ai-studio/deliverable-v1",
         "file": Path(path).name,
+        # Which engine produced this decides everything downstream: whether
+        # text stayed live, whether CMYK was possible, whether layers exist.
+        "engine": engine,
+        "engine_version": engine_version,
         "profile": opts.get("profile", ""),
         "save_options": {
             "compatibility": opts.get("compat"),
@@ -313,7 +365,15 @@ def _deliverable(path, opts, obs, kv):
         "jsx_notes": (kv.get("notes") or "").split(",") if kv.get("notes") else [],
         # Promoted to top level as well: a reader checking "are the crop marks
         # actually black" should not have to dig through structure{}.
-        "trimmarks_ink": kv.get("trimmarks_ink") or "",
+        # Engine-specific payloads, present on both engines so the manifest has
+        # one shape. Empty means "this engine has none", not "forgot to write".
+        "export_steps": export_steps if export_steps is not None else [],
+        "source_probe": source_probe,
+        "tool_warnings": tool_warnings if tool_warnings is not None else [],
+        # Only the engine that draws crop marks has a value here. An empty
+        # string would claim "marks exist and are blank", which is a different
+        # and worse statement than "this engine draws none".
+        "trimmarks_ink": ((kv.get("trimmarks_ink") or "") if engine == "illustrator" else None),
         "warnings": warns,
         "unverified": unverified,
         "verify_yourself": [
@@ -537,7 +597,9 @@ def main():
     ai_path = run_dir / "final.ai"
     if ai_path.is_file() and ai_path.stat().st_size > 0:
         obs = _observe_ai(ai_path)
-        deliverable = _deliverable(ai_path, save_opts, obs, kv)
+        deliverable = _deliverable(ai_path, save_opts, obs, kv,
+                                   engine="illustrator",
+                                   engine_version=str(kv.get("app_version") or "unknown"))
         L.write_json_atomic(run_dir / "deliverable.json", deliverable)
 
     _ensure_preview(run_dir, final_svg)
