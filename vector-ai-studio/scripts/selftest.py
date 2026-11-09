@@ -1011,6 +1011,163 @@ def main():
         add("A35-dense-path-keeps-evidence", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+    # A36-A38: the three P2 items that survived five QA rounds (report
+    # QA报告-第17轮.md §6). Each assertion is written so that reverting the
+    # fix makes exactly that assertion red -- a guard that cannot fail is
+    # decoration, not evidence. All three drive land_vc._build_deliverable,
+    # the seam main() itself calls: the original defects lived in the wiring
+    # (hardcoded icc, a second write after construction, `.split()[-1]`), and
+    # guards aimed at the helpers stayed green when the wiring was reverted.
+    # A36 additionally drives the AI side through land_ai._resolve_options and
+    # land_ai._make_jsx, so the constant read and the substitution both have to
+    # hold (QA round 18 M39, round 19 M40/M42: each kept a shallower guard green).
+    try:
+        _s36a = importlib.util.spec_from_file_location("r24_land_ai", SCRIPTS / "land_ai.py")
+        _la36 = importlib.util.module_from_spec(_s36a)
+        _s36a.loader.exec_module(_la36)
+        _s36b = importlib.util.spec_from_file_location("r24_land_vc", SCRIPTS / "land_vc.py")
+        _lv36 = importlib.util.module_from_spec(_s36b)
+        _s36b.loader.exec_module(_lv36)
+
+        _obs36 = {"has_ai_private": True, "content_ops": {}, "content_streams": {},
+                  "color_mode": "cmyk", "device_cmyk": 0, "device_rgb": 1,
+                  "iccbased": 0, "output_intent": 0, "artboard_pt": [200, 200],
+                  "sha256": "0" * 64}
+        _kv36 = {"layers": "5", "notes": ""}
+
+        # A36: the same physical fact -- no /OutputIntent, no /ICCBased --
+        # must be "a request not honoured" on BOTH engines for the same
+        # profile. Before r24 the VC profile never declared the request, so
+        # its answer lived in `warnings` and was incomparable.
+        # The AI half is driven the way main() drives it: profile name in,
+        # _resolve_options reads PROFILE_DEFAULTS, _make_jsx substitutes the
+        # value Illustrator actually receives, _deliverable records it. A
+        # hand-built opts dict (r25/r26) left both hops blind: QA round 18's
+        # M39 set PROFILE_DEFAULTS["print"]["icc"]=0, round 19's M40 stopped
+        # reading it there, M42 stopped substituting it into the JSX -- each
+        # kept this line green while the JSX told Illustrator EMBED_ICC=0 and
+        # the manifest still claimed true.
+        class _Args36:
+            profile = "print"
+            compat = ""
+            pdf_compatible = ""
+            embed_icc = ""
+            cmyk = ""
+            layers_from_groups = ""
+            bleed_mm = ""
+
+        _opts_ai36 = _la36._resolve_options(_Args36())
+        _d_ai = _la36._deliverable(
+            tmp / "a.ai", _opts_ai36, _obs36, _kv36,
+            engine="illustrator", engine_version="28.3.0")
+        # The substitution is the last hop before the engine: ai_bridge.jsx
+        # reads `var EMBED_ICC = ("__EMBED_ICC__" === "1")` and passes it to
+        # opts.embedICCProfile. Assert on the text handed to Illustrator, not
+        # on the Python dict -- a dict-only guard cannot see M42.
+        _jsx36 = _la36._make_jsx(tmp / "a.svg", tmp / "a.ai", False,
+                                 tmp / "result.txt", _opts_ai36)
+        _jsx_icc36 = 'var EMBED_ICC = ("1" === "1")' in _jsx36
+        # The VC side goes through the seam main() itself calls, so reverting
+        # the `icc` wiring (not just the profile constant) turns this red.
+        _d_vc = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                         _lv36.PROFILE_DEFAULTS["print"],
+                                         _obs36, _kv36,
+                                         "vectorcraft-cli 0.22.0", [], None)
+        _u_ai = [x for x in _d_ai["unverified"] if "OutputIntent" in x]
+        _u_vc = [x for x in _d_vc["unverified"] if "OutputIntent" in x]
+        _ok36 = (bool(_u_ai) and bool(_u_vc)
+                 and _d_ai["save_options"]["embed_icc"] is True
+                 and _d_vc["save_options"]["embed_icc"] is True
+                 and _jsx_icc36
+                 and not any("未嵌入 ICC" in x for x in _d_ai["warnings"])
+                 and not any("未嵌入 ICC" in x for x in _d_vc["warnings"]))
+        add("A36-cross-engine-unverified-bucket", _ok36,
+            "same profile print, same bytes: ai.unverified=" + str(len(_u_ai))
+            + " vc.unverified=" + str(len(_u_vc))
+            + " embed_icc=" + str((_d_ai["save_options"]["embed_icc"],
+                                   _d_vc["save_options"]["embed_icc"]))
+            + " jsx_icc=" + str(_jsx_icc36))
+
+        # A37: a warning emitted by three steps must appear once, and the
+        # deliverable must carry that exact de-duplicated list (not a second
+        # copy written after construction).
+        # The steps are built by the parser that reads the CLI's own output,
+        # because that is where the warnings enter the chain. QA round 19's M43
+        # dropped `result.warnings` inside parse_jsonl and every assertion
+        # stayed green while tool_warnings silently became [].
+        _jsonl37 = "\n".join([
+            '{"step": "import", "result": {"warnings": ["font missing: Helvetica"]}}',
+            '{"step": "save", "result": {"warnings": ["font missing: Helvetica", '
+            '"no output intent"]}}',
+            "not a json line",
+        ])
+        _steps37 = _lv36.parse_jsonl(_jsonl37)
+        _w37 = _lv36._collect_export_warnings(_steps37)
+        # Through the seam: covers the de-duplication AND the `tool_warnings=`
+        # wiring. Feeding the helper directly left the wiring blind, which is
+        # precisely where the r23 defect lived (a second write after the fact).
+        _d37 = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                        _lv36.PROFILE_DEFAULTS["print"],
+                                        _obs36, _kv36,
+                                        "vectorcraft-cli 0.22.0", _steps37, None)
+        _ok37 = (_w37 == ["font missing: Helvetica", "no output intent"]
+                 and len(_steps37) == 2          # the non-JSON line is not a step
+                 and _d37["tool_warnings"] == _w37
+                 and len(_d37["tool_warnings"]) == len(set(_d37["tool_warnings"])))
+        add("A37-tool-warnings-deduplicated", _ok37,
+            "in deliverable.json: tool_warnings=" + str(_d37["tool_warnings"]))
+
+        # A38: a version string with a trailing build/platform suffix must
+        # yield the dotted version, and an unparseable one must say unknown.
+        _cases38 = [("vectorcraft-cli 0.22.0 (build 20261101 win-x64)", "0.22.0"),
+                    ("tool 1.2", "1.2"), ("no version here", "unknown"),
+                    ("", "unknown")]
+        # Through the seam: the field a client reads is deliverable["engine_version"].
+        # Calling the parser directly stays green even if the wiring goes back to
+        # `.split()[-1]` -- and that call site was where the r23 defect lived.
+        _got38 = []
+        for _txt, _ in _cases38:
+            _d38 = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                            _lv36.PROFILE_DEFAULTS["print"],
+                                            _obs36, _kv36, _txt, [], None)
+            _got38.append((_txt, _d38.get("engine_version")))
+        _ok38 = all(g == e for (_, g), (_, e) in zip(_got38, _cases38))
+        add("A38-engine-version-parser", _ok38,
+            "parse=" + str(_got38))
+
+        # A39: probe_source is the only place the CLI's "which fonts did you
+        # substitute" answer enters the manifest -- invisible in file size, path
+        # counts and layer counts alike. QA round 19's M44 made it return
+        # {"available": False} unconditionally; every assertion stayed green, so
+        # a client whose Helvetica was swapped would read "no findings". The CLI
+        # is faked here: this layer must run with no engine installed.
+        _real_run_cli39 = _lv36.run_cli
+
+        def _fake_run_cli39(cli, argv, timeout=300):
+            return 0, json.dumps({
+                "fonts": [{"name": "Helvetica", "status": "substituted"}],
+                "importWarnings": ["font substituted: Helvetica"],
+                "info": {"objects": 12, "colorMode": "CMYK"}}), ""
+
+        try:
+            _lv36.run_cli = _fake_run_cli39
+            _p39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+        finally:
+            _lv36.run_cli = _real_run_cli39
+        _ok39 = (_p39.get("available") is True
+                 and _p39.get("fonts") == [{"name": "Helvetica", "status": "substituted"}]
+                 and _p39.get("import_warnings") == ["font substituted: Helvetica"])
+        add("A39-font-probe-carried", _ok39, "probe=" + str(_p39)[:140])
+    except Exception as e:                      # noqa: BLE001
+        # Only fill in assertions that never ran. Re-adding an ID that already
+        # produced a result would give one guard two contradictory verdicts.
+        for _id in ("A36-cross-engine-unverified-bucket",
+                    "A37-tool-warnings-deduplicated",
+                    "A38-engine-version-parser",
+                    "A39-font-probe-carried"):
+            if not any(x["id"] == _id for x in a):
+                add(_id, False, type(e).__name__ + ": " + str(e)[:140])
+
     # optional: fixtures regression (now includes the six v1.3 samples)
     if args.fixtures:
         frc, fenv, _ = _call("run_fixtures.py", ["--json", "--log-dir", str(log_dir)], tmp)

@@ -23,6 +23,10 @@ python <toolkit>/scripts/validate_skill.py --platform workbuddy --channel market
 python <toolkit>/scripts/package_skill.py  --platform workbuddy --channel marketplace <技能目录> <输出目录>
 ```
 
+`<toolkit>` 指外部的 `skill-lifecycle-toolkit`，**不在发布包里**：本机位于
+`~/.workbuddy/plugins/cache/experts/skill-lifecycle-studio/<版本>/skills/skill-lifecycle-toolkit/`。
+换机器时要先确认这套工具在位，否则第三道闸根本无从执行——缺工具不等于通过。
+
 `package_skill.py` 内置强制校验，**校验不过会 exit 1 且产物目录为空**。所以「打包器跑成功了」
 本身就是「校验通过了」的证据；手工 zip 没有这层保证。
 
@@ -40,7 +44,7 @@ python <toolkit>/scripts/package_skill.py  --platform workbuddy --channel market
 ## 三、发布前的四道闸，缺一不可
 
 ```
-selftest.py --fixtures    期望 35/35
+selftest.py --fixtures    期望 39/39（不带 --fixtures 为 38/38）
 run_fixtures.py           期望 24/24
 validate_skill.py         期望 0 error / 0 warning
 zip ↔ 冻结基线 双向 md5   期望缺失 0 / 多余 0 / 差异 0

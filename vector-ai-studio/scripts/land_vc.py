@@ -26,6 +26,7 @@ ICC embedding.
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -46,10 +47,47 @@ CANDIDATES = [
 PROFILE_DEFAULTS = {
     # cmyk: run the colour-mode conversion before exporting
     # pdf:  also emit a PDF next to the .ai
-    "screen":  {"cmyk": False, "pdf": False},
-    "print":   {"cmyk": True,  "pdf": True},
-    "handoff": {"cmyk": False, "pdf": False},
+    # icc:  does this profile REQUEST an embedded profile / output intent?
+    #       land_ai declares it for "print"; this engine historically wrote
+    #       False unconditionally, so the same physical fact (no /OutputIntent,
+    #       no /ICCBased) was "a promise not kept" on one engine and "an
+    #       informational note" on the other. Whether the request can actually
+    #       be satisfied is measured afterwards, never assumed here.
+    "screen":  {"cmyk": False, "pdf": False, "icc": False},
+    "print":   {"cmyk": True,  "pdf": True,  "icc": True},
+    "handoff": {"cmyk": False, "pdf": False, "icc": False},
 }
+
+
+def _parse_engine_version(text):
+    """Pick the dotted version out of `--version` output.
+
+    `.split()[-1]` returns whatever the last whitespace-delimited token is:
+    a build suffix, a platform tag, a parenthesised date. That made
+    engine_version plausible-looking noise. Prefer x.y.z, then x.y, and say
+    "unknown" instead of reporting a wrong token as if it were a version.
+    """
+    s = (text or "").strip()
+    m = re.search(r"\b\d+\.\d+\.\d+\b", s) or re.search(r"\b\d+\.\d+\b", s)
+    return m.group(0) if m else "unknown"
+
+
+def _collect_export_warnings(steps):
+    """Collect tool warnings verbatim, once each, in first-seen order.
+
+    The CLI reports warnings per step, so one missing font can be emitted by
+    several steps. A duplicated list is an artifact of the logging, not a
+    second measurement.
+    """
+    out, seen = [], set()
+    for st in steps or []:
+        res = (st or {}).get("result") or {}
+        for w in (res.get("warnings") or []):
+            t = str(w)
+            if t and t not in seen:
+                seen.add(t)
+                out.append(t)
+    return out
 
 
 def find_cli(explicit):
@@ -110,6 +148,31 @@ def parse_jsonl(out):
     return steps
 
 
+def _build_deliverable(ai_path, profile_name, prof, obs, kv, ver_text, steps, src):
+    """Assemble deliverable.json from measured parts.
+
+    Every field that used to be wired inline in main() is wired here. The point
+    is testability, not tidiness: without the CLI installed main() cannot run
+    end to end, so a guard that calls the helpers directly stays green while the
+    wiring that actually produces the file is reverted -- assertion and fix
+    confirming each other in an empty room. Driving this seam instead of the
+    helpers means reverting either half turns the matching guard red.
+    """
+    opts = {"profile": profile_name,
+            "compat": "pdf-compatible",
+            "pdf": True,         # .ai is written as a PDF container
+            "icc": prof["icc"],  # requested by the profile, not claimed as done
+            "cmyk": prof["cmyk"],
+            "bleed_mm": 0.0, "bleed_pt": 0.0,
+            "layers": True}      # groups become layers automatically
+    return LA._deliverable(ai_path, opts, obs, kv,
+                           engine="vectorcraft",
+                           engine_version=_parse_engine_version(ver_text),
+                           export_steps=steps,
+                           source_probe=src,
+                           tool_warnings=_collect_export_warnings(steps))
+
+
 def main():
     ap = argparse.ArgumentParser(description="land native .ai via VectorCraft")
     ap.add_argument("--svg", default="")
@@ -165,12 +228,8 @@ def main():
                       errors=[L.err("E-H1-STRUCTURE",
                                     "vectorcraft-cli failed: " + type(e).__name__)])
     steps = parse_jsonl(out)
-    # Every warning the tool emitted during export, kept verbatim.
-    export_warnings = []
-    for st in steps:
-        res = st.get("result") or {}
-        for w in (res.get("warnings") or []):
-            export_warnings.append(str(w))
+    # Every warning the tool emitted during export, kept verbatim and unique.
+    export_warnings = _collect_export_warnings(steps)
 
     if rc != 0 or not ai_path.is_file() or ai_path.stat().st_size == 0:
         return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL, run_id=args.run_id,
@@ -181,32 +240,22 @@ def main():
 
     # ---- measure, do not assume ----
     obs = LA._observe_ai(ai_path)
-    opts = {"profile": args.profile,
-            "compat": "pdf-compatible",
-            "pdf": True,                      # .ai written as a PDF container
-            "icc": False,                     # not requested, not available
-            "cmyk": prof["cmyk"],
-            "bleed_mm": 0.0, "bleed_pt": 0.0,
-            "layers": True}                   # groups become layers automatically
     # Layers come from the file, not from an assumption: passing 0 here made
     # the manifest claim "only 1 layer" for a document that had five named ones.
     kv = {"layers": str(obs.get("layers") or 0), "trimmarks_ink": "", "artboard": ""}
     # Ask, do not hardcode: a literal version would be a lie the moment the
-    # user has a different build on PATH.
+    # user has a different build on PATH. The probe result is passed into the
+    # seam below so a guard can feed it a synthetic version string.
     try:
         _vrc, _vout, _ = run_cli(cli, ["--version"], timeout=30)
-        _ver = (_vout or "").strip().split()[-1] or "unknown"
     except (OSError, subprocess.SubprocessError):
-        _ver = "unknown"
-    deliverable = LA._deliverable(ai_path, opts, obs, kv,
-                                  engine="vectorcraft", engine_version=_ver,
-                                  export_steps=steps)
-
+        _vout = ""
+    # One writer per field: pass everything to the constructor instead of
+    # overwriting its output afterwards. The old post-hoc assignments gave
+    # tool_warnings two writers and let the same warning appear twice.
     src = probe_source(cli, svg)
-    deliverable["source_probe"] = src
-    deliverable["tool_warnings"] = export_warnings
-    # re-sync the constructor-provided copies so the file has one truth
-    deliverable["export_steps"] = steps
+    deliverable = _build_deliverable(ai_path, args.profile, prof, obs, kv,
+                                     _vout, steps, src)
 
     for f in (src.get("fonts") or []):
         if f.get("missing"):

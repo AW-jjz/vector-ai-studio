@@ -38,8 +38,8 @@ python vector-ai-studio/scripts/run_fixtures.py
 
 | 环境 | `selftest --fixtures` | `run_fixtures` |
 |---|---|---|
-| 装了 VectorCraft CLI | **34/34**，`status=ok`，**exit 0** | **24/24**，exit 0 |
-| 没装 | 32 passed + **2 skipped**（A30/A31 的 VectorCraft 半边），`status=partial`，**exit 3** | 24/24，exit 0 |
+| 装了 VectorCraft CLI | **39/39**，`status=ok`，**exit 0** | **24/24**，exit 0 |
+| 没装 | 37 passed + **2 skipped**（A30/A31 的 VectorCraft 半边），`status=partial`，**exit 3** | 24/24，exit 0 |
 
 **`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。
 这两条都不依赖 Illustrator，纯脚本层就能跑通；如果这里就失败，先别往下走。

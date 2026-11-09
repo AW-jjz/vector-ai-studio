@@ -1,23 +1,55 @@
 vector-ai-studio 发布校验留痕
 
 文件数        : 54
-字节数        : 154113
-sha256        : 2fd9c57ee4d2f87331a2dec04a830cd05eb18dede923d35a7767ef9def66ee04
-对应冻结基线  : 04-QA/test-log-r23/00-freeze-r23-manifest.txt（54 文件，2026-11-08 17:31:10）
-基线 sha256   : c3f318444954017e4c7b54a0689cf065fddc57132986352f63149269498973ec
+字节数        : 157728
+sha256        : de19695334728b107c3a0d3a21cd386c78da422f23496f8ccf543d58567d0158
+对应冻结基线  : 04-QA/test-log-r27/00-freeze-r27-manifest.txt（54 文件，2026-11-09 12:29:15）
+基线 sha256   : 060dd016c2c37cefa350f68f73ada4e48d7fca2831ebaa87fa4fe89824ac015e
 
-本版包含      : 双引擎 · A1–A35 · C 维感知色彩（仅测量）· D 维转相对指标
-相对 r22 变更 : 2 个文件，新增 0、删除 0
-                scripts/score.py       D.measured 补 dense_short_segments / dense_turns_deg /
-                                       dense_corner_fracs；short_segment_ratio 移出 d_exc（改测不判）
-                scripts/selftest.py     A35 改为端到端：跑 score.py 读 score.json，不再只验库返回值
+本版包含      : 双引擎 · A1–A39 · C 维感知色彩（仅测量）· D 维转相对指标
+相对 r26 变更 : 1 个文件，新增 0、删除 0（逐文件 md5 对比见 04-QA/test-log-r27/r27-04-变异与差异.txt）
+                scripts/selftest.py    A36 的 AI 侧改走 land_ai._resolve_options()，并对
+                                       land_ai._make_jsx() 的产物断言
+                                       var EMBED_ICC = ("1" === "1")；A37 的 steps 改由
+                                       parse_jsonl() 解析真实 JSONL；新增 A39 用假 CLI
+                                       守 probe_source() 的字体探测结果
+                产品代码（land_ai.py / land_vc.py / ai_bridge.jsx 等 53 个文件）零字节改动。
+                （05-发布/ 下的文档与校验留痕不在 54 文件技能包内）
 
-出包方式      : 官方 package_skill.py 产出（validate 0 error / 0 warning 后才出包）
+版本沿革      : r23 已签收，仍是远端版本。
+                r24 冻结未提交：自查发现 A36–A38 只驱动库函数，把 land() 的接线逐一回退
+                后三条断言全绿；而 Q17-1/2/3 的原始缺陷都在接线上。与 QA 第16轮驳回
+                A35 同形，撤回 → _dev-logs/superseded/…_r24-54files_…-2218.zip
+                r25 冻结未提交：QA 第18轮发现 A36 的 AI 侧用的是测试里的字面量，
+                把 land_ai 的 print.icc 由 1 改成 0 时整个自检全绿（M39），未发布 →
+                _dev-logs/superseded/…_r25-54files_…-2325.zip
+                r26 把 AI 侧改读真实常量，M39 变为唯一红项；QA 第19轮签收，但同一轮
+                查出 P2：常量取到了，「常量 → 引擎」两跳仍无人守（M40 不再读常量、
+                M42 不替换 __EMBED_ICC__ 都全绿）。因本地未推送、远端仍 r23，直接补成
+                r27 再发 → _dev-logs/superseded/…_r26-54files_…-1216.zip
+                r27 正是该 P2 的修复：A36 走真实入口并对 JSX 文本断言，A37 走真实解析器，
+                新增 A39 守 probe_source。十二次变异（七次原口径 + M40/M41/M42/M43/M44）
+                全部唯一命中。四代旧包都保留，只降级不删。
+
+出包方式      : 官方 package_skill.py 产出（内置 validate 0 error / 0 warning 后才出包）
+                复现性：把 zip 成员的 mtime 回写到解压树后重打，字节完全一致（BYTE_IDENTICAL）
 
 校验方式:
   1) 解压后逐文件 md5 与基线清单比对，应 54/54 完全一致
-  2) selftest.py --fixtures 期望 35/35；run_fixtures.py 期望 24/24
+  2) selftest.py --fixtures 期望 39/39；不带 --fixtures 期望 38/38；run_fixtures.py 期望 24/24
   3) validate_skill.py 期望 ok / 0 error / 0 warning
-  4) 发布前必须跑一次 VECTOR_AI_STUDIO_REAL_AI=1 的 selftest
+  4) 发布前必须先**新跑一次** smoke_ai.py（自带 --run-id），再跑
+     VECTOR_AI_STUDIO_REAL_AI=1 的 selftest；不得沿用历史产物——
+     旧产物会让 A31 拿旧 schema 判当前代码（r27 已按此执行，读数见证据索引）
 
-被替换的旧包: 03-源码/_dev-logs/superseded/vector-ai-studio_r22-54files_SUPERSEDED_20261108-1731.zip
+第四道闸      : zip ↔ r27 基线 54 / 缺 0 / 多 0 / 差异 0（按 zip 成员字节流算 md5，不落盘解压）
+签收状态      : **已由 QA 第 20 轮签收**（2026-11-09 13:03，`04-QA/QA报告-第20轮.md`）：
+                判「签收 · 可推送」，P1=0。附 P2×1（A39 的假 CLI 载荷形状与真实
+                `vectorcraft info` 不符，`land_vc` 里「字体缺失 → warnings」的消费链路
+                M50/M51 无守；产品对真实形状行为正确）与 P3×5（probe_source 错误分支
+                fail-open、objects/color_mode 无守、A36 与 argparse 解耦、land() 调用点
+                无守、镜像状态陈述过期），均不阻断，逐条见 `发布说明.md`。
+被替换的旧包  : r26 → 03-源码/_dev-logs/superseded/vector-ai-studio_r26-54files_SUPERSEDED_20261109-1216.zip
+                r25 → 03-源码/_dev-logs/superseded/vector-ai-studio_r25-54files_SUPERSEDED_20261108-2325.zip
+                r24 → 03-源码/_dev-logs/superseded/vector-ai-studio_r24-54files_SUPERSEDED_20261108-2218.zip
+                r23 仍是远端已签收版本（2f0d95ac8c3d），本次未动
