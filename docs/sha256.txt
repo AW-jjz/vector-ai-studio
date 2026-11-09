@@ -57,3 +57,81 @@ sha256        : 30855c2b58d8e05366b59811cdc7d0f6d0c2b4e520cda2e898e54100e99f0e79
 远端状态      : r29 已推送（发布提交 d94a055，父 b3678cfc293f）。
                 回读校验：从远端重新 clone（--depth 1）后与签收包逐文件比 md5 ——
                 54/54 全等，missing/extra/diff 均为空；docs 三件与 05-发布/ 同文。
+
+
+════════════════════════════════════════════════════════════════════
+r34（2026-11-09 22:35，版本 1.1.0，58 文件 / 182,131 B）— 候选，已被 r35 取代
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 182,131 B
+sha256        : 1416ca9a453185b15eb63e3d3a308e35d4581c6ebadb4d032549e375ff4af3f0
+对应冻结基线  : 04-QA/test-log-r34/r34-00-freeze.txt（58 文件）
+
+本版包含      : 路线 B（照片→印刷件：delight / trace_ref / export_print）
+                路线 C（Craft-only 落地：land_craft.py，PDF/X-1a / X-3 / X-4）
+                自检断言 41 → 46（A42/A43/A44/A45/A46）
+相对 r29 变更 : 新增 4（delight / export_print / trace_ref / land_craft）、删除 0、
+                修改 4（SKILL.md / error-codes.md / selftest.py / README 不入包）
+                21 个业务脚本字节零改动（QA 第 24 轮独立复算）
+
+四道闸        : selftest --fixtures 46/46 · run_fixtures 24/24 · validate 0 error 0 warning ·
+                重打 byte-identical
+独立 QA       : 第 24 轮签收 · 可推送（r33）；第 25 轮对 r34 复验为**有条件签收**：
+                P2×1（交付清单与随包 schema 不一致）+ P3×6；P3-6 口径仍失真、P3-8 字体重复计数。
+                r34 因此未推送，直接由 r35 取代。
+
+CMYK 实测     : **数字作废**——r34 的 content_ops 仍统计 ICC/字体等二进制流（k=985/K=340 属放大口径）。
+                r35 起只统计页面 /Contents 与 /Subtype /Form 流。
+
+已知限制      : land_craft 写 PDF 兼容 .ai 与 legacy v7 .ai，不写 Adobe 私有编辑数据；
+                handoff 档 .ai 保留 SVG 分组；PDF/X-1a 未标签 DeviceCMYK 属规范行为；
+                引擎 alpha（storytold/vectorcraft），锁定版本
+
+替代包        : r30 / r31 / r32 / r33 / r34 → 中间迭代包，均未推送
+
+远端状态      : r29 已推送（d94a055 + 2c6f875）。r34 未推送，由 r35 取代。
+
+
+════════════════════════════════════════════════════════════════════
+r35（2026-11-09 23:4x，版本 1.1.0，58 文件 / 184,411 B）— 当前候选
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 184,411 B
+sha256        : 890be4fbce5ae42aa624560e549d54e74ccbd4ee4aece77922ff59b4def638c6
+对应冻结基线  : 04-QA/test-log-r35/r35-00-freeze.txt（58 文件，
+                清单 sha256 7c6db710175b4982…，以文件内为准）
+
+本版包含      : 路线 B / C + 第 25 轮 QA 整改：
+                · P2-1 交付清单恢复 `has_ai_private` 并补齐 schema 必填
+                  （save_options.pdf_compatible/embed_icc/cmyk、structure.artboard/viewBox 改字符串），
+                  真实产物现可通过随包 schema_check；A46 增加 schema 断言
+                · P3-6 content_ops 只统计页面 /Contents 引用与 /Subtype /Form 流，
+                  剔除 ICC / FontFile / CMap 二进制假命中；新增 content_streams 与档位化守卫
+                · P3-8 fonts_embedded 修前缀重复计数（/FontFile 不再命中 /FontFile2）
+                · P3-9 delight JPEG 输出新增有损 warning，文档示例改 PNG
+                · P3-10 读回 /GTS_PDFXVersion 与 /OutputConditionIdentifier 实值，
+                  /OutputIntent 不再把 /OutputIntents 计入
+                · P3-11 save_options 明确为「请求值」，output_intent 改成读回值 + 保留 requested
+                · P3-12 SKILL / pipeline-contract / schema 描述同步，删掉失效的「2189」
+
+相对 r34 变更 : 新增 0、删除 0、修改 6、未变 52
+                SKILL.md / references/pipeline-contract.md /
+                references/schemas/deliverable.schema.json / scripts/delight.py /
+                scripts/land_craft.py / scripts/selftest.py
+
+四道闸        : selftest --fixtures 46/46（A46 cmyk=18 schema=True）· run_fixtures 24/24 ·
+                validate 0 error 0 warning · 重打 ×2 byte-identical 且 == 发布包
+
+变异自测      : M1 恢复「统计全部可解流」→ A46 红（cmyk=641>100）；
+                M2 删 save_options.pdf_compatible → A46 红（schema=False）；基线绿。
+
+独立 QA       : **第 26 轮签收 · 可推送**（P0=0 / P1=0 / P2=0 / P3×3 记 backlog）。
+                四闸由 QA 自跑 46/0/0、24/24、0/0、重打 ×2 == 发布包；
+                P2-1 用删除 pdf_compatible 的变异证明 A46 会判红（45/1）；
+                P3-6 逐键与 QA 自写 PDF 解析器相等（10/10），清空内容流后守卫真的触发。
+
+已知限制      : 同 r34；另 JPEG 输出近白像素非逐字节不变（脚本已 warning，推荐 PNG）
+
+远端状态      : 推送后回读，见本节末与 git log。

@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.0.0
+version: 1.1.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.0.0"
+  version: "1.1.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -270,6 +270,76 @@ python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptan
 
 快速预览用 `scripts/aggregate_log.py --quick`；只取 H1 证据、不评级用 `scripts/aggregate_log.py --landing-only`；半自动落地用 `scripts/land_ai.py --semi-manual`（仅 COM 不可驱动时由用户显式选择）与 `scripts/land_ai.py --collect`。
 
+### 路线 B：客户给了一张照片，要印刷件
+
+上面整条流程是「从需求生成」。另一种常见委托是「我有一张产品照，做成能印的矢量文件」——
+这不是生成，也不是纯格式转换，走三个脚本：
+
+```
+python scripts/delight.py --in photo.jpg --out delit.png --strength 0.65 --json
+python scripts/trace_ref.py --in delit.png --out art.ai --colors 96 --paths 90 --noise 2 --simplify 60 --json
+python scripts/export_print.py --in art.ai --out print.jpg --height-mm 300 --dpi 600 --bleed-mm 3 --json
+```
+
+三件事各自有坑，脚本把它们固化下来：
+
+- **先去光照，再描摹。** 摄影棚的光被拍进像素后，印到实物上会变成第二层光：高光成死白、投影成脏痕。
+  `scripts/delight.py` 用低频除法拉平照明，`--strength` 默认 0.65（全强度会把深红提亮成粉红、丢掉珐琅的深度）。
+  **确定性契约**：「这个近白像素是纸背景还是物体内部高光」从颜色、连通性、局部形状都判不出来——
+  桥接高光、轴向缝、斜缝、曲线缝、细长高光互为反例（第 23 轮 QA 连查三轮）。脚本因此不再猜：
+  · 不给 `--mask`：只对明显有色/暗的像素（亮度 < 230）去光照，**所有近白像素逐字节保持不变**；
+    纸白不被染色、高光不被挖空、`specular_repaired` 不虚增，并在 envelope 里发 warning 说明。
+  · 给 `--mask`（灰度轮廓，非黑即主体）：掩膜是唯一权威，其内部的死白高光才用周围颜色修复，外部一律不动。
+  **已知限制（随包声明）**：无掩膜模式不去高光；要高光去眩光必须提供掩膜。任何「再从像素推一次掩膜」的启发式都被禁止——它必然有第三种几何形态反例。`A42` 用五种几何形态（含斜缝/曲线缝/细长高光）验证近白零改动。中间产物用 PNG：JPEG 有损，边缘纹理处会改动少量近白像素（第 25 轮 QA 实测 3,949/13,996），脚本在 JPEG 输出时会发 warning。
+- **描摹参数嵌一层。** `scripts/trace_ref.py` 把设置放进 `{"params": {...}}`，平铺传会被引擎拒收。
+  `ignoreWhite` 必须保持 false——开了它会把珍珠、水晶内部的纯白高光当背景挖掉，留下黑洞。
+  描摹后接 `object.path.simplify` 可再砍三成锚点，颜色不动。
+- **矢量没有物理尺寸。** `scripts/export_print.py` 一次定死成品尺寸、设备 dpi 与出血，
+  并产出弱 RIP 能吃的位图；矢量输入靠 VectorCraft CLI 光栅化，CLI 不在时报 `E-CAPABILITY-MISSING`
+  而不是悄悄产出一个更小的文件。
+- **出血是内容延展，不是四边填白。** 默认 `--bleed-mode extend` 把边缘像素镜像出去，
+  满版稿裁切后不会露白线；白底 logo 用 `--bleed-mode white` 才是纯白边。
+  误用 white 会在非白底稿四周留下白线，这是第 23 轮 QA 查出来的真问题。
+- **三个新脚本与既有 14 个脚本同契约**：统一 `L.run_cli`，损坏输入返回
+  `code=4` 的 JSON envelope，不吐 traceback（`delight`/`export_print` 报 `E-INTERNAL`，`trace_ref` 报 `E-TRACE`）。
+
+### 路线 C：只用 VectorCraft（默认推荐，不依赖 Adobe）
+
+`scripts/land_craft.py` 与 land_ai 脚本**同输出契约**，但整条链只用 VectorCraft CLI，
+无 COM、无 Windows 依赖、无 Adobe 授权。Adobe 官方说明 Creative Cloud 服务未在中国大陆的
+adobe.com 上开放，自动化产线不应把落地绑在桌面程序上。
+
+```
+python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
+    --profile print --bleed-mm 3 --pdf-standard pdfX1a --json
+```
+
+产出六件：源 SVG、可编辑 .ai、印刷 PDF、预览 PNG、交付清单、结构回读 JSON。print 档走
+真 CMYK 转换 → 文档出血设置 → PDF/X 导出（PDF/X-1a / X-3 / X-4、TrimBox / BleedBox /
+MediaBox、裁切与套准标记、色标、页面信息、内嵌输出意图、字体内嵌）。
+结构回读用 CLI 的 info 命令重开 .ai，H1 判据为 raster=0 / placed=0 / paths>0 /
+画板与 viewBox 一致，再由脚本解析 PDF **页面内容流（/Contents 引用与 /Subtype /Form）**
+确认颜色算子确实存在——ICC、字体程序、CMap 等二进制流不计入，它们只是碰巧含有 k/K 字节。
+X-3 / X-4 的颜色走 ICCBased（内容流里是 `scn`/`SCN`），因此只有 X-1a 用 DeviceCMYK 的 `k`/`K` 判档；
+把 `k+K==0` 套到 X-3/X-4 上会误报，脚本已按档位分开判定。
+
+实测（套娃稿 630×1100pt）：528 路径、H1 通过、GTS_PDFXVersion 1 处、
+`/Type /OutputIntent` 对象 1 个、OutputCondition 为 `VectorCraft Generic CMYK (SWOP-like)`、
+TrimBox 630×1100pt、BleedBox 647×1117pt；CMYK 算子数由脚本从页面内容流现算并写进
+observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变化的数字。
+
+**已知限制（写进交付清单的 warnings，不隐藏）**：
+  · VectorCraft 写的是 **PDF 兼容 .ai** 与 legacy version 7 .ai（保图层/组/文字），
+    **不写 Adobe 的私有编辑数据**；文件里的 `/AIPrivateData1` 是它自己的回写流引用（对象 19–22），
+    不是 Adobe 原生编辑数据。客户若硬性要 Adobe 原生编辑数据，交 SVG + PDF/X 让印厂转。
+    VectorCraft 是 MIT / Apache-2.0 开源项目（GitHub storytold 组织的 vectorcraft 仓库，
+    Rust，自带 headless CLI + MCP）；该项目的官方差距文档亦把「真实 .ai 的图层结构与
+    私有编辑数据」列为未完成项，不应对外承诺等效。
+  · handoff 档：PDF 带图层，但 .ai 保留 SVG 分组——引擎目前没有「分组转图层」命令。
+  · PDF/X-1a 按规范是「未标签 DeviceCMYK + 内嵌输出意图」，所以 ICCBased 为 0 属正常；
+    要 ICC 标签颜色用 pdfX3 或 pdfX4。
+  · 引擎仍是 alpha（2026-09 建仓），锁定版本、把关键行为做成断言（A46），不依赖未发布修复。
+
 ## 输出规范
 
 四件产物落在运行期目录，**默认在技能包之外**：`~/.vector-ai-studio/output/<run-id>/`，可用环境变量 `VECTOR_AI_STUDIO_OUT` 覆盖。包内不留任何运行期文件，打 zip 不会带出测试残留。
@@ -282,7 +352,7 @@ python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptan
 ~/.vector-ai-studio/output/<run-id>/deliverable.json
 ```
 
-交付清单 deliverable.json 是**给客户的**，与验收日志分开：它不评价好坏，只记录物件本身的可核事实（色彩空间、ICC、出血、图层、字体、位图、画板 pt/mm、sha256）与必须说明的风险（第三方重存会剥离 AIPrivateData、CMYK 未做色彩管理等）。每一项都是实测值，unverified 字段专门记录「要求了但没兑现」的条目——例如要求转 CMYK 而 PDF 兼容层仍写 RGB 时会出现在这里，而不是被略过。
+交付清单 deliverable.json 是**给客户的**，与验收日志分开：它不评价好坏，只记录物件本身的可核事实（色彩空间、ICC、出血、图层、字体、位图、画板 pt/mm、sha256）与必须说明的风险（第三方重存会剥离 AIPrivateData、CMYK 未做色彩管理等）。`observed` 段每一项都是从产物字节实测（含 print.pdf 的 /OutputConditionIdentifier）；`save_options` 段记录本次**请求**的保存参数，两者不混写。`unverified` 字段专门记录「要求了但没兑现」的条目——例如要求转 CMYK 而 PDF 兼容层仍写 RGB 时会出现在这里，而不是被略过。
 
 - final.ai 由 Illustrator `saveAs()` 产出，附重开回读计数；final.svg 与它同源；preview.png 为真实可解析 PNG；acceptance.json 含 A–F 各项分数、轮次记录、H1–H4 与降级标记。
 - 阈值、分档、降级文案的唯一事实源是 `config/thresholds.json`；`calibration_policy` 登记可校准白名单与审批流，判据定义类一律锁定，任何放宽必须标 `loosening: true` 且带裁决引用。

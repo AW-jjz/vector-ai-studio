@@ -1400,6 +1400,262 @@ def main():
             if not any(x["id"] == _id for x in a):
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])
 
+    # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
+    # Codifies what one real job taught: a traced photo keeps the studio
+    # lighting, a vector has no physical size, and the tracer hides its settings
+    # one level down and punches highlights out if told to ignore white.
+    try:
+        from PIL import Image as _Im
+
+        def _run_script(name, argv):
+            _p = subprocess.run([sys.executable, str(ROOT / "scripts" / name)] + argv,
+                                capture_output=True, text=True, timeout=1200)
+            try:
+                return _p.returncode, json.loads(_p.stdout)
+            except Exception:                      # noqa: BLE001
+                return _p.returncode, {}
+
+        # A42: delight's contract is now deterministic, not heuristic.
+        #  (a) a lit ramp still flattens; (b) with an explicit mask, a blown
+        #  specular is repaired; (c) WITHOUT a mask, EVERY near-white pixel is
+        #  byte-identical for all five geometries QA found (axial slit,
+        #  diagonal slit, curved slit, thin highlight, bridged highlight).
+        #  The third check is the root-cause guarantee: no geometry can be a
+        #  counterexample because unclassified pixels are never touched.
+        import math as _math
+        _pw, _ph = 420, 300
+        _ramp = _Im.new("RGB", (_pw, _ph), (255, 255, 255))
+        _rp = _ramp.load()
+        for _y in range(20, _ph - 20):
+            for _x in range(20, _pw - 20):
+                _k = 0.55 + 0.60 * (_x - 20) / float(_pw - 40)
+                _rp[_x, _y] = (int(198 * _k), int(34 * _k), int(40 * _k))
+        _a42 = tmp / "a42-ramp.png"; _ramp.save(_a42)
+        _rc1, _d1 = _run_script("delight.py",
+                                ["--in", str(_a42), "--out", str(tmp / "a42-flat.png"),
+                                 "--strength", "1.0", "--blur", "40", "--sat", "1.0", "--json"])
+        _before = [_rp[x, 150][0] for x in range(60, _pw - 60)]
+        _flat = _Im.open(tmp / "a42-flat.png").convert("RGB")
+        _after = [_flat.load()[x, 150][0] for x in range(60, _pw - 60)]
+        _r_before, _r_after = max(_before) - min(_before), max(_after) - min(_after)
+        _flat_ok = (_rc1 == 0 and _r_before > 40 and _r_after <= 0.40 * _r_before)
+        _warn_ok = bool((_d1.get("data") or {}).get("mask_mode") == "conservative")
+
+        # explicit mask repairs a blown specular, and does so for a thin one too
+        _masked_ok = True
+        for _nm, _im in (("bridged", None), ("thin", None)):
+            _sp = _Im.new("RGB", (240, 160), (255, 255, 255))
+            _spp = _sp.load()
+            for _y in range(40, 120):
+                for _x in range(40, 200):
+                    _spp[_x, _y] = (198, 34, 40)
+            if _nm == "bridged":
+                for _y in range(70, 100):
+                    for _x in range(100, 140): _spp[_x, _y] = (255, 255, 255)
+                for _y in range(0, 70):
+                    for _x in range(110, 130): _spp[_x, _y] = (255, 255, 255)
+            else:
+                for _y in range(60, 110):
+                    for _x in range(116, 126): _spp[_x, _y] = (255, 255, 255)
+                for _y in range(0, 60):
+                    for _x in range(110, 130): _spp[_x, _y] = (255, 255, 255)
+            _src = tmp / ("a42-%s.png" % _nm); _sp.save(_src)
+            _mk = _Im.new("L", _sp.size, 0)
+            _ImDraw = __import__("PIL.ImageDraw", fromlist=["Draw"])
+            _ImDraw.Draw(_mk).rectangle([40, 40, 199, 119], fill=255)
+            _mkp = tmp / ("a42-%s-mask.png" % _nm); _mk.save(_mkp)
+            _dsto = tmp / ("a42-%s-masked.png" % _nm)
+            _rc, _dj = _run_script("delight.py",
+                                   ["--in", str(_src), "--out", str(_dsto), "--mask", str(_mkp),
+                                    "--strength", "0", "--blur", "20", "--json"])
+            _c = _Im.open(_dsto).convert("RGB").load()[120, 85]
+            _masked_ok = _masked_ok and (_rc == 0
+                        and (_dj.get("data") or {}).get("mask_mode") == "explicit"
+                        and (_dj.get("data") or {}).get("specular_repaired", 0) > 0
+                        and _c[0] > 120 and _c[0] > _c[2] + 30)
+
+        # conservative mode: near-white pixels never change, for every geometry
+        _geoms = {}
+        _g0 = _Im.new("RGB", (240, 160), (255, 255, 255)); _q = _g0.load()
+        for _y in list(range(40, 70)) + list(range(90, 120)):
+            for _x in range(40, 200): _q[_x, _y] = (198, 34, 40)
+        _geoms["axial"] = _g0
+        _g1 = _Im.new("RGB", (240, 160), (198, 34, 40)); _q = _g1.load()
+        for _y in range(160):
+            for _x in range(240):
+                if abs(_x - _y) <= 6: _q[_x, _y] = (255, 255, 255)
+        _geoms["diagonal"] = _g1
+        _g2 = _Im.new("RGB", (240, 160), (198, 34, 40)); _q = _g2.load()
+        for _x in range(240):
+            _cy = 80 + 30 * _math.sin(_x / 28.0)
+            for _y in range(160):
+                if abs(_y - _cy) <= 6: _q[_x, _y] = (255, 255, 255)
+        _geoms["curved"] = _g2
+        _g3 = _Im.new("RGB", (240, 160), (255, 255, 255)); _q = _g3.load()
+        for _y in range(40, 120):
+            for _x in range(40, 200): _q[_x, _y] = (198, 34, 40)
+        for _y in range(60, 110):
+            for _x in range(116, 126): _q[_x, _y] = (255, 255, 255)
+        for _y in range(0, 60):
+            for _x in range(110, 130): _q[_x, _y] = (255, 255, 255)
+        _geoms["thin"] = _g3
+        _g4 = _Im.new("RGB", (240, 160), (255, 255, 255)); _q = _g4.load()
+        for _y in range(40, 120):
+            for _x in range(40, 200): _q[_x, _y] = (198, 34, 40)
+        for _y in range(70, 100):
+            for _x in range(100, 140): _q[_x, _y] = (255, 255, 255)
+        for _y in range(0, 70):
+            for _x in range(110, 130): _q[_x, _y] = (255, 255, 255)
+        _geoms["bridged"] = _g4
+        _invariant_ok = True
+        _dye_report = []
+        for _gn, _gi in _geoms.items():
+            _gs = tmp / ("a42-g-%s.png" % _gn); _gi.save(_gs)
+            _go = tmp / ("a42-g-%s-out.png" % _gn)
+            _rc, _ = _run_script("delight.py",
+                                 ["--in", str(_gs), "--out", str(_go),
+                                  "--strength", "0.65", "--blur", "20", "--json"])
+            _a, _b = _gi.load(), _Im.open(_go).convert("RGB").load()
+            _dye = sum(1 for _y in range(160) for _x in range(240)
+                       if min(_a[_x, _y]) >= 250 and _a[_x, _y] != _b[_x, _y])
+            _dye_report.append("%s:%d" % (_gn, _dye))
+            _invariant_ok = _invariant_ok and _rc == 0 and _dye == 0
+        add("A42-delight-flattens-lighting", _flat_ok and _warn_ok and _masked_ok and _invariant_ok,
+            "row-range " + str(_r_before) + "->" + str(_r_after)
+            + " masked=" + str(_masked_ok) + " near-white-dyed=" + ",".join(_dye_report))
+
+        # A43: physical size, device resolution and bleed must land exactly
+        _rc3, _d3 = _run_script("export_print.py",
+                                ["--in", str(_a42), "--out", str(tmp / "a43.jpg"),
+                                 "--height-mm", "100", "--dpi", "300",
+                                 "--bleed-mm", "3", "--json"])
+        _e = _d3.get("data") or {}
+        _bleed = int(round(3 / 25.4 * 300))
+        _th = int(round(100 / 25.4 * 300))
+        _tw = int(round(100 * (_pw / float(_ph)) / 25.4 * 300))
+        _rc4, _ = _run_script("export_print.py",
+                              ["--in", str(_a42), "--out", str(tmp / "a43b.jpg"),
+                               "--height-mm", "100", "--dpi", "5", "--json"])
+        # a full-bleed red job must not get a white bleed band (QA23 P2-1)
+        _red = _Im.new("RGB", (200, 150), (198, 34, 40))
+        _a43r = tmp / "a43-fullred.png"
+        _red.save(_a43r)
+        _rc6, _d6 = _run_script("export_print.py",
+                                ["--in", str(_a43r), "--out", str(tmp / "a43-red.jpg"),
+                                 "--height-mm", "100", "--dpi", "300", "--bleed-mm", "3",
+                                 "--json"])
+        _corner = _Im.open(tmp / "a43-red.jpg").convert("RGB").load()[2, 2]
+        _bleed_ok = (_rc6 == 0 and _corner[0] > 120 and _corner[0] > _corner[2] + 40)
+        # corrupt input must produce the standard envelope, not a traceback (P2-2)
+        _bad = tmp / "a43-broken.png"
+        _bad.write_bytes(b"\x89PNG\r\n\x1a\nnot-a-png")
+        _rc7, _d7 = _run_script("export_print.py",
+                                ["--in", str(_bad), "--out", str(tmp / "a43-bad.jpg"),
+                                 "--height-mm", "100", "--json"])
+        _env_ok = (_rc7 == L.EXIT_ERROR and _d7.get("code") == L.EXIT_ERROR
+                   and any(x.get("code") == "E-INTERNAL" for x in _d7.get("errors", [])))
+        _ok43 = (_rc3 == 0
+                 and _e.get("trim_px") == [_tw, _th]
+                 and _e.get("canvas_px") == [_tw + 2 * _bleed, _th + 2 * _bleed]
+                 and _e.get("dpi") == 300
+                 and _rc4 == L.EXIT_USAGE
+                 and _bleed_ok and _env_ok)
+        add("A43-export-print-dimensions", _ok43,
+            "trim=" + str(_e.get("trim_px")) + " canvas=" + str(_e.get("canvas_px"))
+            + " bad-dpi-exit=" + str(_rc4)
+            + " red-corner=" + str(_corner) + " corrupt=" + str(_rc7))
+
+        # A44: nested settings + a missing engine must never read as success
+        _spec2 = importlib.util.spec_from_file_location(
+            "trace_ref_under_test", ROOT / "scripts" / "trace_ref.py")
+        _tr = importlib.util.module_from_spec(_spec2)
+        _spec2.loader.exec_module(_tr)
+        _nested = _tr.trace_params(64, 85, 20, 2, False)
+        _nesting_ok = ("params" in _nested and "colors" not in _nested
+                       and _nested["params"].get("ignoreWhite") is False)
+        _orig = _tr.find_cli
+        _tr.find_cli = lambda: None
+        _missing = False
+        try:
+            _tr.require_cli()
+        except L.ToolError as _ex:
+            _missing = (_ex.exit_code == L.EXIT_MISSING
+                        and _ex.code == "E-CAPABILITY-MISSING")
+        finally:
+            _tr.find_cli = _orig
+        add("A44-trace-ref-contract", _nesting_ok and _missing,
+            "nested=" + str(_nesting_ok) + " missing-engine=" + str(_missing))
+
+        _corrupt = tmp / "a45-corrupt.png"
+        _corrupt.write_bytes(b"\x89PNG\r\n\x1a\nnot-a-png")
+        _envs = []
+        for _nm, _argv in (("delight.py", ["--in", str(_corrupt), "--out", str(tmp / "a45-d.png")]),
+                           ("export_print.py", ["--in", str(_corrupt), "--out",
+                                                str(tmp / "a45-e.jpg"), "--height-mm", "100"]),
+                           ("trace_ref.py", ["--in", str(_corrupt), "--out", str(tmp / "a45-t.ai")])):
+            _rc, _env = _run_script(_nm, _argv + ["--json"])
+            _err_codes = [x.get("code") for x in _env.get("errors", [])]
+            _envs.append((_nm, _rc == L.EXIT_ERROR, _env.get("code") == L.EXIT_ERROR,
+                          any(c in ("E-INTERNAL", "E-TRACE") for c in _err_codes)))
+        _env_ok = all(a and b and c for _, a, b, c in _envs)
+        add("A45-uniform-error-envelope", _env_ok,
+            ";".join("%s:%s%s%s" % (n, a, b, c) for n, a, b, c in _envs))
+
+        # A46: the Craft-only landing path must really produce a PDF/X master
+        # with an output intent, bleed boxes and CMYK content -- not just claim
+        # it in the deliverable. Skipped (as a skip, never as a pass) when the
+        # VectorCraft CLI is absent.
+        _lc_svg = tmp / "a46.svg"
+        _lc_svg.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">'
+            '<rect x="0" y="0" width="200" height="100" fill="#D3122A"/>'
+            '<circle cx="100" cy="50" r="30" fill="#F5B915"/></svg>', encoding="utf-8")
+        _lc_out = tmp / "a46-run"
+        _rc9, _d9 = _run_script("land_craft.py",
+                                ["--svg", str(_lc_svg), "--out", str(_lc_out),
+                                 "--profile", "print", "--bleed-mm", "3",
+                                 "--pdf-standard", "pdfX1a", "--json"])
+        _x = _d9.get("data") or {}
+        if _d9.get("errors") and any(e.get("code") == "E-CAPABILITY-MISSING"
+                                    for e in _d9["errors"]):
+            add("A46-craft-only-landing", None, "VectorCraft CLI unavailable", skipped=True)
+        else:
+            _px = _x.get("pdf_x") or {}
+            _ok46 = (_rc9 == 0 and _x.get("h1_pass") is True
+                     and _x.get("raster") == 0 and _x.get("placed") == 0
+                     and (_x.get("paths") or 0) > 0
+                     and _px.get("gts_pdfx", 0) >= 1
+                     and _px.get("output_intents", 0) >= 1
+                     and bool(_px.get("trimbox")) and bool(_px.get("bleedbox"))
+                     # two shapes on a 200x100 artboard: page content carries
+                     # tens of operators. Counting ICC/font streams as page
+                     # content inflates this into the hundreds (P3-6), so the
+                     # ceiling is what makes the guard non-vacuous.
+                     and 0 < _px.get("cmyk_ops", 0) <= 100
+                     and _px.get("colour_ops", 0) > 0
+                     and not _x.get("unverified"))
+            # the delivery manifest is the client-facing contract: it must
+            # pass the schema shipped in the same package, not only look right
+            _sch = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "schema_check.py"),
+                 str(ROOT / "references" / "schemas" / "deliverable.schema.json"),
+                 str(_lc_out / "deliverable.json"), "--json"],
+                capture_output=True, text=True)
+            _ok46 = _ok46 and _sch.returncode == 0
+            add("A46-craft-only-landing", _ok46,
+                "h1=" + str(_x.get("h1_pass")) + " paths=" + str(_x.get("paths"))
+                + " GTS=" + str(_px.get("gts_pdfx")) + " OI=" + str(_px.get("output_intents"))
+                + " cmyk=" + str(_px.get("cmyk_ops")) + " schema=" + str(_sch.returncode == 0)
+                + " unverified=" + str(_x.get("unverified")))
+    except Exception as e:                          # noqa: BLE001
+        for _id in ("A42-delight-flattens-lighting",
+                    "A43-export-print-dimensions",
+                    "A44-trace-ref-contract",
+                    "A45-uniform-error-envelope",
+                    "A46-craft-only-landing"):
+            if not any(x["id"] == _id for x in a):
+                add(_id, False, type(e).__name__ + ": " + str(e)[:140])
+
     # optional: fixtures regression (now includes the six v1.3 samples)
     if args.fixtures:
         frc, fenv, _ = _call("run_fixtures.py", ["--json", "--log-dir", str(log_dir)], tmp)

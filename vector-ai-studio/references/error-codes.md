@@ -39,6 +39,11 @@
 | `E-SEMI-MANUAL-NOT-ALLOWED` | 未确认 COM 不可用却要求半自动路径 | land_ai |
 | `E-SMOKE-NO-SAMPLE` | 冒烟缺少内置样例 SVG | smoke_ai |
 | `E-XML` | SVG XML 解析失败 | sanitize_svg |
+| `E-CAPABILITY-MISSING` | 所需引擎不可用（VectorCraft CLI 缺失），显式降级而非静默成功 | export_print, trace_ref |
+| `E-DELIGHT-EMPTY` | 去光照找不到主体像素（掩膜为空） | delight |
+| `E-RENDER` | 矢量转位图失败（引擎返回非零或未产出文件） | export_print |
+| `E-TRACE` | 参考图描摹失败（引擎报错或未产出文件） | trace_ref |
+| `E-USAGE` | 参数非法（取值越界 / 缺少必填 / 扩展名不支持） | delight, export_print, trace_ref |
 
 ## 约定
 

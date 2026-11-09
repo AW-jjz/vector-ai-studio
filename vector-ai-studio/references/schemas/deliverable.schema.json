@@ -88,6 +88,22 @@
         "has_ai_private": {
           "type": "boolean"
         },
+        "has_aiprivatedata1_marker": {
+          "type": "boolean",
+          "description": "same value as has_ai_private; names the byte fact rather than a licensing claim"
+        },
+        "fonts_embedded": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "embedded font programs counted by /FontFile, /FontFile2, /FontFile3 without prefix double-counting"
+        },
+        "output_condition": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "/OutputConditionIdentifier read back from the print PDF"
+        },
         "device_rgb": {
           "type": "integer",
           "minimum": 0
@@ -123,7 +139,7 @@
             "object",
             "null"
           ],
-          "description": "可解码内容流里的颜色算子计数；全部不可解码时为 null",
+          "description": "页面内容流（/Contents 引用与 /Subtype /Form）里的颜色算子计数；ICC、字体程序、CMap 等二进制流不计入",
           "properties": {
             "rg": {
               "type": "integer",
