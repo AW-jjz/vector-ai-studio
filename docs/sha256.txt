@@ -54,5 +54,6 @@ sha256        : 30855c2b58d8e05366b59811cdc7d0f6d0c2b4e520cda2e898e54100e99f0e79
                 r24 → 03-源码/_dev-logs/superseded/vector-ai-studio_r24-54files_SUPERSEDED_20261108-2218.zip
                 r23 是更早的已签收版本（2f0d95ac8c3d），已由 r27 取代
 
-远端状态      : r27 已推送（发布提交 d1ec783cd1a0，docs 补记 b3678cfc293f）。
-                r29 尚未推送，待 QA 第 22 轮签收。
+远端状态      : r29 已推送（发布提交 d94a055，父 b3678cfc293f）。
+                回读校验：从远端重新 clone（--depth 1）后与签收包逐文件比 md5 ——
+                54/54 全等，missing/extra/diff 均为空；docs 三件与 05-发布/ 同文。
