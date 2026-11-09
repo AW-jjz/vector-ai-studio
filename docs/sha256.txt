@@ -134,4 +134,6 @@ sha256        : 890be4fbce5ae42aa624560e549d54e74ccbd4ee4aece77922ff59b4def638c6
 
 已知限制      : 同 r34；另 JPEG 输出近白像素非逐字节不变（脚本已 warning，推荐 PNG）
 
-远端状态      : 推送后回读，见本节末与 git log。
+远端状态      : 已推送，发布提交 **107ccb2**（父 2c6f875，2026-11-09 23:5x）。
+                回读校验：从远端 clone --depth 1，与 r35 发布包逐文件比 md5 —— 58/58 全等，
+                missing/extra/diff 均为空；docs 三件（发布说明 / sha256 / RELEASE-SOP）与本地同文。
