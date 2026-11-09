@@ -52,4 +52,9 @@ sha256        : de19695334728b107c3a0d3a21cd386c78da422f23496f8ccf543d58567d0158
 被替换的旧包  : r26 → 03-源码/_dev-logs/superseded/vector-ai-studio_r26-54files_SUPERSEDED_20261109-1216.zip
                 r25 → 03-源码/_dev-logs/superseded/vector-ai-studio_r25-54files_SUPERSEDED_20261108-2325.zip
                 r24 → 03-源码/_dev-logs/superseded/vector-ai-studio_r24-54files_SUPERSEDED_20261108-2218.zip
-                r23 仍是远端已签收版本（2f0d95ac8c3d），本次未动
+                r23 曾是远端版本（2f0d95ac8c3d），已被 r27 取代
+
+远端状态      : r27 已于 2026-11-09 13:06 推送至 AW-jjz/vector-ai-studio，
+                发布提交 d1ec783cd1a0（61 文件：54 技能文件 + README/LICENSE/docs 三件 +
+                .gitignore/.gitattributes）；推送后回读校验 missing / extra / diff 全 none。
+                本行是在该提交之后补记的，故仓库 HEAD 可能晚于该提交。
