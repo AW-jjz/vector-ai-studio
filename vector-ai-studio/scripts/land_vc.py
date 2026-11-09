@@ -148,6 +148,24 @@ def parse_jsonl(out):
     return steps
 
 
+def _font_warnings(src):
+    """Warnings for fonts the CLI had to substitute.
+
+    The answer is shaped {family, missing, resolved:{family}} per font; keeping
+    it in a function (rather than inline in main) is what lets a guard assert
+    the customer-visible sentence without an engine installed. A substituted
+    font changes the glyphs the client sees and is invisible in file size, path
+    counts and layer counts alike -- so it is carried verbatim, not summarised.
+    """
+    out = []
+    for f in ((src or {}).get("fonts") or []):
+        if f.get("missing"):
+            resolved = ((f.get("resolved") or {}).get("family")) or "未知替代字体"
+            out.append("源文件字体缺失：" + str(f.get("family")) + "，产物中已用 " +
+                       resolved + " 替代（客户看到的字形与你设计的不同）")
+    return out
+
+
 def _build_deliverable(ai_path, profile_name, prof, obs, kv, ver_text, steps, src):
     """Assemble deliverable.json from measured parts.
 
@@ -257,12 +275,7 @@ def main():
     deliverable = _build_deliverable(ai_path, args.profile, prof, obs, kv,
                                      _vout, steps, src)
 
-    for f in (src.get("fonts") or []):
-        if f.get("missing"):
-            resolved = ((f.get("resolved") or {}).get("family")) or "未知替代字体"
-            deliverable["warnings"].append(
-                "源文件字体缺失：" + str(f.get("family")) + "，产物中已用 " + resolved +
-                " 替代（客户看到的字形与你设计的不同）")
+    deliverable["warnings"].extend(_font_warnings(src))
     # The shared warning mentions a flag this engine does not have.
     deliverable["warnings"] = [
         (w.replace("（可用 --layers-from-groups 1）",

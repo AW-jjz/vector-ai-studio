@@ -54,7 +54,7 @@ run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言
 
 ## JSX / COM 落地与结构回读
 
-`../scripts/land_ai.py` 运行时替换 `../scripts/ai_bridge.jsx` 的四个占位符：`__SVG_PATH__` / `__OUT_PATH__` / `__OUTLINE_TEXT__` / `__RESULT_PATH__`（第四个供半自动回读收集）。经 `../scripts/ai_bridge.ps1` 的 COM 通道执行固定序列：打开 → 结构断言 → `saveAs()` 原生 `.ai` → 关闭 → 重开重读计数。返回 `OK|...|raster=0|placed=0|artboard=WxH|viewBox=...` 或显式 `ERROR:`。第四个占位符是为半自动路径兑现 H1 而加的实现扩展，不改判据。
+`../scripts/land_ai.py` 运行时替换 `../scripts/ai_bridge.jsx` 的四个占位符：`__SVG_PATH__` / `__OUT_PATH__` / `__OUTLINE_TEXT__` / `__RESULT_PATH__`（第四个供半自动回读收集）。经 `../scripts/ai_bridge.ps1` 的 COM 通道执行固定序列：打开 → 结构断言 → `saveAs()` 原生 `.ai` → 关闭 → 重开重读计数。返回 `OK|...|raster=0|placed=0|artboard=WxH|viewBox=...` 或显式 `ERROR:`。第四个占位符是为半自动路径兑现 H1 而加的实现扩展，不改判据。保存选项与自动路径同源——两条分支都传 `_resolve_options()` 的结果，因此 `--profile` / `--embed-icc` 等对半自动同样生效（r28 修正：此前半自动分支漏传，固定落回 screen 默认值）。
 
 ## L0–L5 → 脚本行为映射
 

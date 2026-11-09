@@ -414,7 +414,14 @@ def _ensure_preview(run_dir, svg):
         return False
 
 
-def main():
+def _build_parser():
+    """The command line as data.
+
+    selftest drives this same parser, so a default that drifts cannot
+    diverge from what the guard feeds _resolve_options(). Before r28 the
+    guard hand-built a namespace: QA round 20 (M48/M49) changed the real
+    defaults and A36 stayed green.
+    """
     ap = argparse.ArgumentParser(description="land native .ai + four artifacts")
     ap.add_argument("--svg", default="")
     ap.add_argument("--out", required=True)
@@ -434,7 +441,11 @@ def main():
     ap.add_argument("--semi-manual", action="store_true")
     ap.add_argument("--run-id", default="")
     ap.add_argument("--json", action="store_true")
-    args = ap.parse_args()
+    return ap
+
+
+def main():
+    args = _build_parser().parse_args()
 
     save_opts = _resolve_options(args)
     save_opts["profile"] = args.profile
@@ -505,7 +516,8 @@ def main():
     if com == "MISSING" or (com == "UNVERIFIED" and args.semi_manual):
         if args.semi_manual:
             jsx = _make_jsx(final_svg.resolve(), (run_dir / "final.ai").resolve(),
-                            args.outline_text == "1", (run_dir / "manual-result.txt").resolve())
+                            args.outline_text == "1",
+                            (run_dir / "manual-result.txt").resolve(), save_opts)
             L.write_text_atomic(run_dir / "manual-bridge.jsx", jsx)
             L.write_text_atomic(run_dir / "MANUAL-STEPS.md", MANUAL_STEPS)
             _ensure_preview(run_dir, final_svg)

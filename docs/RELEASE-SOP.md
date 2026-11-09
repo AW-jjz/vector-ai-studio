@@ -44,7 +44,7 @@ python <toolkit>/scripts/package_skill.py  --platform workbuddy --channel market
 ## 三、发布前的四道闸，缺一不可
 
 ```
-selftest.py --fixtures    期望 39/39（不带 --fixtures 为 38/38）
+selftest.py --fixtures    期望 41/41（不带 --fixtures 为 40/40）
 run_fixtures.py           期望 24/24
 validate_skill.py         期望 0 error / 0 warning
 zip ↔ 冻结基线 双向 md5   期望缺失 0 / 多余 0 / 差异 0

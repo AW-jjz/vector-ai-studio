@@ -1047,16 +1047,26 @@ def main():
         # reading it there, M42 stopped substituting it into the JSX -- each
         # kept this line green while the JSX told Illustrator EMBED_ICC=0 and
         # the manifest still claimed true.
-        class _Args36:
-            profile = "print"
-            compat = ""
-            pdf_compatible = ""
-            embed_icc = ""
-            cmyk = ""
-            layers_from_groups = ""
-            bleed_mm = ""
-
-        _opts_ai36 = _la36._resolve_options(_Args36())
+        # The args come from the parser a user drives, not a hand-written
+        # namespace: QA round 20 (M48/M49) changed the real defaults and this
+        # line stayed green. parse_args also proves "--profile print" is a
+        # choice the CLI accepts.
+        _parser36 = _la36._build_parser()
+        _args36 = _parser36.parse_args(
+            ["--out", str(tmp / "a.ai"), "--profile", "print"])
+        # The documented defaults are part of the contract: "--profile screen"
+        # is what a user gets with no flags. QA round 20's M49 changed that
+        # default and every guard stayed green, because the old guard built its
+        # own namespace and never looked at the parser.
+        _def36 = _parser36.parse_args(["--out", str(tmp / "a.ai")])
+        _def_ok36 = (_def36.profile == "screen" and _def36.embed_icc == ""
+                     and _def36.cmyk == "" and _def36.pdf_compatible == "")
+        _opts_ai36 = _la36._resolve_options(_args36)
+        # main() copies the profile onto the opts at land_ai.py:441; without it
+        # the AI half reports profile="" while the VC half reports "print"
+        # (QA round 20, Q20-4: the detail line claimed "same profile" and no
+        # assertion looked at the field).
+        _opts_ai36["profile"] = _args36.profile
         _d_ai = _la36._deliverable(
             tmp / "a.ai", _opts_ai36, _obs36, _kv36,
             engine="illustrator", engine_version="28.3.0")
@@ -1079,6 +1089,8 @@ def main():
                  and _d_ai["save_options"]["embed_icc"] is True
                  and _d_vc["save_options"]["embed_icc"] is True
                  and _jsx_icc36
+                 and _def_ok36
+                 and _d_ai["profile"] == _d_vc["profile"] == "print"
                  and not any("未嵌入 ICC" in x for x in _d_ai["warnings"])
                  and not any("未嵌入 ICC" in x for x in _d_vc["warnings"]))
         add("A36-cross-engine-unverified-bucket", _ok36,
@@ -1086,7 +1098,8 @@ def main():
             + " vc.unverified=" + str(len(_u_vc))
             + " embed_icc=" + str((_d_ai["save_options"]["embed_icc"],
                                    _d_vc["save_options"]["embed_icc"]))
-            + " jsx_icc=" + str(_jsx_icc36))
+            + " jsx_icc=" + str(_jsx_icc36)
+            + " defaults=" + str(_def_ok36))
 
         # A37: a warning emitted by three steps must appear once, and the
         # deliverable must carry that exact de-duplicated list (not a second
@@ -1137,34 +1150,253 @@ def main():
 
         # A39: probe_source is the only place the CLI's "which fonts did you
         # substitute" answer enters the manifest -- invisible in file size, path
-        # counts and layer counts alike. QA round 19's M44 made it return
-        # {"available": False} unconditionally; every assertion stayed green, so
-        # a client whose Helvetica was swapped would read "no findings". The CLI
-        # is faked here: this layer must run with no engine installed.
+        # counts and layer counts alike. Two rounds of QA broke the first
+        # version of this guard: M44 (return unavailable unconditionally) was
+        # caught, but the payload was invented ({"name", "status":
+        # "substituted"}), so land_vc's consumer -- `if f.get("missing")` -- had
+        # no coverage at all (QA round 20, M50/M51), and the two error branches
+        # could be flipped to available=True unnoticed (M45/M53). The payload
+        # below is a trimmed copy of real `vectorcraft info` output.
         _real_run_cli39 = _lv36.run_cli
 
-        def _fake_run_cli39(cli, argv, timeout=300):
-            return 0, json.dumps({
-                "fonts": [{"name": "Helvetica", "status": "substituted"}],
-                "importWarnings": ["font substituted: Helvetica"],
-                "info": {"objects": 12, "colorMode": "CMYK"}}), ""
+        def _fake39(payload, rc=0):
+            def _run(cli, argv, timeout=300):
+                return rc, payload, ""
+            return _run
 
+        _font39 = {"family": "DefinitelyMissingFontXYZ", "style": "Regular",
+                   "status": "missing", "missing": True, "missingGlyphs": 0,
+                   "objects": 1, "runs": 1,
+                   "resolved": {"family": "Source Sans 3", "style": "Regular"}}
+        _payload39 = json.dumps({"fonts": [_font39],
+                                 "importWarnings": ["font substituted: DefinitelyMissingFontXYZ"],
+                                 "info": {"objects": 12, "colorMode": "CMYK"}})
         try:
-            _lv36.run_cli = _fake_run_cli39
+            _lv36.run_cli = _fake39(_payload39)
             _p39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+            _w39 = _lv36._font_warnings(_p39)
+            # The CLI omits `resolved` when it could not name a replacement; the
+            # fallback text is then what a client reads, so it is asserted too.
+            _lv36.run_cli = _fake39(json.dumps({
+                "fonts": [{"family": "NoResolveFont", "status": "missing", "missing": True}],
+                "importWarnings": [], "info": {"objects": 1, "colorMode": "CMYK"}}))
+            _p39b = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+            _w39b = _lv36._font_warnings(_p39b)
+            _lv36.run_cli = _fake39("boom", rc=1)
+            _rc39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+            _lv36.run_cli = _fake39("this is not json")
+            _js39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
         finally:
             _lv36.run_cli = _real_run_cli39
+        # Matched by regex + groups, not by exact text: QA round 21 found that
+        # a punctuation change turns an exact-string check red for a reason no
+        # client would ever notice. The substance -- which font, replaced by
+        # what -- is what the assertion is about.
+        _pat39 = r"源文件字体缺失：(.+?)，产物中已用 (.+?) 替代"
+        _m39 = re.search(_pat39, _w39[0]) if _w39 else None
+        _m39b = re.search(_pat39, _w39b[0]) if _w39b else None
         _ok39 = (_p39.get("available") is True
-                 and _p39.get("fonts") == [{"name": "Helvetica", "status": "substituted"}]
-                 and _p39.get("import_warnings") == ["font substituted: Helvetica"])
-        add("A39-font-probe-carried", _ok39, "probe=" + str(_p39)[:140])
+                 and _p39.get("fonts") == [_font39]
+                 and _p39.get("import_warnings") == ["font substituted: DefinitelyMissingFontXYZ"]
+                 and _p39.get("objects") == 12
+                 and _p39.get("color_mode") == "CMYK"
+                 and _m39 is not None
+                 and _m39.group(1) == "DefinitelyMissingFontXYZ"
+                 and _m39.group(2) == "Source Sans 3"
+                 and _m39b is not None
+                 and _m39b.group(1) == "NoResolveFont"
+                 and _m39b.group(2) == "未知替代字体"
+                 and _rc39.get("available") is False
+                 and _js39.get("available") is False)
+        add("A39-font-probe-carried", _ok39,
+            "available=" + str(_p39.get("available"))
+            + " fonts=" + str(len(_p39.get("fonts") or []))
+            + " warn=" + str(len(_w39))
+            + " fallback=" + str(len(_w39b))
+            + " family=" + str(_m39.group(1) if _m39 else None)
+            + " rc_branch=" + str(_rc39.get("available"))
+            + " nonjson=" + str(_js39.get("available")))
+
+        # Module-wide, value-flow based, and write-aware. QA round 21 showed
+        # the r28 guard could be walked around three ways (the call moved into a
+        # helper outside main(); a stray write into save_opts; a lookup through
+        # globals()) and false-red on four legitimate shapes (renaming the
+        # variable, passing a copy, passing an alias). The rules below keep the
+        # promise without freezing the spelling:
+        #   * every _make_jsx / _deliverable call in the module must receive an
+        #     argument that still carries the resolved options;
+        #   * that argument may be an alias or a copy -- what must not happen is
+        #     a DIFFERENT value (PROFILE_DEFAULTS["screen"], a literal, ...);
+        #   * nothing may write into the resolved options afterwards, except
+        #     the one documented line that copies the profile name onto it.
+        import ast as _ast
+        _tree40 = _ast.parse((SCRIPTS / "land_ai.py").read_text(encoding="utf-8"))
+        _assigns40 = {}
+        for _n in _ast.walk(_tree40):
+            if isinstance(_n, _ast.Assign) and len(_n.targets) == 1:
+                _t = _n.targets[0]
+                if isinstance(_t, _ast.Name):
+                    _assigns40.setdefault(_t.id, []).append(_n.value)
+
+        def _carries40(name, depth=0):
+            """True when this name still holds the resolved options."""
+            if depth > 6 or name not in _assigns40:
+                return False
+            for _v in _assigns40[name]:
+                if isinstance(_v, _ast.Call):
+                    _fn = getattr(_v.func, "id", "")
+                    if _fn == "_resolve_options":
+                        continue
+                    if _fn in ("dict", "list") and _v.args and isinstance(_v.args[0], _ast.Name) \
+                            and _carries40(_v.args[0].id, depth + 1):
+                        continue
+                    return False
+                if isinstance(_v, _ast.Name):
+                    if _carries40(_v.id, depth + 1):
+                        continue
+                    return False
+                if isinstance(_v, _ast.Attribute) and _v.attr == "copy" \
+                        and isinstance(_v.value, _ast.Name) \
+                        and _carries40(_v.value.id, depth + 1):
+                    continue
+                return False
+            return True
+
+        def _arg_carries40(arg, depth=0):
+            """Does this argument still carry the resolved options?
+
+            A plain name, an alias, or a copy of them all do. A DIFFERENT value
+            (PROFILE_DEFAULTS["screen"], a literal, a fresh dict) does not.
+            """
+            if depth > 6:
+                return False
+            if isinstance(arg, _ast.Name):
+                return _carries40(arg.id, depth)
+            if isinstance(arg, _ast.Call):
+                _fn = getattr(arg.func, "id", "")
+                if _fn in ("dict", "list") and arg.args and isinstance(arg.args[0], _ast.Name):
+                    return _carries40(arg.args[0].id, depth + 1)
+                return False
+            if isinstance(arg, _ast.Attribute) and arg.attr == "copy" \
+                    and isinstance(arg.value, _ast.Name):
+                return _carries40(arg.value.id, depth + 1)
+            return False
+
+        _site40 = {"resolved_from_options": bool([n for n in _assigns40 if _carries40(n)]),
+                   "profile_copied": False, "writes_after_resolve": [],
+                   "dynamic_dispatch": [],
+                   "make_jsx": [0, 0], "deliverable": [0, 0]}  # [calls, wired_calls]
+        for _n in _ast.walk(_tree40):
+            if isinstance(_n, _ast.Assign) and len(_n.targets) == 1:
+                _t = _n.targets[0]
+                if isinstance(_t, _ast.Subscript) \
+                        and isinstance(_t.value, _ast.Name) \
+                        and _carries40(_t.value.id):
+                    _is_profile = (isinstance(_n.value, _ast.Attribute)
+                                   and _n.value.attr == "profile"
+                                   and isinstance(_n.value.value, _ast.Name)
+                                   and _n.value.value.id == "args")
+                    if _is_profile:
+                        _site40["profile_copied"] = True
+                    else:
+                        _site40["writes_after_resolve"].append(_ast.unparse(_t))
+            if isinstance(_n, _ast.Call):
+                _fn = getattr(_n.func, "id", "")
+                # A call the scanner cannot attribute (globals()["_make_jsx"]...)
+                # would simply stop being counted, so dynamic dispatch is
+                # refused outright: QA round 21's B8 walked straight past the
+                # r28 guard this way.
+                if _fn in ("globals", "eval", "exec", "getattr"):
+                    _site40["dynamic_dispatch"].append(_ast.unparse(_n))
+                if _fn in ("_make_jsx", "_deliverable"):
+                    _site40[_fn.lstrip("_")][0] += 1
+                    for _a in _n.args:
+                        if _arg_carries40(_a):
+                            _site40[_fn.lstrip("_")][1] += 1
+                            break
+        _ok40 = (_site40["resolved_from_options"] and _site40["profile_copied"]
+                 and not _site40["writes_after_resolve"]
+                 and not _site40["dynamic_dispatch"]
+                 and _site40["make_jsx"][0] > 0
+                 and _site40["make_jsx"][1] == _site40["make_jsx"][0]
+                 and _site40["deliverable"][0] > 0
+                 and _site40["deliverable"][1] == _site40["deliverable"][0])
+        add("A40-module-call-site-wiring", _ok40, "static: " + str(_site40))
+
+        # A41: E is the one dimension that is a set comparison with its own
+        # thresholds, and until r28 every fixture recorded E="N/A" -- the branch
+        # that computes Jaccard had never run in any test (QA round 20 found the
+        # gap while reviewing what E covers). Three cases: an exact reference
+        # must score excellent, a disjoint one must fail, no reference must stay
+        # N/A (L5: restricted capability, not a silent pass).
+        # The reference is written out by hand from reading sample.svg, NOT
+        # produced by score.py's own extractor: QA round 21 showed that a
+        # reference built from _svg_tokens() passes even when the extractor is
+        # broken (both sides rot together). The expected Jaccard values below
+        # are hand-computed from the intersection/union definition.
+        _svg41 = FIX / "good" / "sample.svg"
+        _exact41 = {"schema": "vector-ai-studio/reference-v1",
+                    "palette": ["#111111", "#2f6fed", "#ffb020", "#ffffff"],
+                    "stroke_width": ["3.0"], "corner_radius": [], "font_family": []}
+        # 2 of 4 palette colours hit, stroke identical, the two empty buckets
+        # deliberately non-empty in the reference so their Jaccard is 0.
+        _partial41 = {"schema": "vector-ai-studio/reference-v1",
+                      "palette": ["#2f6fed", "#ffb020"], "stroke_width": ["3.0"],
+                      "corner_radius": ["4.0"], "font_family": ["SomeFont"]}
+        # Everything identical except the palette (2 of 4): the average 0.875 is
+        # above the excellent threshold, so only the palette rule can keep this
+        # from being excellent. QA round 21's D7 deleted that rule and went
+        # unnoticed.
+        _half41 = {"schema": "vector-ai-studio/reference-v1",
+                   "palette": ["#2f6fed", "#ffb020"], "stroke_width": ["3.0"],
+                   "corner_radius": [], "font_family": []}
+        _ref41 = tmp / "ref_exact.json"
+        _pre41 = tmp / "ref_partial.json"
+        _pha41 = tmp / "ref_half.json"
+        L.write_json_atomic(_ref41, _exact41)
+        L.write_json_atomic(_pre41, _partial41)
+        L.write_json_atomic(_pha41, _half41)
+        _common41 = ["--svg", str(_svg41), "--judge", str(FIX / "good" / "judge.json"),
+                     "--spec", str(FIX / "good" / "spec.json"), "--json"]
+        _e41 = {}
+        for _name41, _ref41p in (("exact", _ref41), ("partial", _pre41), ("half", _pha41)):
+            _rc41, _env41, _ = _call("score.py", _common41 + ["--reference", str(_ref41p)], tmp)
+            _e41[_name41] = ((_env41.get("data") or {}).get("scores") or {}).get("E")
+        _rc41n, _env41n, _ = _call("score.py", _common41, tmp)
+        _e41["none"] = ((_env41n.get("data") or {}).get("scores") or {}).get("E")
+        _th41 = L.load_thresholds()
+        _lv41 = _th41["score_levels"]
+        _ex41 = _e41["exact"] if isinstance(_e41["exact"], dict) else {}
+        _pa41 = _e41["partial"] if isinstance(_e41["partial"], dict) else {}
+        _ha41 = _e41["half"] if isinstance(_e41["half"], dict) else {}
+        _jac41 = (_ex41.get("measured") or {}).get("jaccard", {})
+        _n_tok41 = len(_th41["E"]["tokens"])
+        _ok41 = (_ex41.get("score") == _lv41["excellent"]
+                 and len(_jac41) == _n_tok41 == 4
+                 and set(_jac41.values()) == {1.0}
+                 # partial: 2/4 palette = 0.5, stroke = 1.0, two empty buckets = 0
+                 and (_pa41.get("measured") or {}).get("jaccard") == {
+                     "palette": 0.5, "stroke_width": 1.0,
+                     "corner_radius": 0.0, "font_family": 0.0}
+                 and abs(float((_pa41.get("measured") or {}).get("average", -1)) - 0.375) < 1e-9
+                 and _pa41.get("score") == _lv41["fail"]
+                 # half: average 0.875 >= excellent threshold, palette 0.5 < 1.0
+                 # -> must be pass, not excellent
+                 and _ha41.get("score") == _lv41["pass"]
+                 and _e41["none"] == "N/A")
+        add("A41-brand-reference-jaccard", _ok41,
+            "E exact=" + str(_ex41.get("score")) + " partial=" + str(_pa41.get("score"))
+            + " half=" + str(_ha41.get("score")) + " none=" + str(_e41["none"])
+            + " tokens=" + str(len(_jac41)))
     except Exception as e:                      # noqa: BLE001
         # Only fill in assertions that never ran. Re-adding an ID that already
         # produced a result would give one guard two contradictory verdicts.
         for _id in ("A36-cross-engine-unverified-bucket",
                     "A37-tool-warnings-deduplicated",
                     "A38-engine-version-parser",
-                    "A39-font-probe-carried"):
+                    "A39-font-probe-carried",
+                    "A40-main-call-site-wiring",
+                    "A41-brand-reference-jaccard"):
             if not any(x["id"] == _id for x in a):
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])
 
