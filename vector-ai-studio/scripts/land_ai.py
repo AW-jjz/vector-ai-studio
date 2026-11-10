@@ -644,8 +644,13 @@ def _landing(automation, status, note, ai_produced, h1_pass, extra=None):
 
 def _ensure_preview(run_dir, svg):
     png = run_dir / "preview.png"
-    if png.is_file() and png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n":
-        return True
+    # The header check is part of the same best-effort step: a locked or
+    # unreadable file must not fail a landing whose .ai is already on disk.
+    try:
+        if png.is_file() and png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n":
+            return True
+    except OSError:
+        pass
     try:
         r = subprocess.run([sys.executable, str(SCRIPTS / "render_png.py"),
                             "--in", str(svg), "--out", str(png)],
@@ -839,8 +844,15 @@ def main():
                       run_id=args.run_id,
                       errors=[L.err("E-H1-STRUCTURE", "JSX did not return OK: " + line[:160])])
     # Copy the real native .ai produced by saveAs() back into the run dir.
-    if ws_ai.is_file() and ws_ai.stat().st_size > 0:
-        shutil.copyfile(ws_ai, run_dir / "final.ai")
+    # OK from the JSX is not enough: without this run's file, a leftover
+    # final.ai from an earlier run would be measured and shipped as new.
+    if not (ws_ai.is_file() and ws_ai.stat().st_size > 0):
+        return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
+                      run_id=args.run_id,
+                      errors=[L.err("E-H1-STRUCTURE",
+                                    "JSX returned OK but wrote no .ai; refusing to reuse "
+                                    "an older final.ai in the run dir")])
+    shutil.copyfile(ws_ai, run_dir / "final.ai")
     sd = _structure_doc(kv, sig, "auto")
     L.write_json_atomic(run_dir / "structure_readback.json", sd)
 
