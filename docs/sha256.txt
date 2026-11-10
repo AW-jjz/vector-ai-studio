@@ -1489,3 +1489,54 @@ sha256        : cf4ea0bb14fffbe92c4278ab76eb5ead0314cd50b98852ef7fed25e35d93320c
                 3) validate_skill.py 期望 0 error / 0 warning
                 4) get-filehash 发布包，sha256 应为 cf4ea0bb…330c（256,311 B）
 
+
+────────────────────────────────────────────────────────────
+r58（2026-11-10）　同一份 PDF 只能有一个计数口径
+────────────────────────────────────────────────────────────
+版本          : r58
+文件数        : 95
+字节数        : 256888
+sha256        : b3fec47f62de08a030778ce9bf302185ee7b6d09de9961a77302f47fc2ab801a
+冻结时刻      : 2026-11-10（04-QA/test-log-r58/r58-00-changed-sha256.txt，5 行）
+
+变更范围      : 5 个文件，无新增、无删除
+                scripts/lib_pdf.py         25930 → 26000 B
+                scripts/land_craft.py      19123 → 18970 B
+                scripts/selftest.py       146253 → 147356 B
+                references/schemas/deliverable.schema.json 16740 → 16858 B
+                references/pipeline-contract.md 27924 → 28075 B
+
+本轮修复    : lib_pdf._observe_ai 用 /OutputIntent 正则统计时，把目录数组
+              /OutputIntents 也计为一次意图；land_craft 早已用 (?![s]) 排除。
+              结果是同一个文件在 deliverable 里出现两个数字：
+              observed.output_intent=2 而 observed.print_pdf 侧=1。
+              现把四项声明色资源计数抽成 lib_pdf._object_counts(raw)，
+              两个 lander 共用；land_craft 的 print_pdf 键随之改名
+              （OutputIntent/DeviceRGB/DeviceCMYK/ICCBased → output_intent/
+              device_rgb/device_cmyk/iccbased），与 observed 同名同义。
+
+本轮新增    : A29 增加 intent 子句：合成 PDF（一个 /Type /OutputIntent 对象
+              + 一个 /OutputIntents 目录数组）要求 _object_counts、
+              _observe_ai、_pdf_facts 三处都得 1，且 output_intent_objects=1
+
+实测证据      : selftest 57/0/0（不带 --fixtures；cwd_independent=true）
+                validate_skill exit 0 / 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 256888 B / b3fec47f…）
+                真机 smoke --run-id r58-pdfcount：ok / ai_produced / h1_pass
+                变异：去掉 (?![s]) → 56/1，A29 红，detail intent=2/2/1
+                证据目录 04-QA/test-log-r58/
+
+已知限制      : 1) 本机 smoke 走 screen 档，没有真实 PDF/X 产物复测；print 档
+                   计数已共用同一函数，但只用合成样本覆盖
+                2) selftest.py 的 main() 仍是单函数长流程（未拆分）
+                3) 两名真人外部评审未回收，usable_for_claim 恒为假
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 r58-00-changed-sha256.txt 比对 5/5
+                2) python scripts/selftest.py 期望 57/57；带 --fixtures 期望 58/58
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 b3fec47f…801a（256,888 B）
+
+
+推送记录      : 发布提交 bc1834a（父 880ab53，5 files changed / +64 -27）
+                回读 clone --depth 1：local=95 remote=95 missing=0 extra=0 diff=0
+                证据 04-QA/test-log-r58/r58-06-readback.txt
