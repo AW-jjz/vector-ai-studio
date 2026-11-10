@@ -1591,3 +1591,43 @@ sha256        : 43e30a3a4afa6fe17f166a1eac7d534cf2bb94b69e3ad5c2c068dd764f8c8123
 
 已推送发布提交 `103bccb`（父 `9b82f6c`）；`clone --depth 1` 回读 95/95 全等，missing / extra / diff 皆空（`04-QA/test-log-r59/r59-07-readback.txt`）。
 
+
+────────────────────────────────────────────────────────────
+r60（2026-11-10）　selftest 再拆八块 + PDF/X 门禁变异 + r59 冻结勘误
+────────────────────────────────────────────────────────────
+版本          : r60
+文件数        : 95
+字节数        : 259478
+sha256        : 8fd64f21101f456b3816791bfaf5044263687e8102a46b001104de7a9b5039de
+冻结时刻      : 2026-11-10（04-QA/test-log-r60/r60-00-changed-sha256.txt）
+
+相对 r59 变更 : 1 个文件
+                scripts/selftest.py  be6ff09b…
+
+内容          : 1) main() 再提取 7 块为模块级检查函数（A49/A51/A52/A54/A55/
+                  A57/A58），加上 r59 的 A47 与 A56 组，共 9 个 _check_* 函数
+                2) _check_conformance 的 docstring 改正：实际含 A54/A55/A56/A59
+                   四块（r59 只写了 A56+A59，是错的描述）
+                3) 断言条数作为拆分的硬条件：两次 58→48 的误吞都由它发现并回滚
+
+勘误          : r59 冻结文件里 references/error-codes.md 记为 1f3b63d1…，
+                实际发布包内为 2329d818…。原因：该文件在冻结之后才因 validate
+                报 E-BROKEN-LINK 改为 ../scripts/smoke_ai.py。记录早于产物。
+                本轮按字节重新核对，smoke_ai.py 仍为 77d44617…（变异已还原）
+
+实测证据      : selftest 58/0/0（cwd_independent=true）
+                validate_skill 0 error / 0 warning
+                双打包 ×2 一致（95 文件 / 259478 B / 8fd64f21…）
+                smoke --print --run-id r60-final：ok / h1_pass / output_intent=1
+                变异 M1：output_intent>=2 → fail / E-PDFX-PROOF（真实 PDF/X 输入）
+                证据目录 04-QA/test-log-r60/
+
+已知限制      : 1) main() 仍余约 50 块未提取；已提取的 9 块均验证等价
+                2) 断言条数无内建守卫，只能靠人工比对 58
+                3) 外部真人评审 0 份，usable_for_claim 恒为假
+
+校验方式      : python scripts/selftest.py 期望 58/58；带 --fixtures 期望 59/59
+                get-filehash 发布包应为 8fd64f21…39de（259,478 B）
+
+已推送发布提交 `7b84268`（父 `7c17441`）；回读见下。
+
