@@ -23,7 +23,7 @@
 | `E-FABRICATED-SCORE` | L2 下出现数字分（伪造读图判读） | aggregate_log |
 | `E-FIXTURE-MISMATCH` | fixture 的期望值与实际结果不符 | run_fixtures |
 | `E-FORBIDDEN` | SVG 含禁用构造（filter / clipPath / use 等） | sanitize_svg |
-| `E-H1-STRUCTURE` | 结构回读失败（raster / placed / paths / 画板与 viewBox）；也用于两条「没有本次产物」的硬失败：自动路径暂存区无 `.ai`，半自动 `OK` 行路径不是本次 run 的 `output/<run-id>/final.ai` | land_ai, smoke_ai |
+| `E-H1-STRUCTURE` | 结构回读失败（raster / placed / paths / 画板与 viewBox）；也用于三条「没有本次产物」的硬失败：自动路径暂存区无 `.ai`，半自动 `OK` 行路径不是本次 run 的 `output/<run-id>/final.ai`，半自动 `output/<run-id>/manual-result.txt` 首行不是 `OK|` | land_ai, smoke_ai |
 | `E-H2-INCOMPLETE` | 四件产物不齐 | aggregate_log |
 | `E-INTERNAL` | 未预期异常（保留原始异常文本） | lib_common |
 | `E-JUDGE-SCHEMA` | 判读文件不符合 schema，且重试一次后仍失败 | llm_judge |

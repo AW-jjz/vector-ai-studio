@@ -604,7 +604,7 @@ sha256        : 0cd1e1ebe444cac526afff8a3ef429b657c635d44f15abdb2df3e49717b57b89
                 validate 0 error 0 warning · zip ↔ 基线 58/0/0/0 ·
                 重打 ×2 byte-identical 且 == 发布包 sha256
 
-变异与反例    : 半自动三态与「失败后旧读数残留」都是真实负向反例；
+变异与反例    : 半自动五态与「失败后旧读数残留」都是真实负向反例；
                 暂存目录用同一 %TEMP% 的前后存量作对照；
                 selftest 46 条与 run_fixtures 24 例都不覆盖这两条路径，计数不变。
 
@@ -625,3 +625,65 @@ sha256        : 0cd1e1ebe444cac526afff8a3ef429b657c635d44f15abdb2df3e49717b57b89
                 回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
                 58/58 全等，missing/diff 均为空；docs 三件同 md5。
                 详见 04-QA/test-log-r42/r42-08-远端回读.txt
+
+
+════════════════════════════════════════════════════════════════════
+r43（2026-11-10，版本 1.1.0，58 文件 / 196,957 B）— 当前候选
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 196,957 B
+sha256        : d4d45228d72cf2df6ee52ece9f13d4ef5c0b92c4eb3fb40086a3235984408c41
+对应冻结基线  : 04-QA/test-log-r43/00-freeze-r43-manifest.txt（58 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 14:27:30，538,811 B
+                清单 sha256 b70b078c3d020b107b44d4304476a1848a9cc2a800d65402de0fc223319643ca
+
+本版包含      : 清第 35 轮 QA 的 6 条 P3
+                · pipeline-contract 把「manual-result.txt 缺失」写成 status: fail，
+                  实现是 degraded / exit 3 → 按缺失与非 OK 行分述
+                · error-codes 的 E-H1-STRUCTURE 由「两条」改为三条，补
+                  「manual-result.txt 首行不是 OK|」
+                · _drop_stale_readback 返回布尔并记 landing.stale_readback_removed；
+                  删不掉时把旧 readback 改写为 ok: false，宁可 H1 判失败
+                · manual-result.txt 为 0 字节不再抛 IndexError → E-INTERNAL，
+                  改走同一条 fail 出口
+                · 自动路径四个失败出口统一 _mark_auto_failure：先删旧读数、
+                  再写 status: fail 的 landing（原先会把上一轮的 pass 留在原地）
+                · r42 证据里两处「半自动三态」改为五态
+
+相对 r42 变更 : 新增 0 / 删除 0 / 修改 3 / 其余 55 个 sha256 不变
+                references/error-codes.md 4,696 → 4,763 B
+                references/pipeline-contract.md 26,906 → 27,279 B
+                scripts/land_ai.py 46,334 → 48,207 B
+
+实测证据      : 半自动六态（前五态各预置上一轮 ok readback + ok landing）：
+                error-line / empty-result / wrong-path / missing-ai 均 exit 1 / fail /
+                E-H1-STRUCTURE / stale_readback_removed=True；no-result exit 3 /
+                degraded / 已清理；good exit 0 / degraded。
+                _mark_auto_failure：landing.status=fail、automation=auto、旧 readback 已删。
+                清理失败态（Path.unlink 强制抛 OSError）：返回 False，旧 readback 被改写为
+                {"ok": false, "stale": true}，H1 必判失败。
+                暂存目录：本轮运行前后均 8 个 vector-ai-bridge-*，最新仍是 13:29:22。
+                真机 r43-real：exit=0 / status=ok / final.ai 53,908 B（14:28:49）；
+                REAL_AI=1 复跑 46/0/0；两次历史 PDF 读数与 r38–r42 相同。
+
+四道闸        : selftest --fixtures 46/0/0 · run_fixtures 24/24 ·
+                validate 0 error 0 warning · zip ↔ 基线 58/0/0/0 ·
+                重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异与反例    : 六态探针与「unlink 失败改写 ok:false」都是真实负向反例；
+                selftest 46 条与 run_fixtures 24 例都不覆盖这些出口，计数不变。
+
+已知限制      : 自动路径失败时不删上一轮 final.ai：readback 已删、H1 必 fail，
+                但 H2 仍可能把它算作四件齐；不删是刻意的，保留「上一版交付了什么」。
+                其余同 r39–r42；半自动来源标注只到「路径由人工 JSX 断言」。
+
+独立 QA       : 第 36 轮复核：签收，P1/P2 = 0，P3×5 记入
+                04-QA/test-log-r43/r43-09-QA第36轮.txt
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r43-manifest.txt 比对，应 58/58
+                2) python scripts/selftest.py --fixtures 期望 46/46；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 d4d45228…0841（196,957 B）
+
+远端状态      : 未推送

@@ -643,19 +643,43 @@ def _landing(automation, status, note, ai_produced, h1_pass, extra=None):
 
 
 def _drop_stale_readback(run_dir):
-    """Every failed collect must drop the previous run's structure readback.
+    """Drop the previous run's structure readback; return True when gone.
 
     aggregate_log reads structure_readback.json and would grade a stale pass
-    for a run that just failed. Unlink errors are swallowed on purpose: the
-    fail landing written next is what downstream checks first, and turning a
-    locked file into E-INTERNAL would hide the real cause.
+    for a run that just failed. A locked file cannot be unlinked, so in that
+    case it is overwritten with an explicit failure: leaving the old pass in
+    place is the one outcome that must not happen. The caller records the
+    boolean in landing.json, because a silently failed cleanup used to look
+    exactly like a successful one.
     """
     stale = run_dir / "structure_readback.json"
     try:
         if stale.is_file():
             stale.unlink()
+        return True
     except OSError:
-        pass
+        try:
+            L.write_json_atomic(stale, {
+                "schema": "vector-ai-studio/structure-readback-v1",
+                "ok": False, "stale": True,
+                "source": "land_ai-stale-readback-cleanup-failed",
+            })
+        except OSError:
+            pass
+        return False
+
+
+def _mark_auto_failure(run_dir, note):
+    """Leave a fail landing and no stale readback before an early return.
+
+    The automatic path used to return on error while the previous run's
+    landing/readback stayed in the same directory, so aggregate_log could
+    still read a pass that this run never produced.
+    """
+    cleared = _drop_stale_readback(run_dir)
+    L.write_json_atomic(run_dir / "landing.json",
+                        _landing("auto", "fail", note, False, False,
+                                 {"stale_readback_removed": cleared}))
 
 
 def _ensure_preview(run_dir, svg):
@@ -731,11 +755,12 @@ def main():
     if args.collect:
         result_file = run_dir / "manual-result.txt"
         if not result_file.is_file():
-            _drop_stale_readback(run_dir)
+            cleared = _drop_stale_readback(run_dir)
             L.write_json_atomic(run_dir / "landing.json",
                                 _landing("semi-manual", "degraded",
                                          msg["semi_manual_note"], False, False,
-                                         {"manual_jsx": "manual-bridge.jsx"}))
+                                         {"manual_jsx": "manual-bridge.jsx",
+                                          "stale_readback_removed": cleared}))
             return L.emit(SCRIPT, status="degraded", code=L.EXIT_MISSING,
                           run_id=args.run_id,
                           data={"automation": "semi-manual", "ai_produced": False,
@@ -743,25 +768,30 @@ def main():
                           degradation={"level": "L4",
                                        "reason": "manual JSX not executed yet",
                                        "substitute": msg["semi_manual_note"]})
-        line = result_file.read_text(encoding="utf-8").strip().splitlines()[0]
+        # A truncated result file (the JSX opens it before writing) must fail
+        # like any other bad result, not raise IndexError on an empty list.
+        raw = result_file.read_text(encoding="utf-8").strip()
+        line = raw.splitlines()[0] if raw else ""
         kv = _parse_ok(line)
         if kv is None:
             # An ERROR: line from the JSX is the most likely failure, so it gets
             # the same stale-proofing as the path mismatch below.
-            _drop_stale_readback(run_dir)
+            cleared = _drop_stale_readback(run_dir)
+            detail = line[:160] or "<empty result file>"
             L.write_json_atomic(run_dir / "landing.json",
                                 _landing("semi-manual", "fail",
                                          "manual JSX did not return an OK line",
                                          False, False,
                                          {"manual_jsx": "manual-bridge.jsx",
                                           "manual_result": "manual-result.txt",
-                                          "manual_result_line": line[:160]}))
+                                          "manual_result_line": detail,
+                                          "stale_readback_removed": cleared}))
             return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
                           run_id=args.run_id,
                           data={"automation": "semi-manual",
                                 "structure_readback": None,
-                                "manual_result_line": line[:160]},
-                          errors=[L.err("E-H1-STRUCTURE", "manual JSX returned: " + line[:160])])
+                                "manual_result_line": detail},
+                          errors=[L.err("E-H1-STRUCTURE", "manual JSX returned: " + detail)])
         # The OK line names the file the JSX actually saved. Existence alone
         # proved nothing: a leftover final.ai satisfied it just as well.
         reported = line.split("|")[1] if line.count("|") >= 1 else ""
@@ -774,7 +804,7 @@ def main():
         if not ai_ok:
             # A failed collect must not leave last run's landing/readback in
             # place: aggregate_log reads them and would grade a stale pass.
-            _drop_stale_readback(run_dir)
+            cleared = _drop_stale_readback(run_dir)
             L.write_json_atomic(run_dir / "landing.json",
                                 _landing("semi-manual", "fail",
                                          "manual JSX did not point at this run's final.ai",
@@ -782,7 +812,8 @@ def main():
                                          {"manual_jsx": "manual-bridge.jsx",
                                           "manual_result": "manual-result.txt",
                                           "reported_ai": reported,
-                                          "expected_ai": str(expected)}))
+                                          "expected_ai": str(expected),
+                                          "stale_readback_removed": cleared}))
             return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
                           run_id=args.run_id,
                           data={"automation": "semi-manual",
@@ -867,6 +898,7 @@ def main():
     # ---- automatic COM path ----
     pw = shutil.which("powershell") or shutil.which("pwsh")
     if not pw:
+        _mark_auto_failure(run_dir, "PowerShell not found")
         raise L.ToolError("E-H1-STRUCTURE", "PowerShell not found", L.EXIT_MISSING)
     # ExtendScript File() is unreliable with Windows backslashes and non-ASCII
     # path segments, so stage the bridge files in a pure-ASCII temp workspace.
@@ -888,6 +920,7 @@ def main():
                                 "-JsxPath", str(tmp_jsx)],
                                timeout=180, capture_output=True, text=True, check=False)
         except (OSError, subprocess.SubprocessError) as e:
+            _mark_auto_failure(run_dir, "COM bridge exception: " + type(e).__name__)
             return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
                           run_id=args.run_id,
                           errors=[L.err("E-H1-STRUCTURE", "COM bridge exception: " + type(e).__name__)])
@@ -898,6 +931,7 @@ def main():
             if rl:
                 line = rl[0]
         if r.returncode != 0 and not line.startswith("OK|"):
+            _mark_auto_failure(run_dir, "COM bridge failed rc=" + str(r.returncode))
             return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
                           run_id=args.run_id,
                           errors=[L.err("E-H1-STRUCTURE",
@@ -905,6 +939,7 @@ def main():
                                         " stderr=" + (r.stderr or "")[:160])])
         kv = _parse_ok(line)
         if kv is None:
+            _mark_auto_failure(run_dir, "JSX did not return OK")
             return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
                           run_id=args.run_id,
                           errors=[L.err("E-H1-STRUCTURE", "JSX did not return OK: " + line[:160])])
@@ -912,6 +947,7 @@ def main():
         # OK from the JSX is not enough: without this run's file, a leftover
         # final.ai from an earlier run would be measured and shipped as new.
         if not (ws_ai.is_file() and ws_ai.stat().st_size > 0):
+            _mark_auto_failure(run_dir, "JSX returned OK but wrote no .ai")
             return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
                           run_id=args.run_id,
                           errors=[L.err("E-H1-STRUCTURE",
