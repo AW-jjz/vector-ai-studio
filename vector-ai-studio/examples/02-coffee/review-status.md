@@ -26,7 +26,7 @@
 | 线宽只用一档 | 描边集合 {10} | 通过 |
 | 不要咖啡豆、杯子、蒸汽；不要做旧纹理；不要环形文字 | 无 image / gradient / text，4 个纯几何元素 | 通过（几何层面） |
 
-以上由 examples/02-coffee/conformance.json 与 scripts/conformance.py 判定，20 项全部通过；复跑一条命令即可核对。素材账本只有一条 own 记录：全部构件自绘，无外部素材入图。
+以上由 examples/02-coffee/conformance.json 与 scripts/conformance.py 判定，22 项全部通过；复跑一条命令即可核对。素材账本只有一条 own 记录：全部构件自绘，无外部素材入图。`LICENSE-SOURCE` 与 `LICENSE-VERIFIED` 在本例无适用条目（非 own 条目为零），属「未触发」而非「已验证」；这两条检查的失败路径由 selftest A58 单独覆盖。
 
 判不了的：三个抽象构件能否读出「深焙」、主次是否成立——这两条只能人判。概念 0.667 与层级 1.000 就是卡在这里。
 

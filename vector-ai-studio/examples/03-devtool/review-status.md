@@ -27,7 +27,7 @@
 | 线宽两档：蓝线 4、底线 4 | 描边集合 {4}；约束两个值相同，实际即一档 | 通过（按约束字面） |
 | 不要火箭、齿轮、代码括号；不要投影、发光；不要 3D | 无 image / gradient / filter / text | 通过（几何层面） |
 
-以上由 examples/03-devtool/conformance.json 与 scripts/conformance.py 判定，21 项全部通过；复跑一条命令即可核对。素材账本只有一条 own 记录：全部构件自绘，无外部素材入图。
+以上由 examples/03-devtool/conformance.json 与 scripts/conformance.py 判定，23 项全部通过；复跑一条命令即可核对。素材账本只有一条 own 记录：全部构件自绘，无外部素材入图。`LICENSE-SOURCE` 与 `LICENSE-VERIFIED` 在本例无适用条目（非 own 条目为零），属「未触发」而非「已验证」；这两条检查的失败路径由 selftest A58 单独覆盖。
 
 判不了的：气质是否「准、冷静」、四柱与斜线的张力是否成立——这两条只能人判。
 

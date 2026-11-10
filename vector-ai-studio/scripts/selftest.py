@@ -2179,7 +2179,9 @@ def main():
             "own": _own57,
             "licensed": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
                           "license": "cc0", "fetched": "2026-11-10", "use": "tile",
-                          "in_output": True, "element": "tile"}],
+                          "in_output": True, "element": "tile",
+                          "license_source": "https://example.com/licence",
+                          "license_verified_at": "2026-11-10"}],
             "bad-licence": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
                              "license": "all-rights-reserved", "fetched": "2026-11-10",
                              "use": "tile", "in_output": True, "element": "tile"}],
@@ -2231,6 +2233,59 @@ def main():
             + " ghost=" + str(_ids57e))
     except Exception as e:                      # noqa: BLE001
         add("A57-source-ledger-tracks-what-enters-the-artwork", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A58: a licence name without a source is an unverifiable claim ------
+    # "cc0" is an assertion, not evidence. It becomes checkable only when the
+    # ledger also records where the claim came from and when a human read it,
+    # because aggregators routinely tag a file with a different licence than its
+    # origin. Own work carries no external licence, so it is exempt rather than
+    # forced to invent a URL -- A57's own-case already proves that exemption.
+    try:
+        _d58 = tmp / "a58"
+        _d58.mkdir()
+        (_d58 / "rules.json").write_text(json.dumps(
+            {"schema": "vector-ai-studio/conformance-v1",
+             "colors_allowed": ["#111111"],
+             "source_ledger": "ledger.json",
+             "licenses_allowed": ["own", "cc0"]}), encoding="utf-8")
+        _svg58 = _d58 / "marked.svg"
+        _svg58.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<rect id="tile" data-source="https://example.com/tile" x="40" y="40"'
+            ' width="60" height="60" fill="#111111"/></svg>', encoding="utf-8")
+        _base58 = {"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                   "license": "cc0", "fetched": "2026-11-10", "use": "tile",
+                   "in_output": True, "element": "tile",
+                   "license_source": "https://example.com/licence",
+                   "license_verified_at": "2026-11-10"}
+
+        def _run58(entry):
+            (_d58 / "ledger.json").write_text(json.dumps(
+                {"schema": "vector-ai-studio/source-ledger-v1", "entries": [entry]}),
+                encoding="utf-8")
+            _r, _e, _ = _call("conformance.py",
+                              ["--svg", str(_svg58), "--rules",
+                               str(_d58 / "rules.json"), "--json"], tmp)
+            _bad = [c["id"] for c in (_e.get("data") or {}).get("checks") or []
+                    if not c.get("ok")]
+            return _r, _bad
+
+        _nos58 = dict(_base58)
+        _nos58.pop("license_source")
+        _bad58 = dict(_base58)
+        _bad58["license_verified_at"] = "2026/11/10"
+        _r58a, _b58a = _run58(dict(_base58))
+        _r58b, _b58b = _run58(_nos58)
+        _r58c, _b58c = _run58(_bad58)
+        add("A58-licence-claim-needs-source-and-date",
+            bool(_r58a == 0 and not _b58a
+                 and _r58b == 1 and "LICENSE-SOURCE" in _b58b
+                 and _r58c == 1 and "LICENSE-VERIFIED" in _b58c),
+            "ok=" + str(_r58a) + str(_b58a) + " nosrc=" + str(_r58b) + str(_b58b)
+            + " baddate=" + str(_r58c) + str(_b58c))
+    except Exception as e:                      # noqa: BLE001
+        add("A58-licence-claim-needs-source-and-date", False,
             type(e).__name__ + ": " + str(e)[:140])
 
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------

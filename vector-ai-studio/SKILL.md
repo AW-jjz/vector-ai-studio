@@ -132,7 +132,9 @@ python scripts/conformance.py --svg path/to/round/sanitized.svg \
 
 判定只看规则文件里写了的项，没写的进 `unchecked`，不把「没检查」显示成「通过」。有任一检查失败即 `E-CONFORMANCE` 退出 1，逐条列出 id 与实测值。语义层（「不要画咖啡豆」到底画没画）它判不了，仍归人。
 
-**素材走两条通道，都不建库。** 参考素材（风格、构图、质感参照）只进账本、不进产物；要进产物的构件必须有 URL、许可、获取日期与对应元素 id，账本模板是 `templates/source-ledger.json`。规则文件里加 `source_ledger` 指向账本、`licenses_allowed` 列可接受许可后，脚本会查三件事：带 `data-source` 的元素必须在账本里有条目、产出条目的许可必须在白名单内、账本写的元素 id 必须真的存在于 SVG。不下载、不归档素材文件——链接与许可会变，库存的是记录，不是资产。
+**素材走两条通道，都不建库。** 参考素材（风格、构图、质感参照）只进账本、不进产物；要进产物的构件必须有 URL、许可、许可声明页与核实日期，外加对应元素 id，账本模板是 `templates/source-ledger.json`。规则文件里加 `source_ledger` 指向账本、`licenses_allowed` 列可接受许可后，脚本会查五件事：带 `data-source` 的元素必须在账本里有条目、产出条目的许可必须在白名单内、账本写的元素 id 必须真的存在于 SVG、非 `own` 条目必须给出 `license_source`（许可声明页，不是素材下载页）、`license_verified_at` 必须是合法 `YYYY-MM-DD`。
+
+`licenses_allowed` 用显式许可名（cc0、mit、cc-by-4.0、ofl-1.1 …），不要写 `commercial`——那是用途不是许可，会把需署名与免署名混成一类。`own` 条目豁免后两项：自产内容没有对外许可声明页，强制填 URL 只会逼人编造。过期复核不进脚本：判「是否过期」需要当天日期，同一输入一年后结果不同，那是人的复核动作，不是闸门。站点选择与核实方法见 `references/sources-whitelist.md`。
 
 ### 步 5 二值判读的校验与统计（A / B）
 

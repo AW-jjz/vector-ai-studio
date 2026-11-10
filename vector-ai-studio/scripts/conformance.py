@@ -21,6 +21,7 @@ import json
 import math
 import sys
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -262,6 +263,31 @@ def main():
         check("LEDGER-DATASOURCE", not unreg,
               "every data-source element has an output entry",
               "unregistered " + ",".join(unreg) if unreg else "none")
+
+        # A licence name is an assertion; it is only checkable against a source.
+        # Recording "cc0" tells a reviewer nothing unless the ledger also says
+        # where that claim came from and when a human read it. Aggregators make
+        # this load-bearing: the same icon can be tagged CC0 on one site and
+        # CC BY-SA at its origin. Own work carries no external licence, so it is
+        # exempt rather than forced to invent a URL.
+        need = [e for e in out if str(e.get("license") or "").lower() != "own"]
+        bad_src = [str(e.get("id")) for e in need
+                   if not str(e.get("license_source") or "").strip()]
+        check("LICENSE-SOURCE", not bad_src,
+              "%d non-own output entries cite a licence URL" % len(need),
+              "missing " + ",".join(bad_src) if bad_src else "none")
+        bad_ver = []
+        for e in need:
+            v = str(e.get("license_verified_at") or "").strip()
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                bad_ver.append(str(e.get("id")))
+        # Format only. Expiry needs "today", which would make the same input
+        # score differently a year later; that is a human review step, not a gate.
+        check("LICENSE-VERIFIED", not bad_ver,
+              "non-own entries record licence_verified_at as YYYY-MM-DD",
+              "bad " + ",".join(bad_ver) if bad_ver else "none")
 
     fails = [c["id"] for c in checks if not c["ok"]]
     unchecked = [k for k in ("canvas", "colors_allowed", "colors_max", "area_ratio_max",

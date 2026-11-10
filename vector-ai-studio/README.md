@@ -44,7 +44,8 @@ python scripts/smoke_ai.py
 ## 素材政策：两条通道，不建库
 
 - **参考通道**：风格、构图、质感参照可以来自任何素材站，但只进 `source-ledger`（URL、许可、获取日期、用途），**不进入** final.svg / .ai。
-- **产出通道**：纹理、笔刷、边框等非标志性构件若要用，必须许可明确允许商用、账本登记、SVG 元素带 `data-source`，并由 `scripts/conformance.py` 校验「有标记必有登记、有登记必有元素、许可在白名单」。
+- **产出通道**：纹理、笔刷、边框等非标志性构件若要用，必须许可明确允许商用、账本登记、SVG 元素带 `data-source`，并由 `scripts/conformance.py` 校验五件事：「有标记必有登记」「有登记必有元素」「许可在白名单」「非 `own` 条目必须有许可声明页 `license_source`」「`license_verified_at` 必须是合法 `YYYY-MM-DD`」。
+- **许可写显式名，不写 `commercial`**：用 cc0、mit、cc-by-4.0、ofl-1.1。`commercial` 描述的是用途不是许可，会把需署名与免署名混成一类，审计无法判定。站点清单、核实等级（E1/E2/E3）与失效模式见 `references/sources-whitelist.md`。
 - **标识主体不用现成素材**：撞标与「非原创」风险高，且与「可复制、可断言」的证据链冲突。
 - **不下载、不建库**：链接与许可会变，库存的是记录而不是资产；账本模板在 `templates/source-ledger.json`。
 

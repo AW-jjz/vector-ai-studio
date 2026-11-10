@@ -9,5 +9,5 @@
   "bbox_margin_min": 10,
   "forbid": ["image", "gradient", "text", "filter", "clipPath", "mask", "use"],
   "source_ledger": "source-ledger.json",
-  "licenses_allowed": ["own", "cc0", "public-domain", "commercial"]
+  "licenses_allowed": ["own", "cc0", "public-domain", "mit", "isc", "apache-2.0", "cc-by-4.0", "ofl-1.1"]
 }
