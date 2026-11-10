@@ -483,7 +483,10 @@ sha256        : e54efe4dc058d43a834c617359c486cb8e3368be11ca1311af761b5c1333bb13
                 复核轮对改动后的三处与重打包逐项 PASS，并自算 58/58/0/0/0。
                 P3-2/P3-3（land_ai 的 preview 兜底与新写 .ai 断言）留 backlog。
 
-远端状态      : 未推送
+远端状态      : 已推送，发布提交 **adbf084**（父 7e145fc，2026-11-10）。
+                回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
+                58/58 全等，missing/extra/diff 均为空；docs 三件与 05-发布/ 同 md5。
+                详见 04-QA/test-log-r40/r40-08-远端回读.txt
 
 
 
