@@ -27,6 +27,9 @@ ROOT = L.skill_root()
 FIX = L.fixtures_dir()
 GOOD = FIX / "good"
 BAD = FIX / "bad"
+# The rect-only fixture: the builtin fallback renders it faithfully, so the
+# graded assertions can run without a real renderer.
+RECT = GOOD / "rect-only.svg"
 
 INLINE_FEATURES = ["def ", "param(", "import json", "import lib_common",
                    "#!/usr/bin/env python"]
@@ -122,6 +125,11 @@ def _jread(p):
         return {}
 
 
+def _landing(where):
+    """landing.json for `where`, or {} when the run wrote none."""
+    return _jread(Path(where) / "landing.json")
+
+
 def _copy_if(src, dst):
     """Copy only when the source exists; a missing input must never raise."""
     if Path(src).is_file():
@@ -201,12 +209,14 @@ def _schema_diff(doc, schema, check_missing=True, optional=()):
 
 
 def _check_conformance(tmp, add):
-    """A54, A55, A56, A59: the mechanical half of brief conformance.
+    """A56, A59: the mechanical half of brief conformance.
 
     Extracted from main() so this block can be read and changed without
     scrolling past two thousand lines of unrelated assertions. It owns no
-    state beyond the temp dir and the assertion sink. A54 and A55 sit inside
-    this block because they were between A56 and A59 in the original file.
+    state beyond the temp dir and the assertion sink. A54 and A55 are NOT in
+    here -- r60 said they were, which was wrong: they live in
+    _check_failed_dimension and _check_empty_review_sheet, and only their
+    execution order (A54, A55, then this) puts them next to each other.
     """
     # ---- A56: brief conformance is checked, and unchecked rules stay visible --
     # The review sheet cannot judge need-fit (no brief is shown to reviewers), so
@@ -622,8 +632,6 @@ def _check_empty_review_sheet(tmp, add):
         add("A55-review-sheet-empty-is-not-evidence", False,
             type(e).__name__ + ": " + str(e)[:140])
 
-    _check_conformance(tmp, add)
-
 
 def _check_ledger_trace(tmp, add):
     """Extracted from main(): one assertion block, no state of its own."""
@@ -772,37 +780,18 @@ def _check_licence_claim(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
-def main():
-    ap = argparse.ArgumentParser(description="pure-script selftest")
-    ap.add_argument("--json", action="store_true")
-    ap.add_argument("--log-dir", default="")
-    ap.add_argument("--fixtures", action="store_true")
-    ap.add_argument("--run-id", default="")
-    args = ap.parse_args()
+def _stage_pure_chain(tmp, add, th):
+    """A1-A11: one pure-script chain, measured twice.
 
-    th = L.load_thresholds()
+    The chain is the fixture every later gate reads, so it is built once
+    here and its two work dirs are handed back to main(). `msg` is taken
+    from the same thresholds object the caller loaded -- no second copy.
+    """
     msg = th["messages"]
-    cap = L.capability_missing_value(th)
-    rid = args.run_id or L.sha_run_id("selftest", th["version"])
-    log_dir = Path(args.log_dir) if args.log_dir else (L.default_output_root() / "selftest" / rid)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    tmp = Path(tempfile.mkdtemp(prefix="vector-ai-selftest-"))
-    a = []
-
-    def add(aid, ok, detail="", skipped=False):
-        # ok is True / False / None. None means "not evaluated", matching how
-        # this project already expresses an unevaluated gate (h2=null with
-        # h2_status=not_evaluated). A skip must not read as a pass to anything
-        # that aggregates assertions[].ok -- that was the hole: exit 0, status
-        # ok, and ok=true on an assertion that never ran.
-        a.append({"id": aid, "ok": (None if skipped else bool(ok)),
-                  "detail": str(detail)[:220], "skipped": bool(skipped)})
-
     # A1 envelope / exit codes + A3 idempotency + A4 cwd independence
     # Graded assertions (A6/A7/A10) need a non-L2 run, so the main chains use the
     # rect-only fixture: the builtin fallback renders it faithfully. A16 keeps the
     # circle-bearing sample to exercise the "limited preview -> L2" road.
-    RECT = GOOD / "rect-only.svg"
     w1, w2 = tmp / "chain-a", tmp / "chain-b"
     ok1, chain = _chain(w1, tmp, svg=RECT)
     ok_b, _ = _chain(w2, tmp, svg=RECT)
@@ -918,1496 +907,17 @@ def main():
     add("A11-fallback-png-strict-H2", real_png and reject,
         "real_png=" + str(real_png) + " zero_byte_rejected=" + str(reject))
 
-    # A12 L2: no third grading tier, capability-missing status, delivery not blocked
-    wl = tmp / "l2"
-    wl.mkdir(parents=True, exist_ok=True)
-    if (w1 / "spec.json").is_file():
-        shutil.copyfile(w1 / "spec.json", wl / "spec.json")
-    # A16 keeps the circle-bearing sample on purpose: the builtin fallback draws
-    # circles as squares, so render_png judges the preview "limited" and aggregate
-    # must auto-degrade to L2. The unreadable judge is the second, independent road
-    # to the same status; both must land on capability_missing.
-    _copy_if(GOOD / "sample.svg", wl / "final.svg")
-    _call("render_png.py", ["--in", str(wl / "final.svg"),
-                            "--out", str(wl / "preview.png"), "--force-builtin"], tmp)
-    L.write_json_atomic(wl / "judge-src.json", {
-        "schema": "vector-ai-studio/judge-v1", "readable": False,
-        "items": [], "subject_conflict": False, "attributes": [], "align": []})
-    _call("llm_judge.py", ["--judge", str(wl / "judge-src.json"), "--validate",
-                           "--out", str(wl / "judge.json")], tmp)
-    _call("score.py", ["--svg", str(wl / "final.svg"), "--judge", str(wl / "judge.json"),
-                       "--spec", str(wl / "spec.json"), "--out", str(wl / "score.json")], tmp)
-    _call("aggregate_log.py", ["--run-dir", str(wl),
-                               "--out", str(wl / "acceptance.json")], tmp)
-    la = _jread(wl / "acceptance.json")
-    lblob = (wl / "acceptance.json").read_text(encoding="utf-8") if (wl / "acceptance.json").is_file() else ""
-    l2_words = [w for w in CLAIM_BANNED if w in lblob.replace(msg["grade_fail"], "")]
-    ldn = (wl / "delivery-note.md").read_text(encoding="utf-8") if (wl / "delivery-note.md").is_file() else ""
-    outward_words = [w for w in CLAIM_BANNED if w in ldn]
-    ok12 = (la.get("grade") == msg["l2_grade"] and
-            la.get("headline") == msg["l2_headline"] and
-            la.get("degraded") is True and
-            la.get("needs_human_review") is True and
-            la.get("reason") == msg["reason_capability_missing"] and
-            la.get("capability_missing") is True and
-            la.get("grading_entered") is True and
-            la.get("scores", {}).get("A") == cap and
-            la.get("scores", {}).get("B") == cap and
-            not l2_words and not outward_words)
-    add("A12-L2-not-pass-no-third-tier", ok12, "grade=" + str(la.get("grade")) +
-        " banned=" + ",".join(l2_words + outward_words))
+    return w1, w2, chain, optional
 
-    # A14 runtime-derived generation budget + real generation_count + rejection
-    budget = L.generation_budget(th)
-    acc1 = _jread(w1 / "acceptance.json")
-    ok14 = (budget == {"pass": th["F"]["N_pass"] * th["iterate"]["K_max"],
-                       "excellent": th["F"]["N_excellent"] * th["iterate"]["K_max"]})
-    ok14 = (ok14 and isinstance(acc1.get("generation_count"), int) and
-            acc1["generation_count"] <= budget["excellent"] and
-            acc1.get("generation_budget") == budget)
-    rc14, env14, _ = _call("aggregate_log.py",
-                           ["--validate-case", str(BAD / "bad_budget_exceeded.json")], tmp)
-    ok14 = ok14 and rc14 == 1 and "E-BUDGET-EXCEEDED" in _codes(env14)
-    add("A14-generation-budget-derived", ok14,
-        "budget=" + json.dumps(budget, sort_keys=True) +
-        " count=" + str(acc1.get("generation_count")))
 
-    # A15 O4: f_source_runs / c2_revisions isolation, no cross-run F backfill
-    iso = tmp / "o4-isolated"
-    for i in range(1, th["F"]["N_pass"] + 1):
-        run_id = "run-" + str(i)
-        fs = iso / "f_source_runs" / run_id
-        fs.mkdir(parents=True, exist_ok=True)
-        _copy_if(w1 / "score.json", fs / "score.json")
-        _copy_if(w1 / "final.svg", fs / "draft.svg")
-        L.write_json_atomic(fs / "h1.json", {"pass": True})
-        rev = iso / "c2_revisions" / run_id / "round-2"
-        rev.mkdir(parents=True, exist_ok=True)
-        L.write_json_atomic(rev / "revision.json",
-                            {"run_id": run_id, "from_round": 2, "change_only": ["C"]})
-    rc15, _, _ = _call("batch_check.py",
-                       ["--runs-dir", str(iso), "--out", str(iso / "batch.json")], tmp)
-    bd = _jread(iso / "batch.json")
-    iso_ok = (rc15 == 0 and bd.get("f_data_isolated") is True and
-              len(bd.get("f_source_runs", [])) == th["F"]["N_pass"] and
-              len(bd.get("c2_revisions", [])) == th["F"]["N_pass"] and
-              isinstance(bd.get("generation_count"), int) and
-              bd["generation_count"] <= budget["excellent"])
-    rc15b, env15b, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(BAD / "bad_f_backfill.json")], tmp)
-    neg_ok = rc15b == 1 and "E-F-DATA-ISOLATION" in _codes(env15b)
-    # Same SVG hash must not appear both in c2_revisions and in F source stats.
-    hc = _jread(GOOD / "good_o4_isolated.json")
-    if hc.get("c2_revisions"):
-        hc["c2_revisions"][0]["draft_sha256"] = hc["f_source_runs"][0]["draft_sha256"]
-    hash_path = tmp / "hash-overlap.json"
-    L.write_json_atomic(hash_path, hc)
-    rc15c, env15c, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(hash_path)], tmp)
-    hash_ok = rc15c == 1 and "E-F-DATA-ISOLATION" in _codes(env15c)
-    add("A15-F-data-isolation", iso_ok and neg_ok and hash_ok,
-        "positive=" + str(iso_ok) + " backfill_rejected=" + str(neg_ok) +
-        " shared_hash_rejected=" + str(hash_ok) +
-        " gen_count=" + str(bd.get("generation_count")))
+def _stage_print_route(tmp, add):
+    """A42-A46: the supplied photo -> print file route.
 
-    # A16 L2 anti-fabrication: A/B must be status enum, never numeric scores
-    ls = _jread(wl / "score.json")
-    ab_ok = (ls.get("scores", {}).get("A") == cap and
-             ls.get("scores", {}).get("B") == cap and
-             not isinstance(ls.get("scores", {}).get("A"), dict))
-    rc16, env16, _ = _call("aggregate_log.py",
-                           ["--validate-case", str(BAD / "bad_l2_fabricated.json")], tmp)
-    ok16 = ab_ok and rc16 == 1 and "E-FABRICATED-SCORE" in _codes(env16)
-    add("A16-L2-anti-fabrication", ok16,
-        "ab_status=" + str(ab_ok) + " rejected=" + str("E-FABRICATED-SCORE" in _codes(env16)))
-
-    # A17 quick mode must never participate in a pass judgement
-    rc17, env17, _ = _call("aggregate_log.py",
-                           ["--validate-case", str(BAD / "bad_quick_claimed_pass.json")], tmp)
-    ok17 = rc17 == 1 and "E-QUICK-UNVERIFIED" in _codes(env17)
-    add("A17-quick-not-graded", ok17, "rejected=" + str(ok17))
-
-    # A18 F merged into scores -> the pass tier becomes mechanically reachable.
-    # SYNTHETIC validator run: proves the F->scores wiring, not a real .ai.
-    # The SVG is rect-only with solid fills and no stroke, so render_png's own
-    # _builtin_fidelity() judges the fallback "faithful" and A/B stays numeric
-    # (a circle-bearing SVG would be "limited" and correctly flip to L2).
-    a18 = tmp / "a18"
-    a18.mkdir(parents=True, exist_ok=True)
-    rect_ok = RECT.is_file()
-    if rect_ok:
-        shutil.copyfile(RECT, a18 / "final.svg")
-    # A missing fixture deliberately leaves final.svg absent: render_png then
-    # returns exit 2 and this assertion goes red, instead of copyfile raising
-    # FileNotFoundError and aborting the whole selftest as E-INTERNAL.
-    _call("render_png.py", ["--in", str(a18 / "final.svg"),
-                            "--out", str(a18 / "preview.png"), "--force-builtin"], tmp)
-    meta18 = _jread(a18 / "preview.meta.json")
-    _copy_if(GOOD / "judge.json", a18 / "judge.json")
-    (a18 / "final.ai").write_bytes(
-        b"synthetic-h1-file-existence-placeholder-not-a-real-ai\n")
-    L.write_json_atomic(a18 / "structure_readback.json", {
-        "ok": True, "raster": 0, "placed": 0, "paths": 5,
-        "artboard_matches_viewBox": True})
-    L.write_json_atomic(a18 / "selftest.json", {
-        "status": "ok", "passed": 1, "failed": 0,
-        "assertions": [{"id": "A0", "ok": True}]})
-    L.write_json_atomic(a18 / "score.json", {
-        "round": 2, "l2_degraded": False, "degraded_dims": [], "failed_dims": [],
-        "scores": {"A": {"score": 2, "measured": {}, "threshold": {}},
-                   "B": {"score": 2, "measured": {}, "threshold": {}},
-                   "C": {"score": 1, "measured": {}, "threshold": {}},
-                   "D": {"score": 1, "measured": {}, "threshold": {}},
-                   "E": "N/A", "F": "N/A"}})
-    L.write_json_atomic(a18 / "batch.json", {
-        "schema": "vector-ai-studio/batch-v1", "quick": False,
-        "f_verified": True, "f_data_isolated": True, "isolation_problems": [],
-        "N": 3, "generation_count": 3,
-        "F": {"score": 1, "measured": {"N": 3, "h1_pass_rate": 1.0,
-                                       "ad_pass_rate": 0.8333,
-                                       "palette_consistent": True},
-              "threshold": {}, "degraded": False},
-        "f_source_runs": [{"run_id": "run-1", "draft_sha256": "a" * 64},
-                          {"run_id": "run-2", "draft_sha256": "b" * 64},
-                          {"run_id": "run-3", "draft_sha256": "c" * 64}],
-        "c2_revisions": [],
-        "per_run": [{"run": "run-" + str(i), "h1_pass": True,
-                     "ad_pass_rate": 0.85, "palette": ["#111", "#eee"]}
-                    for i in (1, 2, 3)]})
-    rc18, env18, _ = _call("aggregate_log.py",
-                           ["--run-dir", str(a18), "--run-id", "a18", "--json"], tmp)
-    d18 = env18.get("data", {}) or {}
-    acc18 = _jread(a18 / "acceptance.json")
-    f_dict = isinstance((acc18.get("scores") or {}).get("F"), dict)
-    ok18 = (rect_ok and rc18 == 0 and acc18.get("grade") == msg["grade_pass"] and f_dict
-            and acc18.get("needs_human_review") is True
-            and meta18.get("fidelity") == "faithful")
-    add("A18-F-merged-reachable", ok18,
-        ("MISSING FIXTURE rect-only.svg; " if not rect_ok else "") +
-        "synthetic rect-only run: fallback judged faithful by render_png itself; "
-        "proves the F->scores wiring, not preview fidelity; "
-        "fidelity=" + str(meta18.get("fidelity")) +
-        " grade=" + str(acc18.get("grade")) +
-        " needs_human_review=" + str(acc18.get("needs_human_review")) +
-        " F_is_dict=" + str(f_dict) +
-        " validation=" + str(d18.get("validation_problems")))
-
-    # A18b a compliant full-mode pass-tier acceptance log passes validation
-    rc18b, env18b, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(GOOD / "good_acceptance_reachable.json")], tmp)
-    add("A18b-validator-accepts-pass", rc18b == 0 and not _codes(env18b),
-        "codes=" + ",".join(_codes(env18b)))
-
-    # A19 full track without C/D is a broken chain, never an L2 degradation
-    rc19, env19, _ = _call("aggregate_log.py",
-                           ["--validate-case", str(BAD / "bad_no_score.json")], tmp)
-    ok19 = rc19 == 1 and "E-NO-SCORE" in _codes(env19)
-    add("A19-full-track-no-score-rejected", ok19, "codes=" + ",".join(_codes(env19)))
-
-    # A20 landing-only track: unevaluated (null), accepted, no tier word anywhere
-    rc20, env20, _ = _call("aggregate_log.py",
-                           ["--validate-case", str(GOOD / "good_landing_only.json")], tmp)
-    lo_blob = (GOOD / "good_landing_only.json").read_text(encoding="utf-8")
-    lo_words = [w for w in (CLAIM_BANNED + ["未验证"]) if w in lo_blob]
-    ok20 = rc20 == 0 and not _codes(env20) and not lo_words
-    add("A20-landing-only-unevaluated", ok20,
-        "codes=" + ",".join(_codes(env20)) + " words=" + ",".join(lo_words))
-
-    # A21 the exemption must be policed from both sides
-    rc21a, env21a, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(BAD / "bad_exemption_abuse_full.json")], tmp)
-    rc21b, env21b, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(BAD / "bad_exemption_abuse_lo.json")], tmp)
-    ok21 = (rc21a == 1 and "E-EXEMPTION-ABUSE" in _codes(env21a) and
-            rc21b == 1 and "E-EXEMPTION-ABUSE" in _codes(env21b))
-    add("A21-exemption-abuse-both-ways", ok21,
-        "full_track_exit=" + str(rc21a) + " lo_track_exit=" + str(rc21b))
-
-    # A22 package hygiene: runtime output/ must never live inside the skill dir,
-    # and no stray __pycache__ may be shipped. scripts/ bytecode cache is created
-    # by this very run, so it is ignored here and excluded by the packager.
-    stray = []
-    if (ROOT / "output").exists():
-        stray.append("output/")
-    for p in ROOT.rglob("__pycache__"):
-        if p.is_dir() and p.parent != SCRIPTS:
-            stray.append(str(p.relative_to(ROOT)))
-    add("A22-package-hygiene", not stray,
-        ",".join(stray[:6]) if stray
-        else "no output/ and no stray __pycache__ (scripts/ bytecode cache ignored)")
-
-    # A23 L2 must carry all six score keys with the right per-key status.
-    # Reverse side: dropping A or F must be rejected with E-NO-SCORE.
-    l2_sc = la.get("scores") or {}
-    l2_keys = set(l2_sc) >= {"A", "B", "C", "D", "E", "F"}
-    l2_shape = (l2_sc.get("A") == cap and l2_sc.get("B") == cap
-                and isinstance(l2_sc.get("C"), dict) and isinstance(l2_sc.get("D"), dict)
-                and (l2_sc.get("E") == "N/A" or isinstance(l2_sc.get("E"), dict))
-                and (l2_sc.get("F") == "N/A" or isinstance(l2_sc.get("F"), dict)))
-    rc_mf, env_mf, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(BAD / "bad_missing_f.json")], tmp)
-    rc_ma, env_ma, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(BAD / "bad_missing_a.json")], tmp)
-    mf_rej = rc_mf == 1 and "E-NO-SCORE" in _codes(env_mf)
-    ma_rej = rc_ma == 1 and "E-NO-SCORE" in _codes(env_ma)
-    add("A23-L2-six-keys", l2_keys and l2_shape and mf_rej and ma_rej,
-        "keys=" + str(sorted(l2_sc)) + " shape=" + str(l2_shape) +
-        " missing_f_rejected=" + str(mf_rej) + " missing_a_rejected=" + str(ma_rej))
-
-    # A24 a graded (full-track) log must carry every grade-required dimension.
-    full_sc = acc18.get("scores") or {}
-    req_missing = sorted({"A", "B", "C", "D", "F"} - set(full_sc))
-    add("A24-full-required-dims", not req_missing and mf_rej and ma_rej,
-        "keys=" + str(sorted(full_sc)) + " missing=" + str(req_missing))
-
-    # A25 a passing (grade=达标) log must keep E visible: dropping E would hide
-    # "E applicable but scored 0", which is the same fake-pass surface as a
-    # missing graded dimension. Reverse-verified with bad_pass_missing_e.json.
-    rc_me, env_me, _ = _call("aggregate_log.py",
-                             ["--validate-case", str(BAD / "bad_pass_missing_e.json")], tmp)
-    me_rej = rc_me == 1 and "E-NO-SCORE" in _codes(env_me)
-    add("A25-pass-missing-e-rejected", me_rej,
-        "pass_missing_e_rejected=" + str(me_rej) + " codes=" + ",".join(_codes(env_me)))
-
-    # A26: the top-level contract fields and their metadata mirror must agree.
-    # Two specifications read this file (internal contract.yaml wants them at
-    # top level; the public Agent Skills spec puts author/version under
-    # metadata). Keeping both copies is only safe if a machine compares them.
-    def _fm():
-        txt = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        body = txt.split("---", 2)[1]
-        top, meta, cur = {}, {}, None
-        for raw in body.splitlines():
-            if not raw.strip() or raw.lstrip().startswith("#"):
-                continue
-            if raw[0] in " \t":
-                if cur:
-                    k, _, v = raw.strip().partition(":")
-                    meta[k.strip()] = v.strip().strip('"').strip("'")
-                continue
-            k, _, v = raw.partition(":")
-            k, v = k.strip(), v.strip().strip('"').strip("'")
-            if v == "":
-                cur = k
-            else:
-                cur = None
-                top[k] = v
-        return top, meta
-
-    _top, _meta = _fm()
-    pairs = [(k, _top.get(k), _meta.get(k)) for k in
-             ("author", "version", "description_zh", "description_en")]
-    mirror_ok = all(m is not None and t == m for _, t, m in pairs)
-    add("A26-frontmatter-metadata-mirror", mirror_ok,
-        "pairs=" + str([(k, t == m) for k, t, m in pairs]) +
-        " | 解析器仅支持扁平 YAML：若改用块标量(>- / |)等结构会在此判红，属预期")
-
-    # A27: the published JSON Schema must accept a real log and reject broken
-    # ones. A schema nobody validates against is documentation, not a contract.
-    schema_path = ROOT / "references" / "schemas" / "acceptance.schema.json"
-    acc_path = w1 / "acceptance.json"
-    sch_ok = False
-    detail = "schema or acceptance missing"
-    if schema_path.is_file() and acc_path.is_file():
-        rc_ok, _, _ = _call("schema_check.py",
-                            [str(schema_path), str(acc_path), "--json"], tmp)
-        acc_doc = json.loads(acc_path.read_text(encoding="utf-8"))
-
-        bad_dir = tmp / "schema-negative"
-        bad_dir.mkdir(parents=True, exist_ok=True)
-        missing_mode = dict(acc_doc)
-        missing_mode.pop("mode", None)
-        bad_mode_path = bad_dir / "missing-mode.json"
-        bad_mode_path.write_text(json.dumps(missing_mode, ensure_ascii=False), encoding="utf-8")
-        rc_miss, _, _ = _call("schema_check.py",
-                              [str(schema_path), str(bad_mode_path), "--json"], tmp)
-
-        bad_grade = dict(acc_doc)
-        bad_grade["grade"] = "优秀"
-        bad_grade_path = bad_dir / "bad-grade.json"
-        bad_grade_path.write_text(json.dumps(bad_grade, ensure_ascii=False), encoding="utf-8")
-        rc_grade, _, _ = _call("schema_check.py",
-                               [str(schema_path), str(bad_grade_path), "--json"], tmp)
-
-        sch_ok = (rc_ok == 0 and rc_miss == 1 and rc_grade == 1)
-        detail = ("valid_exit=" + str(rc_ok) +
-                  " missing_mode_exit=" + str(rc_miss) +
-                  " bad_grade_exit=" + str(rc_grade))
-    add("A27-schema-accepts-real-rejects-broken", sch_ok, detail)
-
-    # A28: every error code emitted by the scripts must be registered, and the
-    # registry must not list codes nobody emits. Checked in both directions --
-    # a one-way check lets stale entries accumulate, which is how a registry
-    # stops being trusted.
-    reg_path = ROOT / "references" / "error-codes.md"
-    code_set = set()
-    for sp in sorted((ROOT / "scripts").glob("*.py")):
-        _src = sp.read_text(encoding="utf-8")
-        # Either quote style counts. Matching only double quotes let a new code
-        # written with single quotes be invisible to both sides of the
-        # comparison. (Quoted examples in comments are why this scan uses a
-        # strict E- pattern: anything that looks like a code must be registered.)
-        code_set |= set(re.findall(r"""["'](E-[A-Z0-9-]+)["']""", _src))
-    reg_set = set()
-    if reg_path.is_file():
-        # The registry keeps retired codes on purpose (downstream code may still
-        # branch on them), so a row marked 已废弃 is documentation, not a claim
-        # that some script can emit it. Counting it as live made the two sets
-        # impossible to satisfy at once.
-        for line in reg_path.read_text(encoding="utf-8").splitlines():
-            if "已废弃" in line:
-                continue
-            reg_set |= set(re.findall(r"`(E-[A-Z0-9-]+)`", line))
-    reg_ok = bool(code_set) and code_set == reg_set
-    add("A28-error-code-registry", reg_ok,
-        "in_code=" + str(len(code_set)) + " in_registry=" + str(len(reg_set)) +
-        " unregistered=" + ",".join(sorted(code_set - reg_set)[:6]) +
-        " stale=" + ",".join(sorted(reg_set - code_set)[:6]))
-
-    # A29: the measurement function must actually measure.
-    #
-    # Round 6 shipped a colour-operator counter that returned None on *every*
-    # real deliverable because zlib.decompress() rejected the trailing CR/LF.
-    # The function existed, was called, and produced a plausible-looking field
-    # ("undecodable") -- and no assertion noticed.
-    #
-    # A well-formed synthetic stream is not enough to catch that: strict
-    # decompression handles it fine. The sample below truncates the trailing
-    # adler32 so the stream is incomplete, which is what Illustrator actually
-    # writes. Strict decompression fails on it; decompressobj succeeds. That
-    # difference is the whole point, so it is the sample this assertion uses.
-    a29_ok, a29_detail = False, "not run"
-    try:
-        _spec = importlib.util.spec_from_file_location("lib_pdf_under_test",
-                                                       ROOT / "scripts" / "lib_pdf.py")
-        _mod = importlib.util.module_from_spec(_spec)
-        _spec.loader.exec_module(_mod)
-
-        payload = b"0.2 0.4 0.6 rg\n0 0 0 1 K\n"
-        complete = zlib.compress(payload)
-        truncated = complete[:-4]                      # drop adler32 -> incomplete
-        body = (b"<< /Length 99 /Filter /FlateDecode >>\nstream\n" +
-                truncated + b"\nendstream\n")
-        ops, decoded = _mod._count_ops([body])
-
-        # Declared Flate, undecodable: None, not a guessed number.
-        junk = (b"<< /Length 4 /Filter /FlateDecode >>\nstream\n"
-                b"\x00\x01\x02\x03\nendstream\n")
-        ops_junk, decoded_junk = _mod._count_ops([junk])
-
-        # Stored uncompressed, which the PDF format allows. This read as
-        # "decode failure" and the whole page went unmeasured.
-        plain = b"<< /Length 22 >>\nstream\n1 0 0 0 k\n0 0 0 1 K\nendstream\n"
-        ops_plain, dec_plain = _mod._count_ops([plain])
-
-        # Inline image samples are binary, not operators. The end is computed
-        # from the dict's /W /H /BPC /CS, not from the first whitespace " EI ":
-        # this sample contains those two bytes, and scanning for them ended the
-        # image early so the tail of the bitmap was counted (k=2, true value 1).
-        inline_sample = b"\x01\x02 EI k\x03\x00\x00\x00\x00"      # 12 = 3*1*4*8/8
-        inline = (b"<< /Length 99 >>\nstream\n"
-                  b"0 0 0 1 k\nq BI /W 3 /H 1 /BPC 8 /CS /CMYK ID " +
-                  inline_sample + b" EI Q\n"
-                  b"endstream\n")
-        ops_inline, dec_inline = _mod._count_ops([inline])
-
-        # A dict this reader cannot size is unmeasured, never half-counted: the
-        # sample would otherwise leak operators, and truncating the tail would
-        # hide the ones after it.
-        inline_unknown = (b"<< /Length 99 >>\nstream\n"
-                          b"0 0 0 1 k\nq BI /W 3 /H 1 /F /AHx ID \x01\x02 EI\n"
-                          b"endstream\n")
-        ops_iunk, dec_iunk = _mod._count_ops([inline_unknown])
-
-        # `/BI` is a name, not an inline image start. Excluding only word
-        # characters matched it, jumped to the next " EI ", and lost the k
-        # operator sitting between the two.
-        slash_bi = (b"<< /Length 99 >>\nstream\n"
-                    b"/BI 0 0 0 1 k\n/ID x EI\n0 0 0 1 K\nendstream\n")
-        ops_bi, dec_bi = _mod._count_ops([slash_bi])
-
-        # Scope guard: counting every decodable stream inflated the number ~40x
-        # on real files because ICC profiles and font programs contain k/K
-        # bytes. A page must only count its /Contents, so this fixture puts a
-        # decoy stream (20 k operators) in an object the page never references.
-        decoy = zlib.compress(b"0 0 0 1 k\n" * 20)
-        pdf = (b"%PDF-1.6\n"
-               b"1 0 obj\n<< /Type /Page /Contents 3 0 R >>\nendobj\n"
-               b"3 0 obj\n" + body + b"endobj\n"
-               b"5 0 obj\n<< /Subtype /Image >>\nstream\n" + decoy +
-               b"\nendstream\nendobj\n")
-        scoped, scoped_stats = _mod._content_ops(pdf)
-
-        # Page dictionary packed into an /ObjStm: there is no `N 0 obj` header
-        # for it, so the whole file used to read as "0 objects" -- a silent miss
-        # that looked exactly like a clean run.
-        inner = b"<< /Type /Page /Contents 7 0 R >>"
-        packed = b"6 0 " + inner                    # one pair: object 6 at 0
-        objstm = zlib.compress(packed)
-        pdf_os = (b"%PDF-1.6\n"
-                  b"5 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Length " +
-                  str(len(objstm)).encode() + b" /Filter /FlateDecode >>\nstream\n" +
-                  objstm + b"\nendstream\nendobj\n"
-                  b"7 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
-        scoped_os, stats_os = _mod._content_ops(pdf_os)
-
-        # /N smaller than the packed pair count. The page dictionary sat in the
-        # pair /N said did not exist, so it was never read: the file reported
-        # zero page streams and no operator -- a miss indistinguishable from a
-        # clean run. The packed count is authoritative; the mismatch is warned.
-        decoy_dict = b"<< /Type /Metadata >>"                 # 20 bytes
-        page_dict = b"<< /Type /Page /Contents 10 0 R >>"
-        packed2 = (b"6 0 7 " + str(len(decoy_dict)).encode() + b" " +
-                   decoy_dict + page_dict)
-        objstm2 = zlib.compress(packed2)
-        warn_os = []
-        pdf_os2 = (b"%PDF-1.6\n"
-                   b"5 0 obj\n<< /Type /ObjStm /N 1 /First 10 /Length " +
-                   str(len(objstm2)).encode() + b" /Filter /FlateDecode >>\nstream\n" +
-                   objstm2 + b"\nendstream\nendobj\n"
-                   b"10 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
-        scoped_n, stats_n = _mod._content_ops(pdf_os2, warn_os)
-
-        # Hand-computed reference, not score.py's own extractor: comparing the
-        # engine against itself passes on any bug the two share. Counted by
-        # reading the stream: two k, two K, one rg, nothing else.
-        fixed = (b"<< /Length 99 >>\nstream\n"
-                 b"1 0 0 0 k\n0 0.5 0 0 k\n0 0 0 1 K\n0 0 1 rg\nq 0 0 0 1 K Q\n"
-                 b"endstream\n")
-        ops_fixed, _dec_fixed = _mod._count_ops([fixed])
-        expect_fixed = {"k": 2, "K": 2, "rg": 1, "RG": 0, "g": 0, "G": 0,
-                        "sc": 0, "SC": 0, "scn": 0, "SCN": 0}
-
-        # 1/2/4 bpc has two readings: one packed bit stream, or rows padded to
-        # a byte boundary. Here both ends land on a whitespace " EI ", so the
-        # file does not say which one produced it. Taking either is a guess;
-        # the stream is reported unmeasured instead.
-        subbit = (b"<< /Length 99 >>\nstream\n"
-                  b"q BI /W 3 /H 2 /BPC 1 /CS /G ID \x00k EI Q\n0 0 0 1 k\n"
-                  b"endstream\n")
-        ops_sub, dec_sub = _mod._count_ops([subbit])
-
-        # A /Contents reference pointing at a missing object: refs and objects
-        # must not collapse into one number, or a page that was never read
-        # reports the same count as a page that was measured.
-        pdf_ref = (b"%PDF-1.6\n"
-                   b"3 0 obj\n<< /Type /Page /Contents [4 0 R 9 0 R] >>\nendobj\n"
-                   b"4 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
-        scoped_ref, stats_ref = _mod._content_ops(pdf_ref)
-
-        # None means "nothing decoded". Normalise to empty so a real failure
-        # reports its numbers instead of dying on a subscript and hiding which
-        # clause broke.
-        ops = ops or {}
-        ops_plain = ops_plain or {}
-        ops_inline = ops_inline or {}
-        ops_bi = ops_bi or {}
-        scoped = scoped or {}
-        scoped_os = scoped_os or {}
-        scoped_stats = scoped_stats if isinstance(scoped_stats, dict) else {}
-        stats_os = stats_os if isinstance(stats_os, dict) else {}
-        scoped_n = scoped_n or {}
-        scoped_ref = scoped_ref or {}
-        stats_ref = stats_ref if isinstance(stats_ref, dict) else {}
-        stats_n = stats_n if isinstance(stats_n, dict) else {}
-
-        # The Craft path must report the same numbers on the same bytes: one
-        # reader, not two that agree until someone edits one of them.
-        a29_pdf = tmp / "a29.pdf"
-        a29_pdf.write_bytes(pdf)
-        _spec_lc = importlib.util.spec_from_file_location(
-            "land_craft_under_test", ROOT / "scripts" / "land_craft.py")
-        _lc = importlib.util.module_from_spec(_spec_lc)
-        _spec_lc.loader.exec_module(_lc)
-        craft_facts = _lc._pdf_facts(a29_pdf)
-
-        # A page whose streams cannot be decoded is "not measured", not "no
-        # colour operator". Craft used to fill zeros here while Illustrator
-        # reported null, so the same undecodable file read as "CMYK absent" on
-        # one engine and "unknown" on the other.
-        undec = (b"%PDF-1.6\n"
-                 b"1 0 obj\n<< /Type /Page /Contents 3 0 R >>\nendobj\n"
-                 b"3 0 obj\n<< /Length 4 /Filter /FlateDecode >>\nstream\n"
-                 b"\x00\x01\x02\x03\nendstream\nendobj\n")
-        a29_undec = tmp / "a29-undecodable.pdf"
-        a29_undec.write_bytes(undec)
-        ai_undec, ai_undec_stats = _mod._content_ops(undec)
-        craft_undec = _lc._pdf_facts(a29_undec)
-
-        # One intent object, one catalog array. /OutputIntents is the array that
-        # points at the intent, so counting it as an intent published 2 for a
-        # file that declares 1 -- and only lib_pdf counted it, so the two
-        # landers reported different numbers for the same bytes.
-        intent_pdf = (b"%PDF-1.6\n"
-                      b"1 0 obj\n<< /Type /Catalog /OutputIntents [ 2 0 R ] >>\nendobj\n"
-                      b"2 0 obj\n<< /Type /OutputIntent /S /GTS_PDFX >>\nendobj\n")
-        a29_intent = tmp / "a29-intent.pdf"
-        a29_intent.write_bytes(intent_pdf)
-        intent_shared = _mod._object_counts(intent_pdf)["output_intent"]
-        intent_ai = _mod._observe_ai(a29_intent)["output_intent"]
-        intent_craft = _lc._pdf_facts(a29_intent)
-
-        # The schema is the single source of truth for the operator key set.
-        # r36 widened the code from 4 keys to 10 while the schema still declared
-        # 4, and every gate stayed green because additionalProperties is open --
-        # the drift was invisible. Comparing the two makes it red instead.
-        _decl_doc = json.loads(
-            (ROOT / "references" / "schemas" / "deliverable.schema.json")
-            .read_text(encoding="utf-8"))
-        _decl_keys = set(
-            _decl_doc["properties"]["observed"]["properties"]["content_ops"]["properties"])
-
-        # One Type0 font is two /BaseFont entries (the composite and its
-        # descendant CIDFont) but a single embedded program. Counting entries
-        # made the manifest disagree with vectorcraft's `info` on the same file.
-        fonts = _mod._font_programs(
-            b"1 0 obj << /BaseFont /Stone-Bold /DescendantFonts [2 0 R] >> endobj\n"
-            b"2 0 obj << /BaseFont /Stone-Bold-CID /FontDescriptor 3 0 R >> endobj\n"
-            b"3 0 obj << /FontFile2 4 0 R >> endobj\n")
-
-        # .get() throughout: a missing key must read as "0", so the message says
-        # which clause is wrong instead of raising KeyError and hiding it.
-        a29_ok = (ops.get("rg") == 1 and ops.get("K") == 1 and decoded == 1 and
-                  ops_junk is None and decoded_junk == 0 and
-                  ops_plain.get("k") == 1 and ops_plain.get("K") == 1 and dec_plain == 1 and
-                  ops_inline.get("k") == 1 and ops_inline.get("G") == 0 and
-                  ops_inline.get("K") == 0 and dec_inline == 1 and
-                  ops_iunk is None and dec_iunk == 0 and
-                  ops_bi.get("k") == 1 and ops_bi.get("K") == 1 and dec_bi == 1 and
-                  ops_sub is None and dec_sub == 0 and
-                  ops_fixed == expect_fixed and
-                  scoped_ref.get("K") == 1 and stats_ref.get("refs") == 2 and
-                  stats_ref.get("objects") == 1 and stats_ref.get("decoded") == 1 and
-                  scoped_os.get("k") == 0 and scoped_os.get("K") == 1 and
-                  stats_os.get("objects") == 1 and stats_os.get("decoded") == 1 and
-                  scoped_n.get("K") == 1 and stats_n.get("objects") == 1 and
-                  stats_n.get("decoded") == 1 and len(warn_os) == 1 and
-                  craft_facts["content_ops"] == scoped and
-                  craft_facts["content_streams"]["decoded"] == 1 and
-                  craft_facts["content_streams"].get("refs") == 1 and
-                  ai_undec is None and ai_undec_stats.get("decoded") == 0 and
-                  craft_undec["content_ops"] is None and
-                  craft_undec["content_streams"]["decoded"] == 0 and
-                  intent_shared == 1 and intent_ai == 1 and
-                  intent_craft.get("output_intent") == 1 and
-                  intent_craft.get("output_intent_objects") == 1 and
-                  scoped.get("k") == 0 and scoped.get("K") == 1 and scoped.get("rg") == 1 and
-                  scoped_stats.get("objects") == 1 and
-                  scoped_stats.get("refs") == 1 and
-                  scoped_stats.get("decoded") == 1 and fonts == 1 and
-                  set(scoped) == _decl_keys)
-        # Short discriminating values first, then the long dictionary: add()
-        # truncates at 220 chars, and the tail used to be cut off exactly when
-        # a red assertion needed it (the whole dict fit, the verdict did not).
-        a29_detail = ("k=" + str(scoped.get("k")) + "/0 K=" + str(scoped.get("K")) + "/1" +
-                      " objects=" + str(scoped_stats.get("objects")) + "/1" +
-                      " refs=" + str(scoped_stats.get("refs")) + "/1" +
-                      " decoded=" + str(scoped_stats.get("decoded")) + "/1" +
-                      " objstm=" + str(stats_os.get("objects")) + "/" +
-                      str(stats_os.get("decoded")) +
-                      " osN=" + str(stats_n.get("objects")) + "/" +
-                      str(stats_n.get("decoded")) + "/w" + str(len(warn_os)) +
-                      " plain=" + str(ops_plain.get("k")) + "/" + str(dec_plain) +
-                      " inline=" + str(ops_inline.get("k")) + "," + str(ops_inline.get("G")) +
-                      ",dec" + str(dec_inline) +
-                      " iunk=" + str(ops_iunk) + "/" + str(dec_iunk) +
-                      " bi=" + str(ops_bi.get("k")) + "/" + str(ops_bi.get("K")) +
-                      " sub=" + str(ops_sub) + "/" + str(dec_sub) +
-                      " ref=" + str(stats_ref.get("refs")) + "/" +
-                      str(stats_ref.get("objects")) + "/" +
-                      str(stats_ref.get("decoded")) +
-                      " fixed=" + str(ops_fixed == expect_fixed) +
-                      " fonts=" + str(fonts) + "/1" +
-                      " craft=" + str(craft_facts["content_ops"] == scoped) +
-                      " undec=" + str(ai_undec) + "/" + str(craft_undec["content_ops"]) +
-                      " intent=" + str(intent_ai) + "/" +
-                      str(intent_craft.get("output_intent")) + "/1" +
-                      " keys=" + str(set(scoped) == _decl_keys) +
-                      " ops=" + str(scoped))
-    except Exception as e:                      # noqa: BLE001 - report, do not crash
-        a29_detail = type(e).__name__ + ": " + str(e)[:140]
-    add("A29-content-ops-measurement", a29_ok, a29_detail)
-
-    # A30: the alternate engine's artefacts must survive the DOWNSTREAM chain.
-    #
-    # The defects this guards against were all invisible to the other 30
-    # assertions: a hardcoded engine version, a missing structure_readback.json
-    # (which makes aggregate_log mark H1 "unverified" for a perfectly good
-    # file), and missing final.svg/preview.png (which makes H2 fail). Every
-    # gate was green while the chain was broken end to end.
-    #
-    # When the optional CLI is absent the check reports skipped, never passed.
-    a30_ok, a30_detail, a30_skip = False, "not run", False
-    try:
-        _spec2 = importlib.util.spec_from_file_location("land_vc_under_test",
-                                                        ROOT / "scripts" / "land_vc.py")
-        _lv = importlib.util.module_from_spec(_spec2)
-        _spec2.loader.exec_module(_lv)
-        _cli = _lv.find_cli("")
-        if _cli is None:
-            a30_skip, a30_ok = True, True
-            a30_detail = "skipped: vectorcraft-cli not found (optional engine)"
-        else:
-            # A SQUARE sample cannot detect a transposed or scaled artboard:
-            # 200x200 -> [200,200] either way. Generate a non-square one so the
-            # width/height comparison in this assertion actually discriminates.
-            wide = tmp / "wide.svg"
-            wide.write_text(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" '
-                'width="300" height="200">'
-                '<rect x="10" y="10" width="120" height="80" fill="#2f6fed"/>'
-                '<circle cx="220" cy="100" r="60" fill="#ffb020"/></svg>',
-                encoding="utf-8")
-            vdir = tmp / "vc-chain"
-            rc_l, env_l, _ = _call("land_vc.py",
-                                   ["--svg", str(wide),
-                                    "--out", str(vdir), "--profile", "print",
-                                    "--run-id", "a30", "--json"], tmp)
-            rc_a, env_a, _ = _call("aggregate_log.py",
-                                   ["--run-dir", str(vdir), "--run-id", "a30", "--json"], tmp)
-            # aggregate_log puts the acceptance fields at data level; older
-            # envelopes nested them under "acceptance". Accept both rather than
-            # betting on one shape -- betting on one shape is exactly how this
-            # assertion first reported a false red.
-            _data = env_a.get("data") or {}
-            _acc = _data.get("acceptance") or _data
-            _gates = _acc.get("hard_gates") or _data.get("hard_gates") or {}
-            h1 = (_gates.get("H1") or {}).get("pass") is True
-            h2 = (_gates.get("H2") or {}).get("pass") is True
-            # Read the artefact back and check the *emitted* numbers. The
-            # in-code guard checked the raw rect, so reverting only the value
-            # that gets written left every gate green with artboard=[200,-200].
-            _sr = {}
-            try:
-                _sr = json.loads((vdir / "structure_readback.json").read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                pass
-            _ab = _sr.get("artboard") or []
-            _vb = _sr.get("viewBox") or []
-            ab_positive = (len(_ab) == 2 and all(isinstance(x, (int, float)) and x > 0 for x in _ab))
-            # "> 0" only catches sign errors. A transposed or scaled value still
-            # passes it, and nothing compared the emitted numbers to the source
-            # dimensions -- so a 2% inflation or a swap was invisible to every
-            # gate. Compare the artefact against viewBox with the tolerance the
-            # in-code dims_ok already uses; that kills sign, transpose, scale and
-            # unit errors at once without inventing a new threshold.
-            ab_matches_vb = (len(_ab) == 2 and len(_vb) == 4 and
-                             abs(_ab[0] - _vb[2]) <= 1 and abs(_ab[1] - _vb[3]) <= 1)
-            deliv = (env_l.get("data") or {}).get("deliverable") or {}
-            ver = str(deliv.get("engine_version") or "")
-            # A version string that is not what the binary reports means the
-            # manifest is guessing again.
-            ver_ok = bool(ver) and ver != "unknown"
-            a30_ok = (rc_l == 0 and h1 and h2 and ver_ok and ab_positive and ab_matches_vb)
-            a30_detail = ("land=" + str(rc_l) + " h1=" + str(h1) + " h2=" + str(h2) +
-                          " version=" + (ver or "?") +
-                          " artboard=" + str(_ab) + " viewBox=" + str(_vb) +
-                          " positive=" + str(ab_positive) +
-                          " matches_viewBox=" + str(ab_matches_vb) +
-                          " agg_exit=" + str(rc_a))
-    except Exception as e:                      # noqa: BLE001
-        a30_detail = type(e).__name__ + ": " + str(e)[:140]
-    add("A30-vectorcraft-chain-h1-h2", a30_ok, a30_detail, skipped=a30_skip)
-
-    # A31: the manifest must not drift from its own schema, in BOTH directions.
-    #
-    # Round 8 found 13 fields emitted but undeclared on one engine and absent on
-    # the other, and the schema still validated because it never forbade extra
-    # keys. A contract that validates while omitting half the payload is worse
-    # than no contract: it certifies nothing.
-    #
-    # r45 removed the synthetic half that built an Illustrator manifest through
-    # its own constructor. That half exercised the constructor, not the chain
-    # feeding it: deleting `engine` from the real chain still left it green.
-    # The only manifest that ships now is the one land_vc writes, so that is
-    # what gets diffed -- produced by a real run, not by hand.
-    a31_ok, a31_detail, a31_skip = False, "not run", False
-    try:
-        _schema = json.loads((ROOT / "references" / "schemas" /
-                              "deliverable.schema.json").read_text(encoding="utf-8"))
-        _real_missing = os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1"
-
-
-
-
-        # --- the only shipping manifest: produced by a real land_vc run ---
-        vc_extra = vc_missing = vc_typebad = vc_nested = []
-        if _cli is None:
-            # A missing engine normally downgrades this assertion to a skip,
-            # which is honest: the manifest genuinely was not produced. But
-            # "real coverage was requested and did not happen" is a known miss,
-            # not an unknown, so failure has to outrank skip here.
-            a31_skip = not _real_missing
-            a31_ok = not _real_missing
-            a31_detail = ("vectorcraft skipped (no CLI)"
-                          + (" but REAL_AI was requested" if _real_missing else ""))
-        else:
-            vdir2 = tmp / "schema-diff-vc"
-            _call("land_vc.py", ["--svg", str(GOOD / "sample.svg"),
-                                 "--out", str(vdir2), "--profile", "print",
-                                 "--run-id", "a31", "--json"], tmp)
-            vc_doc = json.loads((vdir2 / "deliverable.json").read_text(encoding="utf-8"))
-            vc_extra, vc_missing, vc_typebad, vc_nested = _schema_diff(
-                vc_doc, _schema, optional=CRAFT_ONLY_KEYS)
-            # The bidirectional diff only compares keys and primitive types; it
-            # does not evaluate `const`, so a wrong or deleted engine still read
-            # as conformant. Run the published validator as well.
-            _rc31, _, _ = _call("schema_check.py",
-                                [str(ROOT / "references" / "schemas" /
-                                     "deliverable.schema.json"),
-                                 str(vdir2 / "deliverable.json"), "--json"], tmp)
-            # The run asked for --profile print: that request must reach the
-            # manifest. A hardcoded "screen" profile (or dropping the prof
-            # argument) would leave every key present and still be wrong.
-            _prof31 = (vc_doc.get("profile") == "print"
-                       and (vc_doc.get("save_options") or {}).get("cmyk") is True
-                       and vc_doc.get("engine") == "vectorcraft")
-            a31_ok = (_rc31 == 0 and _prof31
-                      and not (vc_extra or vc_missing or vc_typebad or vc_nested))
-            a31_detail = ("vc extra=" + str(vc_extra or "-") +
-                          " missing=" + str(vc_missing or "-") +
-                          " typebad=" + str(vc_typebad or "-") +
-                          " nested=" + str(vc_nested or "-") +
-                          " schema_check=" + str(_rc31) +
-                          " profile_wired=" + str(_prof31) +
-                          " engine=" + str(vc_doc.get("engine")))
-    except Exception as e:                      # noqa: BLE001
-        a31_detail = type(e).__name__ + ": " + str(e)[:140]
-    add("A31-deliverable-schema-no-drift", a31_ok, a31_detail, skipped=a31_skip)
-
-    # Determinism: NOT added as a new assertion. QA asked for "same input twice,
-    # identical numbers" when the perceptual layer brought floating point in.
-    # A3-idempotent-byte-identical already runs the whole chain twice on one
-    # input and byte-compares seven artefacts including score.json, which is
-    # strictly stronger than re-running score.py alone.
-    #
-    # This was verified rather than assumed: injecting a set-ordered field into
-    # score.json (string hash randomisation reorders it per process) turned BOTH
-    # a candidate A32 and the existing A3 red. A second assertion for a property
-    # the first one already catches would inflate the count without adding
-    # coverage -- exactly the sort of decorative guard this suite exists to
-    # avoid. A3 had simply never been mutation-tested before.
-
-    # A33: the perceptual primitives still reproduce their published reference
-    # vectors. Deliberately a re-run of the module's own self-check rather than
-    # a copy of its numbers: a matrix edited in the module would otherwise be
-    # checked against a fixture carrying the same mistake.
-    try:
-        import perceptual as _P
-        problems = _P.selfcheck()
-        add("A33-perceptual-reference-vectors", not problems,
-            ("dE2000 max err %.3e over %d pairs; 4 contrast anchors; "
-             "2 CVD pins; 9 matrix row sums = 1"
-             % (_P.sharma_max_error(), len(_P.SHARMA_VECTORS)))
-            if not problems else "; ".join(problems[:3]))
-    except Exception as e:                      # noqa: BLE001
-        add("A33-perceptual-reference-vectors", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    # A34: the contrast path actually runs, and it catches the case that
-    # motivated the whole perceptual layer.
-    #
-    # Without a declared pair the check reports not_applicable, which is honest
-    # but means the code is never exercised -- a guard that no default run
-    # reaches is a guard nobody would notice breaking. This drives a real pair
-    # through score.py: pure red on black. WCAG alone passes it at 5.25:1; the
-    # dichromatic observer sees 1.26:1. If the simulated-observation layer is
-    # ever dropped or the matrices rot, this goes red.
-    try:
-        spec34 = json.loads((GOOD / "spec.json").read_text(encoding="utf-8"))
-        spec34["contrast_pairs"] = [{"fg": "#FF0000", "bg": "#000000",
-                                     "role": "meaning"}]
-        p34 = tmp / "a34-spec.json"
-        p34.write_text(json.dumps(spec34), encoding="utf-8")
-        out34 = tmp / "a34-score.json"
-        _call("score.py", ["--svg", str(GOOD / "sample.svg"),
-                           "--judge", str(GOOD / "judge.json"),
-                           "--spec", str(p34), "--out", str(out34),
-                           "--run-id", "a34", "--json"], tmp)
-        s34 = json.loads(out34.read_text(encoding="utf-8"))
-        c34 = s34["scores"]["C"]["measured"]["perceptual"]["contrast"]
-        pair = (c34.get("pairs") or [{}])[0]
-        caught = (c34.get("status") == "warn"
-                  and pair.get("status") == "fail"
-                  and pair.get("min", 9) < 3.0
-                  and pair.get("normal", 0) > 4.5)
-        add("A34-contrast-catches-cvd-collapse", caught,
-            "normal=" + str(pair.get("normal")) + " min=" + str(pair.get("min"))
-            + " status=" + str(c34.get("status")))
-    except Exception as e:                      # noqa: BLE001
-        add("A34-contrast-catches-cvd-collapse", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    # A35: a path that trips the short-segment escape valve must still leave
-    # evidence -- in the FILE, not merely in the library return value.
-    #
-    # The escape valve (borrowed from fontspector) exists so that genuinely
-    # detailed artwork is not punished for being detailed. The first
-    # implementation wrote `short += count if not dense else 0`, which kept the
-    # path out of the ratio -- correct -- and ALSO threw away the count, so
-    # "a circle cut into 200 chords" and "nothing to report" looked identical.
-    #
-    # The first version of THIS assertion called analyze_svg() directly and
-    # checked its return dict. That proved the library kept the numbers while
-    # score.json still dropped them: the fix had reached the function and
-    # stopped there. Same shape as the failures this project keeps closing --
-    # measured, but not in any file a reader opens. So it now runs score.py
-    # end to end and reads score.json, which is what a reviewer actually gets.
-    try:
-        import math as _m
-        _n = 200
-        _d = "M" + " L".join(
-            "%.4f,%.4f" % (100 + 70 * _m.cos(2 * _m.pi * i / _n),
-                           100 + 70 * _m.sin(2 * _m.pi * i / _n))
-            for i in range(_n)) + " Z"
-        _svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
-                '<g id="a"><path d="' + _d + '" fill="none" stroke="#000"/></g></svg>')
-        _p35 = tmp / "a35-flattened.svg"
-        _p35.write_text(_svg, encoding="utf-8")
-        _out35 = tmp / "a35-score.json"
-        _call("score.py", ["--svg", str(_p35),
-                           "--judge", str(GOOD / "judge.json"),
-                           "--spec", str(GOOD / "spec.json"),
-                           "--out", str(_out35),
-                           "--run-id", "a35", "--json"], tmp)
-        _d35 = json.loads(_out35.read_text(encoding="utf-8"))["scores"]["D"]["measured"]
-        _turns = _d35.get("dense_turns_deg") or []
-        kept = (_d35.get("dense_paths") == 1
-                and _d35.get("dense_short_segments") == _n
-                and len(_turns) == 1 and _turns[0] < 5.0
-                and (_d35.get("dense_corner_fracs") or [1])[0] == 0.0)
-        add("A35-dense-path-keeps-evidence", kept,
-            "in score.json: dense=" + str(_d35.get("dense_paths"))
-            + " kept_short=" + str(_d35.get("dense_short_segments"))
-            + " turns=" + str(_turns)
-            + " corner=" + str(_d35.get("dense_corner_fracs")))
-    except Exception as e:                      # noqa: BLE001
-        add("A35-dense-path-keeps-evidence", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    # A36-A38: the three P2 items that survived five QA rounds (report
-    # QA报告-第17轮.md §6). Each assertion is written so that reverting the
-    # fix makes exactly that assertion red -- a guard that cannot fail is
-    # decoration, not evidence. All three drive land_vc._build_deliverable,
-    # the seam main() itself calls: the original defects lived in the wiring
-    # (hardcoded icc, a second write after construction, `.split()[-1]`), and
-    # guards aimed at the helpers stayed green when the wiring was reverted.
-    # A36 additionally checked a second engine's request/claim symmetry through
-    # its JSX template. r45 removed that engine and the template, so the guard
-    # below drives the shipping chain and mutation-tests the profile constant.
-    try:
-        _s36b = importlib.util.spec_from_file_location("r24_land_vc", SCRIPTS / "land_vc.py")
-        _lv36 = importlib.util.module_from_spec(_s36b)
-        _s36b.loader.exec_module(_lv36)
-
-        _obs36 = {"has_ai_private": True, "content_ops": {}, "content_streams": {},
-                  "color_mode": "cmyk", "device_cmyk": 0, "device_rgb": 1,
-                  "iccbased": 0, "output_intent": 0, "artboard_pt": [200, 200],
-                  "sha256": "0" * 64}
-        _kv36 = {"layers": "5", "notes": ""}
-
-        # A36: a print delivery asks for an embedded ICC and never claims the
-        # request was honoured. The request must come from PROFILE_DEFAULTS,
-        # not from a literal, and the unverified bucket must name the missing
-        # /OutputIntent. The mutation below replaces the old AST scan: flipping
-        # the constant and re-running the seam proves the value flows through.
-        _icc_print = _lv36.PROFILE_DEFAULTS["print"]["icc"] is True
-        _icc_screen = _lv36.PROFILE_DEFAULTS["screen"]["icc"] is False
-        _d_vc = _lv36._build_deliverable(tmp / "a.ai", "print",
-                                         _lv36.PROFILE_DEFAULTS["print"],
-                                         _obs36, _kv36,
-                                         "vectorcraft-cli 0.22.0", [], None)
-        _u_vc = [x for x in _d_vc["unverified"] if "OutputIntent" in x]
-        _saved36 = _lv36.PROFILE_DEFAULTS["print"]["icc"]
-        _lv36.PROFILE_DEFAULTS["print"]["icc"] = False
-        try:
-            _d_mut36 = _lv36._build_deliverable(tmp / "a.ai", "print",
-                                                _lv36.PROFILE_DEFAULTS["print"],
-                                                _obs36, _kv36,
-                                                "vectorcraft-cli 0.22.0", [], None)
-        finally:
-            _lv36.PROFILE_DEFAULTS["print"]["icc"] = _saved36
-        _mut36 = (_d_mut36["save_options"]["embed_icc"] is False
-                  and not any("OutputIntent" in x for x in _d_mut36["unverified"]))
-        _ok36 = (bool(_u_vc) and _d_vc["save_options"]["embed_icc"] is True
-                 and _icc_print and _icc_screen and _mut36
-                 and _d_vc["profile"] == "print"
-                 and not any("未嵌入 ICC" in x for x in _d_vc["warnings"]))
-        add("A36-icc-request-not-claimed", _ok36,
-            "print unverified=" + str(len(_u_vc))
-            + " embed_icc=" + str(_d_vc["save_options"]["embed_icc"])
-            + " profile_defaults=" + str((_icc_print, _icc_screen))
-            + " mutation_follows=" + str(_mut36))
-
-        # A37: a warning emitted by three steps must appear once, and the
-        # deliverable must carry that exact de-duplicated list (not a second
-        # copy written after construction).
-        # The steps are built by the parser that reads the CLI's own output,
-        # because that is where the warnings enter the chain. QA round 19's M43
-        # dropped `result.warnings` inside parse_jsonl and every assertion
-        # stayed green while tool_warnings silently became [].
-        _jsonl37 = "\n".join([
-            '{"step": "import", "result": {"warnings": ["font missing: Helvetica"]}}',
-            '{"step": "save", "result": {"warnings": ["font missing: Helvetica", '
-            '"no output intent"]}}',
-            "not a json line",
-        ])
-        _steps37 = _lv36.parse_jsonl(_jsonl37)
-        _w37 = _lv36._collect_export_warnings(_steps37)
-        # Through the seam: covers the de-duplication AND the `tool_warnings=`
-        # wiring. Feeding the helper directly left the wiring blind, which is
-        # precisely where the r23 defect lived (a second write after the fact).
-        _d37 = _lv36._build_deliverable(tmp / "a.ai", "print",
-                                        _lv36.PROFILE_DEFAULTS["print"],
-                                        _obs36, _kv36,
-                                        "vectorcraft-cli 0.22.0", _steps37, None)
-        _ok37 = (_w37 == ["font missing: Helvetica", "no output intent"]
-                 and len(_steps37) == 2          # the non-JSON line is not a step
-                 and _d37["tool_warnings"] == _w37
-                 and len(_d37["tool_warnings"]) == len(set(_d37["tool_warnings"])))
-        add("A37-tool-warnings-deduplicated", _ok37,
-            "in deliverable.json: tool_warnings=" + str(_d37["tool_warnings"]))
-
-        # A38: a version string with a trailing build/platform suffix must
-        # yield the dotted version, and an unparseable one must say unknown.
-        _cases38 = [("vectorcraft-cli 0.22.0 (build 20261101 win-x64)", "0.22.0"),
-                    ("tool 1.2", "1.2"), ("no version here", "unknown"),
-                    ("", "unknown")]
-        # Through the seam: the field a client reads is deliverable["engine_version"].
-        # Calling the parser directly stays green even if the wiring goes back to
-        # `.split()[-1]` -- and that call site was where the r23 defect lived.
-        _got38 = []
-        for _txt, _ in _cases38:
-            _d38 = _lv36._build_deliverable(tmp / "a.ai", "print",
-                                            _lv36.PROFILE_DEFAULTS["print"],
-                                            _obs36, _kv36, _txt, [], None)
-            _got38.append((_txt, _d38.get("engine_version")))
-        _ok38 = all(g == e for (_, g), (_, e) in zip(_got38, _cases38))
-        add("A38-engine-version-parser", _ok38,
-            "parse=" + str(_got38))
-
-        # A39: probe_source is the only place the CLI's "which fonts did you
-        # substitute" answer enters the manifest -- invisible in file size, path
-        # counts and layer counts alike. Two rounds of QA broke the first
-        # version of this guard: M44 (return unavailable unconditionally) was
-        # caught, but the payload was invented ({"name", "status":
-        # "substituted"}), so land_vc's consumer -- `if f.get("missing")` -- had
-        # no coverage at all (QA round 20, M50/M51), and the two error branches
-        # could be flipped to available=True unnoticed (M45/M53). The payload
-        # below is a trimmed copy of real `vectorcraft info` output.
-        _real_run_cli39 = _lv36.run_cli
-
-        def _fake39(payload, rc=0):
-            def _run(cli, argv, timeout=300):
-                return rc, payload, ""
-            return _run
-
-        _font39 = {"family": "DefinitelyMissingFontXYZ", "style": "Regular",
-                   "status": "missing", "missing": True, "missingGlyphs": 0,
-                   "objects": 1, "runs": 1,
-                   "resolved": {"family": "Source Sans 3", "style": "Regular"}}
-        _payload39 = json.dumps({"fonts": [_font39],
-                                 "importWarnings": ["font substituted: DefinitelyMissingFontXYZ"],
-                                 "info": {"objects": 12, "colorMode": "CMYK"}})
-        try:
-            _lv36.run_cli = _fake39(_payload39)
-            _p39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
-            _w39 = _lv36._font_warnings(_p39)
-            # The CLI omits `resolved` when it could not name a replacement; the
-            # fallback text is then what a client reads, so it is asserted too.
-            _lv36.run_cli = _fake39(json.dumps({
-                "fonts": [{"family": "NoResolveFont", "status": "missing", "missing": True}],
-                "importWarnings": [], "info": {"objects": 1, "colorMode": "CMYK"}}))
-            _p39b = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
-            _w39b = _lv36._font_warnings(_p39b)
-            _lv36.run_cli = _fake39("boom", rc=1)
-            _rc39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
-            _lv36.run_cli = _fake39("this is not json")
-            _js39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
-        finally:
-            _lv36.run_cli = _real_run_cli39
-        # Matched by regex + groups, not by exact text: QA round 21 found that
-        # a punctuation change turns an exact-string check red for a reason no
-        # client would ever notice. The substance -- which font, replaced by
-        # what -- is what the assertion is about.
-        _pat39 = r"源文件字体缺失：(.+?)，产物中已用 (.+?) 替代"
-        _m39 = re.search(_pat39, _w39[0]) if _w39 else None
-        _m39b = re.search(_pat39, _w39b[0]) if _w39b else None
-        _ok39 = (_p39.get("available") is True
-                 and _p39.get("fonts") == [_font39]
-                 and _p39.get("import_warnings") == ["font substituted: DefinitelyMissingFontXYZ"]
-                 and _p39.get("objects") == 12
-                 and _p39.get("color_mode") == "CMYK"
-                 and _m39 is not None
-                 and _m39.group(1) == "DefinitelyMissingFontXYZ"
-                 and _m39.group(2) == "Source Sans 3"
-                 and _m39b is not None
-                 and _m39b.group(1) == "NoResolveFont"
-                 and _m39b.group(2) == "未知替代字体"
-                 and _rc39.get("available") is False
-                 and _js39.get("available") is False)
-        add("A39-font-probe-carried", _ok39,
-            "available=" + str(_p39.get("available"))
-            + " fonts=" + str(len(_p39.get("fonts") or []))
-            + " warn=" + str(len(_w39))
-            + " fallback=" + str(len(_w39b))
-            + " family=" + str(_m39.group(1) if _m39 else None)
-            + " rc_branch=" + str(_rc39.get("available"))
-            + " nonjson=" + str(_js39.get("available")))
-
-        # (r45) A40's AST scan was retired with the JSX template it guarded.
-        # The replacement below guards the same property behaviourally: a
-        # failed landing must not leave the previous run's H1 evidence behind.
-        _hyg = tmp / "a40-hygiene"
-        _hygc = tmp / "a40-hygiene-craft"
-
-        def _stale40(where):
-            d = where or _hyg
-            d.mkdir(parents=True, exist_ok=True)
-            (d / "structure_readback.json").write_text(json.dumps({
-                "schema": "vector-ai-studio/structure-readback-v1",
-                "ok": True, "raster": 0, "placed": 0, "paths": 5,
-                "artboard_matches_viewBox": True,
-                "source": "vectorcraft-info"}), encoding="utf-8")
-            (d / "final.ai").write_bytes(b"%PDF-1.4 stale-from-previous-run")
-            # H2 only asks whether preview.png parses, so a failed run that keeps
-            # the previous design's picture still looks complete. The seed makes
-            # that observable: every failure exit below must clear it.
-            (d / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\nstale-picture")
-            (d / "preview.meta.json").write_text('{"renderer": "stale"}', encoding="utf-8")
-
-        def _prev40_gone(where):
-            d = where or _hyg
-            return not (d / "preview.png").exists() and not (d / "preview.meta.json").exists()
-
-        def _sr40_gone(where):
-            p = (where or _hyg) / "structure_readback.json"
-            if not p.is_file():
-                return True
-            try:
-                return json.loads(p.read_text(encoding="utf-8")).get("ok") is False
-            except (OSError, json.JSONDecodeError):
-                return False
-
-        def _landing40(where):
-            try:
-                return json.loads(((where or _hyg) / "landing.json").read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                return {}
-
-        # (a) engine absent: degraded L4, stale evidence removed
-        _stale40(_hyg)
-        _rc40a, _, _ = _call("land_vc.py",
-                             ["--svg", str(GOOD / "sample.svg"), "--out", str(_hyg),
-                              "--vc", str(tmp / "definitely-no-cli.exe"), "--json"], tmp)
-        _l40a = _landing40(_hyg)
-        _ok40a = (_rc40a == 3 and _sr40_gone(_hyg) and _prev40_gone(_hyg)
-                  and _l40a.get("status") == "degraded"
-                  and _l40a.get("stale_readback_removed") is True
-                  and _l40a.get("stale_preview_removed") is True)
-
-        # (b) source SVG missing: fail landing, stale evidence removed
-        _stale40(_hyg)
-        _rc40b, _, _ = _call("land_vc.py",
-                             ["--svg", str(tmp / "missing.svg"),
-                              "--out", str(_hyg), "--json"], tmp)
-        _l40b = _landing40(_hyg)
-        _ok40b = (_rc40b == 2 and _sr40_gone(_hyg) and _prev40_gone(_hyg)
-                  and _l40b.get("status") == "fail")
-
-        # (c) the print sibling has the same hygiene on its failure exit.
-        # Its own directory on purpose: sharing (b)'s would let (b)'s fail
-        # landing satisfy this clause even if land_craft wrote nothing, which is
-        # exactly the bug this assertion exists to catch. Exit is 2 (no SVG) or
-        # 3 (no CLI on this machine); 0 must never appear.
-        _stale40(_hygc)
-        _rc40c, _, _ = _call("land_craft.py",
-                             ["--svg", str(tmp / "missing.svg"),
-                              "--out", str(_hygc), "--json"], tmp)
-        _l40c = _landing40(_hygc)
-        _ok40c = (_rc40c in (2, 3) and _sr40_gone(_hygc) and _prev40_gone(_hygc)
-                  and _l40c.get("status") == "fail"
-                  and _l40c.get("stale_readback_removed") is True
-                  and _l40c.get("stale_preview_removed") is True)
-        add("A40-failed-landing-clears-stale-evidence",
-            bool(_ok40a and _ok40b and _ok40c),
-            "vc_no_cli=" + str(_ok40a) + " vc_no_svg=" + str(_ok40b)
-            + " craft_no_svg=" + str(_ok40c))
-
-
-        # A41: E is the one dimension that is a set comparison with its own
-        # thresholds, and until r28 every fixture recorded E="N/A" -- the branch
-        # that computes Jaccard had never run in any test (QA round 20 found the
-        # gap while reviewing what E covers). Three cases: an exact reference
-        # must score excellent, a disjoint one must fail, no reference must stay
-        # N/A (L5: restricted capability, not a silent pass).
-        # The reference is written out by hand from reading sample.svg, NOT
-        # produced by score.py's own extractor: QA round 21 showed that a
-        # reference built from _svg_tokens() passes even when the extractor is
-        # broken (both sides rot together). The expected Jaccard values below
-        # are hand-computed from the intersection/union definition.
-        _svg41 = FIX / "good" / "sample.svg"
-        _exact41 = {"schema": "vector-ai-studio/reference-v1",
-                    "palette": ["#111111", "#2f6fed", "#ffb020", "#ffffff"],
-                    "stroke_width": ["3.0"], "corner_radius": [], "font_family": []}
-        # 2 of 4 palette colours hit, stroke identical, the two empty buckets
-        # deliberately non-empty in the reference so their Jaccard is 0.
-        _partial41 = {"schema": "vector-ai-studio/reference-v1",
-                      "palette": ["#2f6fed", "#ffb020"], "stroke_width": ["3.0"],
-                      "corner_radius": ["4.0"], "font_family": ["SomeFont"]}
-        # Everything identical except the palette (2 of 4): the average 0.875 is
-        # above the excellent threshold, so only the palette rule can keep this
-        # from being excellent. QA round 21's D7 deleted that rule and went
-        # unnoticed.
-        _half41 = {"schema": "vector-ai-studio/reference-v1",
-                   "palette": ["#2f6fed", "#ffb020"], "stroke_width": ["3.0"],
-                   "corner_radius": [], "font_family": []}
-        _ref41 = tmp / "ref_exact.json"
-        _pre41 = tmp / "ref_partial.json"
-        _pha41 = tmp / "ref_half.json"
-        L.write_json_atomic(_ref41, _exact41)
-        L.write_json_atomic(_pre41, _partial41)
-        L.write_json_atomic(_pha41, _half41)
-        _common41 = ["--svg", str(_svg41), "--judge", str(FIX / "good" / "judge.json"),
-                     "--spec", str(FIX / "good" / "spec.json"), "--json"]
-        _e41 = {}
-        for _name41, _ref41p in (("exact", _ref41), ("partial", _pre41), ("half", _pha41)):
-            _rc41, _env41, _ = _call("score.py", _common41 + ["--reference", str(_ref41p)], tmp)
-            _e41[_name41] = ((_env41.get("data") or {}).get("scores") or {}).get("E")
-        _rc41n, _env41n, _ = _call("score.py", _common41, tmp)
-        _e41["none"] = ((_env41n.get("data") or {}).get("scores") or {}).get("E")
-        _th41 = L.load_thresholds()
-        _lv41 = _th41["score_levels"]
-        _ex41 = _e41["exact"] if isinstance(_e41["exact"], dict) else {}
-        _pa41 = _e41["partial"] if isinstance(_e41["partial"], dict) else {}
-        _ha41 = _e41["half"] if isinstance(_e41["half"], dict) else {}
-        _jac41 = (_ex41.get("measured") or {}).get("jaccard", {})
-        _n_tok41 = len(_th41["E"]["tokens"])
-        _ok41 = (_ex41.get("score") == _lv41["excellent"]
-                 and len(_jac41) == _n_tok41 == 4
-                 and set(_jac41.values()) == {1.0}
-                 # partial: 2/4 palette = 0.5, stroke = 1.0, two empty buckets = 0
-                 and (_pa41.get("measured") or {}).get("jaccard") == {
-                     "palette": 0.5, "stroke_width": 1.0,
-                     "corner_radius": 0.0, "font_family": 0.0}
-                 and abs(float((_pa41.get("measured") or {}).get("average", -1)) - 0.375) < 1e-9
-                 and _pa41.get("score") == _lv41["fail"]
-                 # half: average 0.875 >= excellent threshold, palette 0.5 < 1.0
-                 # -> must be pass, not excellent
-                 and _ha41.get("score") == _lv41["pass"]
-                 and _e41["none"] == "N/A")
-        add("A41-brand-reference-jaccard", _ok41,
-            "E exact=" + str(_ex41.get("score")) + " partial=" + str(_pa41.get("score"))
-            + " half=" + str(_ha41.get("score")) + " none=" + str(_e41["none"])
-            + " tokens=" + str(len(_jac41)))
-    except Exception as e:                      # noqa: BLE001
-        # Only fill in assertions that never ran. Re-adding an ID that already
-        # produced a result would give one guard two contradictory verdicts.
-        for _id in ("A36-icc-request-not-claimed",
-                    "A37-tool-warnings-deduplicated",
-                    "A38-engine-version-parser",
-                    "A39-font-probe-carried",
-                    "A40-failed-landing-clears-stale-evidence",
-                    "A41-brand-reference-jaccard"):
-            if not any(x["id"] == _id for x in a):
-                add(_id, False, type(e).__name__ + ": " + str(e)[:140])
-
-    _check_stale_preview(tmp, add, RECT)
-
-    # ---- A48: a CLI that exits 0 without writing must not inherit outputs ----
-    # "the file is there" was the only evidence that the engine produced
-    # anything, and a previous run's final.ai / preview.png satisfied it. A CLI
-    # that reports success and writes nothing is a silent failure, not a crash,
-    # so the check has to be "was it written now", which the landers enforce by
-    # clearing their targets before invoking the engine. This drives land_vc's
-    # real _run with a patched runner that claims success and writes nothing.
-    try:
-        import contextlib
-        import io
-
-        _spec48 = importlib.util.spec_from_file_location("land_vc_a48",
-                                                         SCRIPTS / "land_vc.py")
-        _lv48 = importlib.util.module_from_spec(_spec48)
-        _spec48.loader.exec_module(_lv48)
-        _d48 = tmp / "a48"
-        _d48.mkdir()
-        (_d48 / "final.ai").write_bytes(b"%PDF-1.4 previous-run")
-        (_d48 / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\nprevious-run")
-        (_d48 / "preview.meta.json").write_text('{"renderer": "previous"}', encoding="utf-8")
-        _lv48.find_cli = lambda explicit: Path(sys.executable)
-        _lv48.run_cli = lambda *a, **k: (0, "", "")   # claims success, writes nothing
-        _a48 = argparse.Namespace(svg=str(GOOD / "rect-only.svg"), out=str(_d48),
-                                  profile="screen", vc="", run_id="a48", json=True)
-        _buf48 = io.StringIO()
-        with contextlib.redirect_stdout(_buf48):
-            _rc48 = _lv48._run(_a48, _d48)
-        _l48 = _landing40(_d48)
-        _gone48 = (not (_d48 / "final.ai").exists()
-                   and not (_d48 / "preview.png").exists())
-
-        # Second half: the cleanup itself fails (a locked file). Continuing would
-        # read the old file as this run's, so the run must refuse with a code --
-        # not warn and carry on.
-        _d48b = tmp / "a48b"
-        _d48b.mkdir()
-        (_d48b / "final.ai").write_bytes(b"%PDF-1.4 locked-previous-run")
-        _orig48 = _lv48.LP._drop_outputs
-        _buf48b = io.StringIO()
-        try:
-            _lv48.LP._drop_outputs = lambda d, n: False
-            _a48b = argparse.Namespace(svg=str(GOOD / "rect-only.svg"), out=str(_d48b),
-                                       profile="screen", vc="", run_id="a48b", json=True)
-            with contextlib.redirect_stdout(_buf48b):
-                _rc48b = _lv48._run(_a48b, _d48b)
-        finally:
-            _lv48.LP._drop_outputs = _orig48
-        _env48b = {}
-        try:
-            _env48b = json.loads(_buf48b.getvalue() or "{}")
-        except json.JSONDecodeError:
-            _env48b = {}
-        _codes48b = [e.get("code") for e in (_env48b.get("errors") or []) if isinstance(e, dict)]
-        _l48b = _landing40(_d48b)
-        _locked48 = (_rc48b == L.EXIT_ERROR and "E-OUTPUT-STALE" in _codes48b
-                     and _l48b.get("status") == "fail")
-        add("A48-silent-cli-cannot-inherit-outputs",
-            bool(_rc48 != 0 and _gone48 and _l48.get("status") == "fail"
-                 and _locked48),
-            "rc=" + str(_rc48) + " old_gone=" + str(_gone48)
-            + " landing=" + str(_l48.get("status"))
-            + " locked_rc=" + str(_rc48b) + " locked_codes=" + str(_codes48b))
-    except Exception as e:                      # noqa: BLE001
-        add("A48-silent-cli-cannot-inherit-outputs", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    _check_archetypes_legal(tmp, add)
-
-    # ---- A50: one command must run the stages in order and stop honestly ----
-    # studio.py exists so a human does not have to remember six commands. The
-    # risk is that it quietly skips a gate or keeps going after one fails, so
-    # the stage sequence, the stop on failure and the degraded exit are pinned
-    # with a stubbed runner -- no engine, no renderer, no network.
-    try:
-        import contextlib
-        import io
-
-        _spec50 = importlib.util.spec_from_file_location("studio_a50",
-                                                         SCRIPTS / "studio.py")
-        _st50 = importlib.util.module_from_spec(_spec50)
-        _spec50.loader.exec_module(_st50)
-        _out50 = tmp / "a50"
-        _out50.mkdir()
-        _calls50 = []
-        _state50 = {"fail_spec": False, "land_missing": False,
-                    "real_preview": False, "legible_fail": False}
-
-        def _fake50(stage, args, timeout=1800):
-            _calls50.append((stage, list(args)))
-            if _state50["fail_spec"] and stage == "spec":
-                return 1, {"status": "fail",
-                           "errors": [{"code": "E-EMPTY-SPEC", "msg": "empty"}]}
-            if stage == "render":
-                if _state50["real_preview"]:
-                    _o = list(args)[list(args).index("--out") + 1]
-                    Path(_o).write_bytes(b"\x89PNG\r\n\x1a\nstub-preview")
-                    return 0, {"status": "ok", "errors": []}
-                return 0, {"status": "degraded", "errors": []}
-            if stage == "legible" and _state50["legible_fail"]:
-                return 1, {"status": "ok",
-                           "errors": [{"code": "COLLAPSED",
-                                       "msg": "no ink left at 16px"}]}
-            if stage == "land" and _state50["land_missing"]:
-                return 3, {"status": "degraded",
-                           "errors": [{"code": "E-CAPABILITY-MISSING", "msg": "no cli"}]}
-            return 0, {"status": "ok", "errors": []}
-
-        _orig50 = _st50._call
-        _buf50 = io.StringIO()
-        try:
-            _st50._call = _fake50
-            _args50 = argparse.Namespace(spec="s.json", svg="d.svg", out=str(_out50),
-                                         judge="", reference="", profile="screen")
-            with contextlib.redirect_stdout(_buf50):
-                _rc50 = _st50._run_chain(_args50, _out50)
-            _sj50 = json.loads((_out50 / "studio.json").read_text(encoding="utf-8"))
-            _order50 = [s["stage"] for s in _sj50["stages"]]
-            _land50 = [a for (st, a) in _calls50 if st == "land"]
-            _clean50 = [a for (st, a) in _calls50 if st == "clean"]
-            _landed_sanitized = bool(_land50 and any("sanitized.svg" in x
-                                                     for x in _land50[0]))
-            _goto_land = bool(_clean50 and any("d.svg" in x for x in _clean50[0]))
-
-            # Second half: a blocking spec must end the chain at the first stage
-            _state50["fail_spec"] = True
-            _calls50.clear()
-            _out50b = tmp / "a50b"
-            _out50b.mkdir()
-            _buf50b = io.StringIO()
-            with contextlib.redirect_stdout(_buf50b):
-                _rc50b = _st50._run_chain(argparse.Namespace(
-                    spec="s.json", svg="d.svg", out=str(_out50b),
-                    judge="", reference="", profile="screen"), _out50b)
-            _order50b = [st for (st, a) in _calls50]
-
-            # Third half: the engine is missing. Land reports EXIT_MISSING and
-            # the chain must pass 3 through instead of flattening it to 0/1.
-            _state50["fail_spec"] = False
-            _state50["land_missing"] = True
-            _calls50.clear()
-            _out50c = tmp / "a50c"
-            _out50c.mkdir()
-            _buf50c = io.StringIO()
-            with contextlib.redirect_stdout(_buf50c):
-                _rc50c = _st50._run_chain(argparse.Namespace(
-                    spec="s.json", svg="d.svg", out=str(_out50c),
-                    judge="", reference="", profile="screen"), _out50c)
-            _env50c = {}
-            try:
-                _env50c = json.loads(_buf50c.getvalue() or "{}")
-            except json.JSONDecodeError:
-                _env50c = {}
-            _codes50c = [e.get("code") for e in (_env50c.get("errors") or [])]
-
-            # Fourth half: a real preview that fails the 16px check must stop
-            # before judge and land -- a mark nobody can read at 16px is not
-            # landable just because it is legal vector.
-            _state50["land_missing"] = False
-            _state50["real_preview"] = True
-            _state50["legible_fail"] = True
-            _calls50.clear()
-            _out50d = tmp / "a50d"
-            _out50d.mkdir()
-            _buf50d = io.StringIO()
-            with contextlib.redirect_stdout(_buf50d):
-                _rc50d = _st50._run_chain(argparse.Namespace(
-                    spec="s.json", svg="d.svg", out=str(_out50d),
-                    judge="j.json", reference="", profile="screen"), _out50d)
-            _order50d = [st for (st, a) in _calls50]
-            add("A50-studio-chain-orders-and-stops",
-                bool(_rc50 == 3 and _order50 == ["spec", "clean", "render",
-                                                 "legible", "judge", "land"]
-                     and _landed_sanitized and _goto_land
-                     and _sj50["status"] == "degraded"
-                     and _rc50b == 1 and _order50b == ["spec"]
-                     and _rc50c == 3 and "E-CAPABILITY-MISSING" in _codes50c
-                     and _rc50d == 1 and _order50d == ["spec", "clean", "render",
-                                                       "legible"]),
-                "rc=" + str(_rc50) + " order=" + str(_order50)
-                + " land_args_ok=" + str(_landed_sanitized)
-                + " clean_args_ok=" + str(_goto_land)
-                + " stop_rc=" + str(_rc50b) + " stop=" + str(_order50b)
-                + " missing_rc=" + str(_rc50c) + " codes=" + str(_codes50c)
-                + " legible_fail_rc=" + str(_rc50d) + " order=" + str(_order50d))
-        finally:
-            _st50._call = _orig50
-    except Exception as e:                      # noqa: BLE001
-        add("A50-studio-chain-orders-and-stops", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    _check_review_pack(tmp, add)
-
-    _check_deal_history(tmp, add)
-
-    # ---- A53: the 16px / grey / silhouette check must actually fail things ---
-    # Three failures are invisible at preview size: ink that vanishes at 16px,
-    # ink that fills the tile, and a foreground too close to its background.
-    # Each PNG below is generated with a known answer, so this tests the
-    # measurement, not the code path. When Pillow is absent the script must say
-    # so (exit 3 + E-RENDERER-MISSING) instead of guessing from the SVG.
-    try:
-        import contextlib
-        import io
-        import struct
-
-        def _png53(name, paint):
-            w = h = 240
-            raw = b"".join(b"\x00" + b"".join(bytes(paint(x, y))
-                                              for x in range(w))
-                           for y in range(h))
-
-            def _chunk(tag, data):
-                return (struct.pack(">I", len(data)) + tag + data
-                        + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
-            blob = (b"\x89PNG\r\n\x1a\n"
-                    + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
-                    + _chunk(b"IDAT", zlib.compress(raw, 6))
-                    + _chunk(b"IEND", b""))
-            p = tmp / (name + ".png")
-            p.write_bytes(blob)
-            return p
-
-        def _disk53(fill):
-            def paint(x, y):
-                d2 = (x - 120) ** 2 + (y - 120) ** 2
-                return fill if d2 <= 90 ** 2 else (255, 255, 255)
-            return paint
-
-        def _ring53(x, y):
-            d2 = (x - 120) ** 2 + (y - 120) ** 2
-            return (0, 0, 0) if 89 ** 2 <= d2 <= 90 ** 2 else (255, 255, 255)
-
-        def _grid53(x, y):
-            return (0, 0, 0) if x % 3 == 0 or y % 3 == 0 else (255, 255, 255)
-
-        _cases53 = [("a53-good", _disk53((17, 17, 17)), 0, "OK"),
-                    ("a53-low", _disk53((208, 208, 208)), 1, "LOW-CONTRAST"),
-                    ("a53-mud", _grid53, 1, "MUD"),
-                    ("a53-ring", _ring53, 1, "COLLAPSED")]
-        _bad53 = []
-        for _n53, _paint53, _want_rc53, _want53 in _cases53:
-            _p53 = _png53(_n53, _paint53)
-            _rc53, _env53, _ = _call("legibility.py", ["--png", str(_p53), "--json"], tmp)
-            _ids53 = {v.get("id") for v in
-                      ((_env53.get("data") or {}).get("verdicts") or [])}
-            if _rc53 != _want_rc53 or _want53 not in _ids53:
-                _bad53.append(_n53 + ":rc" + str(_rc53) + ":" + str(sorted(_ids53)))
-
-        _spec53 = importlib.util.spec_from_file_location("legibility_a53",
-                                                         SCRIPTS / "legibility.py")
-        _lg53 = importlib.util.module_from_spec(_spec53)
-        _spec53.loader.exec_module(_lg53)
-
-        class _BlockPIL:
-            def find_spec(self, name, path=None, target=None):
-                if name == "PIL" or name.startswith("PIL."):
-                    raise ImportError("blocked by A53")
-                return None
-
-        _blocker53 = _BlockPIL()
-        _saved53 = {k: sys.modules.pop(k) for k in list(sys.modules)
-                    if k == "PIL" or k.startswith("PIL.")}
-        _buf53 = io.StringIO()
-        _argv53 = sys.argv
-        sys.meta_path.insert(0, _blocker53)
-        sys.argv = ["legibility.py", "--png", str(tmp / "a53-good.png")]
-        try:
-            with contextlib.redirect_stdout(_buf53):
-                _rc53d = _lg53.main()
-        finally:
-            sys.argv = _argv53
-            sys.meta_path.remove(_blocker53)
-            sys.modules.update(_saved53)
-        try:
-            _env53d = json.loads(_buf53.getvalue() or "{}")
-        except json.JSONDecodeError:
-            _env53d = {}
-        _deg53 = (_rc53d == L.EXIT_MISSING and _env53d.get("status") == "degraded"
-                  and "E-RENDERER-MISSING" in _codes(_env53d))
-        add("A53-legibility-fails-what-the-eye-misses",
-            bool(not _bad53 and _deg53),
-            "cases=" + str([c[0] for c in _cases53]) + " bad=" + str(_bad53)
-            + " degraded=" + str(_deg53))
-    except Exception as e:                      # noqa: BLE001
-        add("A53-legibility-fails-what-the-eye-misses", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    _check_failed_dimension(tmp, add)
-
-    _check_empty_review_sheet(tmp, add)
-
-    _check_ledger_trace(tmp, add)
-
-    _check_licence_claim(tmp, add)
+    Codifies what one real job taught: a traced photo keeps the studio
+    lighting, a vector has no physical size, and a tracer hides its settings
+    one level down. Every assertion names its own id in the except handler, so
+    one missing dependency reports five honest failures instead of aborting the
+    run."""
 
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
@@ -2679,6 +1189,1613 @@ def main():
                     "A46-craft-only-landing"):
             if not any(x["id"] == _id for x in a):
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_legibility(tmp, add):
+    """A53: the 16px / grey / silhouette legibility check must fail things.
+
+    Four synthetic cases are rendered and measured. A check that never goes red
+    is decoration, so the cases include a low-contrast pair and a mud-coloured
+    palette that a naive implementation would pass."""
+
+    # ---- A53: the 16px / grey / silhouette check must actually fail things ---
+    # Three failures are invisible at preview size: ink that vanishes at 16px,
+    # ink that fills the tile, and a foreground too close to its background.
+    # Each PNG below is generated with a known answer, so this tests the
+    # measurement, not the code path. When Pillow is absent the script must say
+    # so (exit 3 + E-RENDERER-MISSING) instead of guessing from the SVG.
+    try:
+        import contextlib
+        import io
+        import struct
+
+        def _png53(name, paint):
+            w = h = 240
+            raw = b"".join(b"\x00" + b"".join(bytes(paint(x, y))
+                                              for x in range(w))
+                           for y in range(h))
+
+            def _chunk(tag, data):
+                return (struct.pack(">I", len(data)) + tag + data
+                        + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
+            blob = (b"\x89PNG\r\n\x1a\n"
+                    + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                    + _chunk(b"IDAT", zlib.compress(raw, 6))
+                    + _chunk(b"IEND", b""))
+            p = tmp / (name + ".png")
+            p.write_bytes(blob)
+            return p
+
+        def _disk53(fill):
+            def paint(x, y):
+                d2 = (x - 120) ** 2 + (y - 120) ** 2
+                return fill if d2 <= 90 ** 2 else (255, 255, 255)
+            return paint
+
+        def _ring53(x, y):
+            d2 = (x - 120) ** 2 + (y - 120) ** 2
+            return (0, 0, 0) if 89 ** 2 <= d2 <= 90 ** 2 else (255, 255, 255)
+
+        def _grid53(x, y):
+            return (0, 0, 0) if x % 3 == 0 or y % 3 == 0 else (255, 255, 255)
+
+        _cases53 = [("a53-good", _disk53((17, 17, 17)), 0, "OK"),
+                    ("a53-low", _disk53((208, 208, 208)), 1, "LOW-CONTRAST"),
+                    ("a53-mud", _grid53, 1, "MUD"),
+                    ("a53-ring", _ring53, 1, "COLLAPSED")]
+        _bad53 = []
+        for _n53, _paint53, _want_rc53, _want53 in _cases53:
+            _p53 = _png53(_n53, _paint53)
+            _rc53, _env53, _ = _call("legibility.py", ["--png", str(_p53), "--json"], tmp)
+            _ids53 = {v.get("id") for v in
+                      ((_env53.get("data") or {}).get("verdicts") or [])}
+            if _rc53 != _want_rc53 or _want53 not in _ids53:
+                _bad53.append(_n53 + ":rc" + str(_rc53) + ":" + str(sorted(_ids53)))
+
+        _spec53 = importlib.util.spec_from_file_location("legibility_a53",
+                                                         SCRIPTS / "legibility.py")
+        _lg53 = importlib.util.module_from_spec(_spec53)
+        _spec53.loader.exec_module(_lg53)
+
+        class _BlockPIL:
+            def find_spec(self, name, path=None, target=None):
+                if name == "PIL" or name.startswith("PIL."):
+                    raise ImportError("blocked by A53")
+                return None
+
+        _blocker53 = _BlockPIL()
+        _saved53 = {k: sys.modules.pop(k) for k in list(sys.modules)
+                    if k == "PIL" or k.startswith("PIL.")}
+        _buf53 = io.StringIO()
+        _argv53 = sys.argv
+        sys.meta_path.insert(0, _blocker53)
+        sys.argv = ["legibility.py", "--png", str(tmp / "a53-good.png")]
+        try:
+            with contextlib.redirect_stdout(_buf53):
+                _rc53d = _lg53.main()
+        finally:
+            sys.argv = _argv53
+            sys.meta_path.remove(_blocker53)
+            sys.modules.update(_saved53)
+        try:
+            _env53d = json.loads(_buf53.getvalue() or "{}")
+        except json.JSONDecodeError:
+            _env53d = {}
+        _deg53 = (_rc53d == L.EXIT_MISSING and _env53d.get("status") == "degraded"
+                  and "E-RENDERER-MISSING" in _codes(_env53d))
+        add("A53-legibility-fails-what-the-eye-misses",
+            bool(not _bad53 and _deg53),
+            "cases=" + str([c[0] for c in _cases53]) + " bad=" + str(_bad53)
+            + " degraded=" + str(_deg53))
+    except Exception as e:                      # noqa: BLE001
+        add("A53-legibility-fails-what-the-eye-misses", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_studio_chain(tmp, add):
+    """A50: one command must run the stages in order, and stop honestly.
+
+    studio.py exists so a human does not have to remember six commands, which
+    means its value is entirely in the order, the stop on failure and the
+    degraded exit. All three are pinned here against a fake stage runner."""
+
+    # ---- A50: one command must run the stages in order and stop honestly ----
+    # studio.py exists so a human does not have to remember six commands. The
+    # risk is that it quietly skips a gate or keeps going after one fails, so
+    # the stage sequence, the stop on failure and the degraded exit are pinned
+    # with a stubbed runner -- no engine, no renderer, no network.
+    try:
+        import contextlib
+        import io
+
+        _spec50 = importlib.util.spec_from_file_location("studio_a50",
+                                                         SCRIPTS / "studio.py")
+        _st50 = importlib.util.module_from_spec(_spec50)
+        _spec50.loader.exec_module(_st50)
+        _out50 = tmp / "a50"
+        _out50.mkdir()
+        _calls50 = []
+        _state50 = {"fail_spec": False, "land_missing": False,
+                    "real_preview": False, "legible_fail": False}
+
+        def _fake50(stage, args, timeout=1800):
+            _calls50.append((stage, list(args)))
+            if _state50["fail_spec"] and stage == "spec":
+                return 1, {"status": "fail",
+                           "errors": [{"code": "E-EMPTY-SPEC", "msg": "empty"}]}
+            if stage == "render":
+                if _state50["real_preview"]:
+                    _o = list(args)[list(args).index("--out") + 1]
+                    Path(_o).write_bytes(b"\x89PNG\r\n\x1a\nstub-preview")
+                    return 0, {"status": "ok", "errors": []}
+                return 0, {"status": "degraded", "errors": []}
+            if stage == "legible" and _state50["legible_fail"]:
+                return 1, {"status": "ok",
+                           "errors": [{"code": "COLLAPSED",
+                                       "msg": "no ink left at 16px"}]}
+            if stage == "land" and _state50["land_missing"]:
+                return 3, {"status": "degraded",
+                           "errors": [{"code": "E-CAPABILITY-MISSING", "msg": "no cli"}]}
+            return 0, {"status": "ok", "errors": []}
+
+        _orig50 = _st50._call
+        _buf50 = io.StringIO()
+        try:
+            _st50._call = _fake50
+            _args50 = argparse.Namespace(spec="s.json", svg="d.svg", out=str(_out50),
+                                         judge="", reference="", profile="screen")
+            with contextlib.redirect_stdout(_buf50):
+                _rc50 = _st50._run_chain(_args50, _out50)
+            _sj50 = json.loads((_out50 / "studio.json").read_text(encoding="utf-8"))
+            _order50 = [s["stage"] for s in _sj50["stages"]]
+            _land50 = [a for (st, a) in _calls50 if st == "land"]
+            _clean50 = [a for (st, a) in _calls50 if st == "clean"]
+            _landed_sanitized = bool(_land50 and any("sanitized.svg" in x
+                                                     for x in _land50[0]))
+            _goto_land = bool(_clean50 and any("d.svg" in x for x in _clean50[0]))
+
+            # Second half: a blocking spec must end the chain at the first stage
+            _state50["fail_spec"] = True
+            _calls50.clear()
+            _out50b = tmp / "a50b"
+            _out50b.mkdir()
+            _buf50b = io.StringIO()
+            with contextlib.redirect_stdout(_buf50b):
+                _rc50b = _st50._run_chain(argparse.Namespace(
+                    spec="s.json", svg="d.svg", out=str(_out50b),
+                    judge="", reference="", profile="screen"), _out50b)
+            _order50b = [st for (st, a) in _calls50]
+
+            # Third half: the engine is missing. Land reports EXIT_MISSING and
+            # the chain must pass 3 through instead of flattening it to 0/1.
+            _state50["fail_spec"] = False
+            _state50["land_missing"] = True
+            _calls50.clear()
+            _out50c = tmp / "a50c"
+            _out50c.mkdir()
+            _buf50c = io.StringIO()
+            with contextlib.redirect_stdout(_buf50c):
+                _rc50c = _st50._run_chain(argparse.Namespace(
+                    spec="s.json", svg="d.svg", out=str(_out50c),
+                    judge="", reference="", profile="screen"), _out50c)
+            _env50c = {}
+            try:
+                _env50c = json.loads(_buf50c.getvalue() or "{}")
+            except json.JSONDecodeError:
+                _env50c = {}
+            _codes50c = [e.get("code") for e in (_env50c.get("errors") or [])]
+
+            # Fourth half: a real preview that fails the 16px check must stop
+            # before judge and land -- a mark nobody can read at 16px is not
+            # landable just because it is legal vector.
+            _state50["land_missing"] = False
+            _state50["real_preview"] = True
+            _state50["legible_fail"] = True
+            _calls50.clear()
+            _out50d = tmp / "a50d"
+            _out50d.mkdir()
+            _buf50d = io.StringIO()
+            with contextlib.redirect_stdout(_buf50d):
+                _rc50d = _st50._run_chain(argparse.Namespace(
+                    spec="s.json", svg="d.svg", out=str(_out50d),
+                    judge="j.json", reference="", profile="screen"), _out50d)
+            _order50d = [st for (st, a) in _calls50]
+            add("A50-studio-chain-orders-and-stops",
+                bool(_rc50 == 3 and _order50 == ["spec", "clean", "render",
+                                                 "legible", "judge", "land"]
+                     and _landed_sanitized and _goto_land
+                     and _sj50["status"] == "degraded"
+                     and _rc50b == 1 and _order50b == ["spec"]
+                     and _rc50c == 3 and "E-CAPABILITY-MISSING" in _codes50c
+                     and _rc50d == 1 and _order50d == ["spec", "clean", "render",
+                                                       "legible"]),
+                "rc=" + str(_rc50) + " order=" + str(_order50)
+                + " land_args_ok=" + str(_landed_sanitized)
+                + " clean_args_ok=" + str(_goto_land)
+                + " stop_rc=" + str(_rc50b) + " stop=" + str(_order50b)
+                + " missing_rc=" + str(_rc50c) + " codes=" + str(_codes50c)
+                + " legible_fail_rc=" + str(_rc50d) + " order=" + str(_order50d))
+        finally:
+            _st50._call = _orig50
+    except Exception as e:                      # noqa: BLE001
+        add("A50-studio-chain-orders-and-stops", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_silent_cli(tmp, add):
+    """A48: a silent CLI must not inherit the previous run's outputs.
+
+    A CLI that exits 0 without writing anything is not a success: the old
+    final.ai and preview.png would be read as this run's product. The reverse
+    case is pinned too -- when the cleanup itself cannot delete a locked file,
+    the run must refuse to continue instead of reporting success."""
+
+    # ---- A48: a CLI that exits 0 without writing must not inherit outputs ----
+    # "the file is there" was the only evidence that the engine produced
+    # anything, and a previous run's final.ai / preview.png satisfied it. A CLI
+    # that reports success and writes nothing is a silent failure, not a crash,
+    # so the check has to be "was it written now", which the landers enforce by
+    # clearing their targets before invoking the engine. This drives land_vc's
+    # real _run with a patched runner that claims success and writes nothing.
+    try:
+        import contextlib
+        import io
+
+        _spec48 = importlib.util.spec_from_file_location("land_vc_a48",
+                                                         SCRIPTS / "land_vc.py")
+        _lv48 = importlib.util.module_from_spec(_spec48)
+        _spec48.loader.exec_module(_lv48)
+        _d48 = tmp / "a48"
+        _d48.mkdir()
+        (_d48 / "final.ai").write_bytes(b"%PDF-1.4 previous-run")
+        (_d48 / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\nprevious-run")
+        (_d48 / "preview.meta.json").write_text('{"renderer": "previous"}', encoding="utf-8")
+        _lv48.find_cli = lambda explicit: Path(sys.executable)
+        _lv48.run_cli = lambda *a, **k: (0, "", "")   # claims success, writes nothing
+        _a48 = argparse.Namespace(svg=str(GOOD / "rect-only.svg"), out=str(_d48),
+                                  profile="screen", vc="", run_id="a48", json=True)
+        _buf48 = io.StringIO()
+        with contextlib.redirect_stdout(_buf48):
+            _rc48 = _lv48._run(_a48, _d48)
+        _l48 = _landing(_d48)
+        _gone48 = (not (_d48 / "final.ai").exists()
+                   and not (_d48 / "preview.png").exists())
+
+        # Second half: the cleanup itself fails (a locked file). Continuing would
+        # read the old file as this run's, so the run must refuse with a code --
+        # not warn and carry on.
+        _d48b = tmp / "a48b"
+        _d48b.mkdir()
+        (_d48b / "final.ai").write_bytes(b"%PDF-1.4 locked-previous-run")
+        _orig48 = _lv48.LP._drop_outputs
+        _buf48b = io.StringIO()
+        try:
+            _lv48.LP._drop_outputs = lambda d, n: False
+            _a48b = argparse.Namespace(svg=str(GOOD / "rect-only.svg"), out=str(_d48b),
+                                       profile="screen", vc="", run_id="a48b", json=True)
+            with contextlib.redirect_stdout(_buf48b):
+                _rc48b = _lv48._run(_a48b, _d48b)
+        finally:
+            _lv48.LP._drop_outputs = _orig48
+        _env48b = {}
+        try:
+            _env48b = json.loads(_buf48b.getvalue() or "{}")
+        except json.JSONDecodeError:
+            _env48b = {}
+        _codes48b = [e.get("code") for e in (_env48b.get("errors") or []) if isinstance(e, dict)]
+        _l48b = _landing(_d48b)
+        _locked48 = (_rc48b == L.EXIT_ERROR and "E-OUTPUT-STALE" in _codes48b
+                     and _l48b.get("status") == "fail")
+        add("A48-silent-cli-cannot-inherit-outputs",
+            bool(_rc48 != 0 and _gone48 and _l48.get("status") == "fail"
+                 and _locked48),
+            "rc=" + str(_rc48) + " old_gone=" + str(_gone48)
+            + " landing=" + str(_l48.get("status"))
+            + " locked_rc=" + str(_rc48b) + " locked_codes=" + str(_codes48b))
+    except Exception as e:                      # noqa: BLE001
+        add("A48-silent-cli-cannot-inherit-outputs", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_p2_survivors(tmp, add):
+    """A36-A41: the P2 items that survived five QA rounds.
+
+    Each assertion is written so that reverting its fix turns exactly that
+    assertion red; a guard that cannot fail is decoration. All of them drive the
+    shipping seam (land_vc / land_craft / the font probe) rather than the
+    helpers behind it, because the original defects lived in the wiring, and
+    guards aimed at the helpers stayed green when the wiring was reverted."""
+
+    # A36-A38: the three P2 items that survived five QA rounds (report
+    # QA报告-第17轮.md §6). Each assertion is written so that reverting the
+    # fix makes exactly that assertion red -- a guard that cannot fail is
+    # decoration, not evidence. All three drive land_vc._build_deliverable,
+    # the seam main() itself calls: the original defects lived in the wiring
+    # (hardcoded icc, a second write after construction, `.split()[-1]`), and
+    # guards aimed at the helpers stayed green when the wiring was reverted.
+    # A36 additionally checked a second engine's request/claim symmetry through
+    # its JSX template. r45 removed that engine and the template, so the guard
+    # below drives the shipping chain and mutation-tests the profile constant.
+    try:
+        _s36b = importlib.util.spec_from_file_location("r24_land_vc", SCRIPTS / "land_vc.py")
+        _lv36 = importlib.util.module_from_spec(_s36b)
+        _s36b.loader.exec_module(_lv36)
+
+        _obs36 = {"has_ai_private": True, "content_ops": {}, "content_streams": {},
+                  "color_mode": "cmyk", "device_cmyk": 0, "device_rgb": 1,
+                  "iccbased": 0, "output_intent": 0, "artboard_pt": [200, 200],
+                  "sha256": "0" * 64}
+        _kv36 = {"layers": "5", "notes": ""}
+
+        # A36: a print delivery asks for an embedded ICC and never claims the
+        # request was honoured. The request must come from PROFILE_DEFAULTS,
+        # not from a literal, and the unverified bucket must name the missing
+        # /OutputIntent. The mutation below replaces the old AST scan: flipping
+        # the constant and re-running the seam proves the value flows through.
+        _icc_print = _lv36.PROFILE_DEFAULTS["print"]["icc"] is True
+        _icc_screen = _lv36.PROFILE_DEFAULTS["screen"]["icc"] is False
+        _d_vc = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                         _lv36.PROFILE_DEFAULTS["print"],
+                                         _obs36, _kv36,
+                                         "vectorcraft-cli 0.22.0", [], None)
+        _u_vc = [x for x in _d_vc["unverified"] if "OutputIntent" in x]
+        _saved36 = _lv36.PROFILE_DEFAULTS["print"]["icc"]
+        _lv36.PROFILE_DEFAULTS["print"]["icc"] = False
+        try:
+            _d_mut36 = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                                _lv36.PROFILE_DEFAULTS["print"],
+                                                _obs36, _kv36,
+                                                "vectorcraft-cli 0.22.0", [], None)
+        finally:
+            _lv36.PROFILE_DEFAULTS["print"]["icc"] = _saved36
+        _mut36 = (_d_mut36["save_options"]["embed_icc"] is False
+                  and not any("OutputIntent" in x for x in _d_mut36["unverified"]))
+        _ok36 = (bool(_u_vc) and _d_vc["save_options"]["embed_icc"] is True
+                 and _icc_print and _icc_screen and _mut36
+                 and _d_vc["profile"] == "print"
+                 and not any("未嵌入 ICC" in x for x in _d_vc["warnings"]))
+        add("A36-icc-request-not-claimed", _ok36,
+            "print unverified=" + str(len(_u_vc))
+            + " embed_icc=" + str(_d_vc["save_options"]["embed_icc"])
+            + " profile_defaults=" + str((_icc_print, _icc_screen))
+            + " mutation_follows=" + str(_mut36))
+
+        # A37: a warning emitted by three steps must appear once, and the
+        # deliverable must carry that exact de-duplicated list (not a second
+        # copy written after construction).
+        # The steps are built by the parser that reads the CLI's own output,
+        # because that is where the warnings enter the chain. QA round 19's M43
+        # dropped `result.warnings` inside parse_jsonl and every assertion
+        # stayed green while tool_warnings silently became [].
+        _jsonl37 = "\n".join([
+            '{"step": "import", "result": {"warnings": ["font missing: Helvetica"]}}',
+            '{"step": "save", "result": {"warnings": ["font missing: Helvetica", '
+            '"no output intent"]}}',
+            "not a json line",
+        ])
+        _steps37 = _lv36.parse_jsonl(_jsonl37)
+        _w37 = _lv36._collect_export_warnings(_steps37)
+        # Through the seam: covers the de-duplication AND the `tool_warnings=`
+        # wiring. Feeding the helper directly left the wiring blind, which is
+        # precisely where the r23 defect lived (a second write after the fact).
+        _d37 = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                        _lv36.PROFILE_DEFAULTS["print"],
+                                        _obs36, _kv36,
+                                        "vectorcraft-cli 0.22.0", _steps37, None)
+        _ok37 = (_w37 == ["font missing: Helvetica", "no output intent"]
+                 and len(_steps37) == 2          # the non-JSON line is not a step
+                 and _d37["tool_warnings"] == _w37
+                 and len(_d37["tool_warnings"]) == len(set(_d37["tool_warnings"])))
+        add("A37-tool-warnings-deduplicated", _ok37,
+            "in deliverable.json: tool_warnings=" + str(_d37["tool_warnings"]))
+
+        # A38: a version string with a trailing build/platform suffix must
+        # yield the dotted version, and an unparseable one must say unknown.
+        _cases38 = [("vectorcraft-cli 0.22.0 (build 20261101 win-x64)", "0.22.0"),
+                    ("tool 1.2", "1.2"), ("no version here", "unknown"),
+                    ("", "unknown")]
+        # Through the seam: the field a client reads is deliverable["engine_version"].
+        # Calling the parser directly stays green even if the wiring goes back to
+        # `.split()[-1]` -- and that call site was where the r23 defect lived.
+        _got38 = []
+        for _txt, _ in _cases38:
+            _d38 = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                            _lv36.PROFILE_DEFAULTS["print"],
+                                            _obs36, _kv36, _txt, [], None)
+            _got38.append((_txt, _d38.get("engine_version")))
+        _ok38 = all(g == e for (_, g), (_, e) in zip(_got38, _cases38))
+        add("A38-engine-version-parser", _ok38,
+            "parse=" + str(_got38))
+
+        # A39: probe_source is the only place the CLI's "which fonts did you
+        # substitute" answer enters the manifest -- invisible in file size, path
+        # counts and layer counts alike. Two rounds of QA broke the first
+        # version of this guard: M44 (return unavailable unconditionally) was
+        # caught, but the payload was invented ({"name", "status":
+        # "substituted"}), so land_vc's consumer -- `if f.get("missing")` -- had
+        # no coverage at all (QA round 20, M50/M51), and the two error branches
+        # could be flipped to available=True unnoticed (M45/M53). The payload
+        # below is a trimmed copy of real `vectorcraft info` output.
+        _real_run_cli39 = _lv36.run_cli
+
+        def _fake39(payload, rc=0):
+            def _run(cli, argv, timeout=300):
+                return rc, payload, ""
+            return _run
+
+        _font39 = {"family": "DefinitelyMissingFontXYZ", "style": "Regular",
+                   "status": "missing", "missing": True, "missingGlyphs": 0,
+                   "objects": 1, "runs": 1,
+                   "resolved": {"family": "Source Sans 3", "style": "Regular"}}
+        _payload39 = json.dumps({"fonts": [_font39],
+                                 "importWarnings": ["font substituted: DefinitelyMissingFontXYZ"],
+                                 "info": {"objects": 12, "colorMode": "CMYK"}})
+        try:
+            _lv36.run_cli = _fake39(_payload39)
+            _p39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+            _w39 = _lv36._font_warnings(_p39)
+            # The CLI omits `resolved` when it could not name a replacement; the
+            # fallback text is then what a client reads, so it is asserted too.
+            _lv36.run_cli = _fake39(json.dumps({
+                "fonts": [{"family": "NoResolveFont", "status": "missing", "missing": True}],
+                "importWarnings": [], "info": {"objects": 1, "colorMode": "CMYK"}}))
+            _p39b = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+            _w39b = _lv36._font_warnings(_p39b)
+            _lv36.run_cli = _fake39("boom", rc=1)
+            _rc39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+            _lv36.run_cli = _fake39("this is not json")
+            _js39 = _lv36.probe_source(tmp / "vectorcraft-cli", tmp / "a.svg")
+        finally:
+            _lv36.run_cli = _real_run_cli39
+        # Matched by regex + groups, not by exact text: QA round 21 found that
+        # a punctuation change turns an exact-string check red for a reason no
+        # client would ever notice. The substance -- which font, replaced by
+        # what -- is what the assertion is about.
+        _pat39 = r"源文件字体缺失：(.+?)，产物中已用 (.+?) 替代"
+        _m39 = re.search(_pat39, _w39[0]) if _w39 else None
+        _m39b = re.search(_pat39, _w39b[0]) if _w39b else None
+        _ok39 = (_p39.get("available") is True
+                 and _p39.get("fonts") == [_font39]
+                 and _p39.get("import_warnings") == ["font substituted: DefinitelyMissingFontXYZ"]
+                 and _p39.get("objects") == 12
+                 and _p39.get("color_mode") == "CMYK"
+                 and _m39 is not None
+                 and _m39.group(1) == "DefinitelyMissingFontXYZ"
+                 and _m39.group(2) == "Source Sans 3"
+                 and _m39b is not None
+                 and _m39b.group(1) == "NoResolveFont"
+                 and _m39b.group(2) == "未知替代字体"
+                 and _rc39.get("available") is False
+                 and _js39.get("available") is False)
+        add("A39-font-probe-carried", _ok39,
+            "available=" + str(_p39.get("available"))
+            + " fonts=" + str(len(_p39.get("fonts") or []))
+            + " warn=" + str(len(_w39))
+            + " fallback=" + str(len(_w39b))
+            + " family=" + str(_m39.group(1) if _m39 else None)
+            + " rc_branch=" + str(_rc39.get("available"))
+            + " nonjson=" + str(_js39.get("available")))
+
+        # (r45) A40's AST scan was retired with the JSX template it guarded.
+        # The replacement below guards the same property behaviourally: a
+        # failed landing must not leave the previous run's H1 evidence behind.
+        _hyg = tmp / "a40-hygiene"
+        _hygc = tmp / "a40-hygiene-craft"
+
+        def _stale40(where):
+            d = where or _hyg
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "structure_readback.json").write_text(json.dumps({
+                "schema": "vector-ai-studio/structure-readback-v1",
+                "ok": True, "raster": 0, "placed": 0, "paths": 5,
+                "artboard_matches_viewBox": True,
+                "source": "vectorcraft-info"}), encoding="utf-8")
+            (d / "final.ai").write_bytes(b"%PDF-1.4 stale-from-previous-run")
+            # H2 only asks whether preview.png parses, so a failed run that keeps
+            # the previous design's picture still looks complete. The seed makes
+            # that observable: every failure exit below must clear it.
+            (d / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\nstale-picture")
+            (d / "preview.meta.json").write_text('{"renderer": "stale"}', encoding="utf-8")
+
+        def _prev40_gone(where):
+            d = where or _hyg
+            return not (d / "preview.png").exists() and not (d / "preview.meta.json").exists()
+
+        def _sr40_gone(where):
+            p = (where or _hyg) / "structure_readback.json"
+            if not p.is_file():
+                return True
+            try:
+                return json.loads(p.read_text(encoding="utf-8")).get("ok") is False
+            except (OSError, json.JSONDecodeError):
+                return False
+
+        # (a) engine absent: degraded L4, stale evidence removed
+        _stale40(_hyg)
+        _rc40a, _, _ = _call("land_vc.py",
+                             ["--svg", str(GOOD / "sample.svg"), "--out", str(_hyg),
+                              "--vc", str(tmp / "definitely-no-cli.exe"), "--json"], tmp)
+        _l40a = _landing(_hyg)
+        _ok40a = (_rc40a == 3 and _sr40_gone(_hyg) and _prev40_gone(_hyg)
+                  and _l40a.get("status") == "degraded"
+                  and _l40a.get("stale_readback_removed") is True
+                  and _l40a.get("stale_preview_removed") is True)
+
+        # (b) source SVG missing: fail landing, stale evidence removed
+        _stale40(_hyg)
+        _rc40b, _, _ = _call("land_vc.py",
+                             ["--svg", str(tmp / "missing.svg"),
+                              "--out", str(_hyg), "--json"], tmp)
+        _l40b = _landing(_hyg)
+        _ok40b = (_rc40b == 2 and _sr40_gone(_hyg) and _prev40_gone(_hyg)
+                  and _l40b.get("status") == "fail")
+
+        # (c) the print sibling has the same hygiene on its failure exit.
+        # Its own directory on purpose: sharing (b)'s would let (b)'s fail
+        # landing satisfy this clause even if land_craft wrote nothing, which is
+        # exactly the bug this assertion exists to catch. Exit is 2 (no SVG) or
+        # 3 (no CLI on this machine); 0 must never appear.
+        _stale40(_hygc)
+        _rc40c, _, _ = _call("land_craft.py",
+                             ["--svg", str(tmp / "missing.svg"),
+                              "--out", str(_hygc), "--json"], tmp)
+        _l40c = _landing(_hygc)
+        _ok40c = (_rc40c in (2, 3) and _sr40_gone(_hygc) and _prev40_gone(_hygc)
+                  and _l40c.get("status") == "fail"
+                  and _l40c.get("stale_readback_removed") is True
+                  and _l40c.get("stale_preview_removed") is True)
+        add("A40-failed-landing-clears-stale-evidence",
+            bool(_ok40a and _ok40b and _ok40c),
+            "vc_no_cli=" + str(_ok40a) + " vc_no_svg=" + str(_ok40b)
+            + " craft_no_svg=" + str(_ok40c))
+
+
+        # A41: E is the one dimension that is a set comparison with its own
+        # thresholds, and until r28 every fixture recorded E="N/A" -- the branch
+        # that computes Jaccard had never run in any test (QA round 20 found the
+        # gap while reviewing what E covers). Three cases: an exact reference
+        # must score excellent, a disjoint one must fail, no reference must stay
+        # N/A (L5: restricted capability, not a silent pass).
+        # The reference is written out by hand from reading sample.svg, NOT
+        # produced by score.py's own extractor: QA round 21 showed that a
+        # reference built from _svg_tokens() passes even when the extractor is
+        # broken (both sides rot together). The expected Jaccard values below
+        # are hand-computed from the intersection/union definition.
+        _svg41 = FIX / "good" / "sample.svg"
+        _exact41 = {"schema": "vector-ai-studio/reference-v1",
+                    "palette": ["#111111", "#2f6fed", "#ffb020", "#ffffff"],
+                    "stroke_width": ["3.0"], "corner_radius": [], "font_family": []}
+        # 2 of 4 palette colours hit, stroke identical, the two empty buckets
+        # deliberately non-empty in the reference so their Jaccard is 0.
+        _partial41 = {"schema": "vector-ai-studio/reference-v1",
+                      "palette": ["#2f6fed", "#ffb020"], "stroke_width": ["3.0"],
+                      "corner_radius": ["4.0"], "font_family": ["SomeFont"]}
+        # Everything identical except the palette (2 of 4): the average 0.875 is
+        # above the excellent threshold, so only the palette rule can keep this
+        # from being excellent. QA round 21's D7 deleted that rule and went
+        # unnoticed.
+        _half41 = {"schema": "vector-ai-studio/reference-v1",
+                   "palette": ["#2f6fed", "#ffb020"], "stroke_width": ["3.0"],
+                   "corner_radius": [], "font_family": []}
+        _ref41 = tmp / "ref_exact.json"
+        _pre41 = tmp / "ref_partial.json"
+        _pha41 = tmp / "ref_half.json"
+        L.write_json_atomic(_ref41, _exact41)
+        L.write_json_atomic(_pre41, _partial41)
+        L.write_json_atomic(_pha41, _half41)
+        _common41 = ["--svg", str(_svg41), "--judge", str(FIX / "good" / "judge.json"),
+                     "--spec", str(FIX / "good" / "spec.json"), "--json"]
+        _e41 = {}
+        for _name41, _ref41p in (("exact", _ref41), ("partial", _pre41), ("half", _pha41)):
+            _rc41, _env41, _ = _call("score.py", _common41 + ["--reference", str(_ref41p)], tmp)
+            _e41[_name41] = ((_env41.get("data") or {}).get("scores") or {}).get("E")
+        _rc41n, _env41n, _ = _call("score.py", _common41, tmp)
+        _e41["none"] = ((_env41n.get("data") or {}).get("scores") or {}).get("E")
+        _th41 = L.load_thresholds()
+        _lv41 = _th41["score_levels"]
+        _ex41 = _e41["exact"] if isinstance(_e41["exact"], dict) else {}
+        _pa41 = _e41["partial"] if isinstance(_e41["partial"], dict) else {}
+        _ha41 = _e41["half"] if isinstance(_e41["half"], dict) else {}
+        _jac41 = (_ex41.get("measured") or {}).get("jaccard", {})
+        _n_tok41 = len(_th41["E"]["tokens"])
+        _ok41 = (_ex41.get("score") == _lv41["excellent"]
+                 and len(_jac41) == _n_tok41 == 4
+                 and set(_jac41.values()) == {1.0}
+                 # partial: 2/4 palette = 0.5, stroke = 1.0, two empty buckets = 0
+                 and (_pa41.get("measured") or {}).get("jaccard") == {
+                     "palette": 0.5, "stroke_width": 1.0,
+                     "corner_radius": 0.0, "font_family": 0.0}
+                 and abs(float((_pa41.get("measured") or {}).get("average", -1)) - 0.375) < 1e-9
+                 and _pa41.get("score") == _lv41["fail"]
+                 # half: average 0.875 >= excellent threshold, palette 0.5 < 1.0
+                 # -> must be pass, not excellent
+                 and _ha41.get("score") == _lv41["pass"]
+                 and _e41["none"] == "N/A")
+        add("A41-brand-reference-jaccard", _ok41,
+            "E exact=" + str(_ex41.get("score")) + " partial=" + str(_pa41.get("score"))
+            + " half=" + str(_ha41.get("score")) + " none=" + str(_e41["none"])
+            + " tokens=" + str(len(_jac41)))
+    except Exception as e:                      # noqa: BLE001
+        # Only fill in assertions that never ran. Re-adding an ID that already
+        # produced a result would give one guard two contradictory verdicts.
+        for _id in ("A36-icc-request-not-claimed",
+                    "A37-tool-warnings-deduplicated",
+                    "A38-engine-version-parser",
+                    "A39-font-probe-carried",
+                    "A40-failed-landing-clears-stale-evidence",
+                    "A41-brand-reference-jaccard"):
+            if not any(x["id"] == _id for x in a):
+                add(_id, False, type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_alt_engine(tmp, add):
+    """A30-A31: the alternate engine's artefacts must survive the chain.
+
+    A hardcoded engine version, a missing structure_readback.json or missing
+    final.svg / preview.png all left every other gate green while the chain was
+    broken end to end. When the optional CLI is absent the assertions report
+    skipped, never passed -- unless a real run was explicitly requested, in
+    which case a known miss must outrank an unknown."""
+
+    # A30: the alternate engine's artefacts must survive the DOWNSTREAM chain.
+    #
+    # The defects this guards against were all invisible to the other 30
+    # assertions: a hardcoded engine version, a missing structure_readback.json
+    # (which makes aggregate_log mark H1 "unverified" for a perfectly good
+    # file), and missing final.svg/preview.png (which makes H2 fail). Every
+    # gate was green while the chain was broken end to end.
+    #
+    # When the optional CLI is absent the check reports skipped, never passed.
+    a30_ok, a30_detail, a30_skip = False, "not run", False
+    try:
+        _spec2 = importlib.util.spec_from_file_location("land_vc_under_test",
+                                                        ROOT / "scripts" / "land_vc.py")
+        _lv = importlib.util.module_from_spec(_spec2)
+        _spec2.loader.exec_module(_lv)
+        _cli = _lv.find_cli("")
+        if _cli is None:
+            a30_skip, a30_ok = True, True
+            a30_detail = "skipped: vectorcraft-cli not found (optional engine)"
+        else:
+            # A SQUARE sample cannot detect a transposed or scaled artboard:
+            # 200x200 -> [200,200] either way. Generate a non-square one so the
+            # width/height comparison in this assertion actually discriminates.
+            wide = tmp / "wide.svg"
+            wide.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" '
+                'width="300" height="200">'
+                '<rect x="10" y="10" width="120" height="80" fill="#2f6fed"/>'
+                '<circle cx="220" cy="100" r="60" fill="#ffb020"/></svg>',
+                encoding="utf-8")
+            vdir = tmp / "vc-chain"
+            rc_l, env_l, _ = _call("land_vc.py",
+                                   ["--svg", str(wide),
+                                    "--out", str(vdir), "--profile", "print",
+                                    "--run-id", "a30", "--json"], tmp)
+            rc_a, env_a, _ = _call("aggregate_log.py",
+                                   ["--run-dir", str(vdir), "--run-id", "a30", "--json"], tmp)
+            # aggregate_log puts the acceptance fields at data level; older
+            # envelopes nested them under "acceptance". Accept both rather than
+            # betting on one shape -- betting on one shape is exactly how this
+            # assertion first reported a false red.
+            _data = env_a.get("data") or {}
+            _acc = _data.get("acceptance") or _data
+            _gates = _acc.get("hard_gates") or _data.get("hard_gates") or {}
+            h1 = (_gates.get("H1") or {}).get("pass") is True
+            h2 = (_gates.get("H2") or {}).get("pass") is True
+            # Read the artefact back and check the *emitted* numbers. The
+            # in-code guard checked the raw rect, so reverting only the value
+            # that gets written left every gate green with artboard=[200,-200].
+            _sr = {}
+            try:
+                _sr = json.loads((vdir / "structure_readback.json").read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+            _ab = _sr.get("artboard") or []
+            _vb = _sr.get("viewBox") or []
+            ab_positive = (len(_ab) == 2 and all(isinstance(x, (int, float)) and x > 0 for x in _ab))
+            # "> 0" only catches sign errors. A transposed or scaled value still
+            # passes it, and nothing compared the emitted numbers to the source
+            # dimensions -- so a 2% inflation or a swap was invisible to every
+            # gate. Compare the artefact against viewBox with the tolerance the
+            # in-code dims_ok already uses; that kills sign, transpose, scale and
+            # unit errors at once without inventing a new threshold.
+            ab_matches_vb = (len(_ab) == 2 and len(_vb) == 4 and
+                             abs(_ab[0] - _vb[2]) <= 1 and abs(_ab[1] - _vb[3]) <= 1)
+            deliv = (env_l.get("data") or {}).get("deliverable") or {}
+            ver = str(deliv.get("engine_version") or "")
+            # A version string that is not what the binary reports means the
+            # manifest is guessing again.
+            ver_ok = bool(ver) and ver != "unknown"
+            a30_ok = (rc_l == 0 and h1 and h2 and ver_ok and ab_positive and ab_matches_vb)
+            a30_detail = ("land=" + str(rc_l) + " h1=" + str(h1) + " h2=" + str(h2) +
+                          " version=" + (ver or "?") +
+                          " artboard=" + str(_ab) + " viewBox=" + str(_vb) +
+                          " positive=" + str(ab_positive) +
+                          " matches_viewBox=" + str(ab_matches_vb) +
+                          " agg_exit=" + str(rc_a))
+    except Exception as e:                      # noqa: BLE001
+        a30_detail = type(e).__name__ + ": " + str(e)[:140]
+    add("A30-vectorcraft-chain-h1-h2", a30_ok, a30_detail, skipped=a30_skip)
+
+    # A31: the manifest must not drift from its own schema, in BOTH directions.
+    #
+    # Round 8 found 13 fields emitted but undeclared on one engine and absent on
+    # the other, and the schema still validated because it never forbade extra
+    # keys. A contract that validates while omitting half the payload is worse
+    # than no contract: it certifies nothing.
+    #
+    # r45 removed the synthetic half that built an Illustrator manifest through
+    # its own constructor. That half exercised the constructor, not the chain
+    # feeding it: deleting `engine` from the real chain still left it green.
+    # The only manifest that ships now is the one land_vc writes, so that is
+    # what gets diffed -- produced by a real run, not by hand.
+    a31_ok, a31_detail, a31_skip = False, "not run", False
+    try:
+        _schema = json.loads((ROOT / "references" / "schemas" /
+                              "deliverable.schema.json").read_text(encoding="utf-8"))
+        _real_missing = os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1"
+
+
+
+
+        # --- the only shipping manifest: produced by a real land_vc run ---
+        vc_extra = vc_missing = vc_typebad = vc_nested = []
+        if _cli is None:
+            # A missing engine normally downgrades this assertion to a skip,
+            # which is honest: the manifest genuinely was not produced. But
+            # "real coverage was requested and did not happen" is a known miss,
+            # not an unknown, so failure has to outrank skip here.
+            a31_skip = not _real_missing
+            a31_ok = not _real_missing
+            a31_detail = ("vectorcraft skipped (no CLI)"
+                          + (" but REAL_AI was requested" if _real_missing else ""))
+        else:
+            vdir2 = tmp / "schema-diff-vc"
+            _call("land_vc.py", ["--svg", str(GOOD / "sample.svg"),
+                                 "--out", str(vdir2), "--profile", "print",
+                                 "--run-id", "a31", "--json"], tmp)
+            vc_doc = json.loads((vdir2 / "deliverable.json").read_text(encoding="utf-8"))
+            vc_extra, vc_missing, vc_typebad, vc_nested = _schema_diff(
+                vc_doc, _schema, optional=CRAFT_ONLY_KEYS)
+            # The bidirectional diff only compares keys and primitive types; it
+            # does not evaluate `const`, so a wrong or deleted engine still read
+            # as conformant. Run the published validator as well.
+            _rc31, _, _ = _call("schema_check.py",
+                                [str(ROOT / "references" / "schemas" /
+                                     "deliverable.schema.json"),
+                                 str(vdir2 / "deliverable.json"), "--json"], tmp)
+            # The run asked for --profile print: that request must reach the
+            # manifest. A hardcoded "screen" profile (or dropping the prof
+            # argument) would leave every key present and still be wrong.
+            _prof31 = (vc_doc.get("profile") == "print"
+                       and (vc_doc.get("save_options") or {}).get("cmyk") is True
+                       and vc_doc.get("engine") == "vectorcraft")
+            a31_ok = (_rc31 == 0 and _prof31
+                      and not (vc_extra or vc_missing or vc_typebad or vc_nested))
+            a31_detail = ("vc extra=" + str(vc_extra or "-") +
+                          " missing=" + str(vc_missing or "-") +
+                          " typebad=" + str(vc_typebad or "-") +
+                          " nested=" + str(vc_nested or "-") +
+                          " schema_check=" + str(_rc31) +
+                          " profile_wired=" + str(_prof31) +
+                          " engine=" + str(vc_doc.get("engine")))
+    except Exception as e:                      # noqa: BLE001
+        a31_detail = type(e).__name__ + ": " + str(e)[:140]
+    add("A31-deliverable-schema-no-drift", a31_ok, a31_detail, skipped=a31_skip)
+
+
+def _stage_contract_registry(tmp, add, w1):
+    """A26-A28: the contract documents must agree with the artefacts.
+
+    The SKILL.md frontmatter mirrors author/version under metadata, the
+    published JSON Schema must accept a real log and reject broken ones, and
+    every error code the scripts emit must be registered -- checked in both
+    directions, because a one-way check lets stale rows accumulate."""
+
+    # A26: the top-level contract fields and their metadata mirror must agree.
+    # Two specifications read this file (internal contract.yaml wants them at
+    # top level; the public Agent Skills spec puts author/version under
+    # metadata). Keeping both copies is only safe if a machine compares them.
+    def _fm():
+        txt = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        body = txt.split("---", 2)[1]
+        top, meta, cur = {}, {}, None
+        for raw in body.splitlines():
+            if not raw.strip() or raw.lstrip().startswith("#"):
+                continue
+            if raw[0] in " \t":
+                if cur:
+                    k, _, v = raw.strip().partition(":")
+                    meta[k.strip()] = v.strip().strip('"').strip("'")
+                continue
+            k, _, v = raw.partition(":")
+            k, v = k.strip(), v.strip().strip('"').strip("'")
+            if v == "":
+                cur = k
+            else:
+                cur = None
+                top[k] = v
+        return top, meta
+
+    _top, _meta = _fm()
+    pairs = [(k, _top.get(k), _meta.get(k)) for k in
+             ("author", "version", "description_zh", "description_en")]
+    mirror_ok = all(m is not None and t == m for _, t, m in pairs)
+    add("A26-frontmatter-metadata-mirror", mirror_ok,
+        "pairs=" + str([(k, t == m) for k, t, m in pairs]) +
+        " | 解析器仅支持扁平 YAML：若改用块标量(>- / |)等结构会在此判红，属预期")
+
+    # A27: the published JSON Schema must accept a real log and reject broken
+    # ones. A schema nobody validates against is documentation, not a contract.
+    schema_path = ROOT / "references" / "schemas" / "acceptance.schema.json"
+    acc_path = w1 / "acceptance.json"
+    sch_ok = False
+    detail = "schema or acceptance missing"
+    if schema_path.is_file() and acc_path.is_file():
+        rc_ok, _, _ = _call("schema_check.py",
+                            [str(schema_path), str(acc_path), "--json"], tmp)
+        acc_doc = json.loads(acc_path.read_text(encoding="utf-8"))
+
+        bad_dir = tmp / "schema-negative"
+        bad_dir.mkdir(parents=True, exist_ok=True)
+        missing_mode = dict(acc_doc)
+        missing_mode.pop("mode", None)
+        bad_mode_path = bad_dir / "missing-mode.json"
+        bad_mode_path.write_text(json.dumps(missing_mode, ensure_ascii=False), encoding="utf-8")
+        rc_miss, _, _ = _call("schema_check.py",
+                              [str(schema_path), str(bad_mode_path), "--json"], tmp)
+
+        bad_grade = dict(acc_doc)
+        bad_grade["grade"] = "优秀"
+        bad_grade_path = bad_dir / "bad-grade.json"
+        bad_grade_path.write_text(json.dumps(bad_grade, ensure_ascii=False), encoding="utf-8")
+        rc_grade, _, _ = _call("schema_check.py",
+                               [str(schema_path), str(bad_grade_path), "--json"], tmp)
+
+        sch_ok = (rc_ok == 0 and rc_miss == 1 and rc_grade == 1)
+        detail = ("valid_exit=" + str(rc_ok) +
+                  " missing_mode_exit=" + str(rc_miss) +
+                  " bad_grade_exit=" + str(rc_grade))
+    add("A27-schema-accepts-real-rejects-broken", sch_ok, detail)
+
+    # A28: every error code emitted by the scripts must be registered, and the
+    # registry must not list codes nobody emits. Checked in both directions --
+    # a one-way check lets stale entries accumulate, which is how a registry
+    # stops being trusted.
+    reg_path = ROOT / "references" / "error-codes.md"
+    code_set = set()
+    for sp in sorted((ROOT / "scripts").glob("*.py")):
+        _src = sp.read_text(encoding="utf-8")
+        # Either quote style counts. Matching only double quotes let a new code
+        # written with single quotes be invisible to both sides of the
+        # comparison. (Quoted examples in comments are why this scan uses a
+        # strict E- pattern: anything that looks like a code must be registered.)
+        code_set |= set(re.findall(r"""["'](E-[A-Z0-9-]+)["']""", _src))
+    reg_set = set()
+    if reg_path.is_file():
+        # The registry keeps retired codes on purpose (downstream code may still
+        # branch on them), so a row marked 已废弃 is documentation, not a claim
+        # that some script can emit it. Counting it as live made the two sets
+        # impossible to satisfy at once.
+        for line in reg_path.read_text(encoding="utf-8").splitlines():
+            if "已废弃" in line:
+                continue
+            reg_set |= set(re.findall(r"`(E-[A-Z0-9-]+)`", line))
+    reg_ok = bool(code_set) and code_set == reg_set
+    add("A28-error-code-registry", reg_ok,
+        "in_code=" + str(len(code_set)) + " in_registry=" + str(len(reg_set)) +
+        " unregistered=" + ",".join(sorted(code_set - reg_set)[:6]) +
+        " stale=" + ",".join(sorted(reg_set - code_set)[:6]))
+
+
+def _stage_perceptual(tmp, add):
+    """A33-A35: the perceptual layer, driven end to end.
+
+    The reference vectors must still reproduce, the contrast path must catch a
+    dichromatic collapse that WCAG alone passes, and a dense path must keep its
+    evidence in the file a reviewer opens -- not merely in a library return
+    value. A32 is deliberately absent: A3 already byte-compares seven artefacts
+    across two runs, so a second assertion for the same property would inflate
+    the count without adding coverage."""
+
+    # Determinism: NOT added as a new assertion. QA asked for "same input twice,
+    # identical numbers" when the perceptual layer brought floating point in.
+    # A3-idempotent-byte-identical already runs the whole chain twice on one
+    # input and byte-compares seven artefacts including score.json, which is
+    # strictly stronger than re-running score.py alone.
+    #
+    # This was verified rather than assumed: injecting a set-ordered field into
+    # score.json (string hash randomisation reorders it per process) turned BOTH
+    # a candidate A32 and the existing A3 red. A second assertion for a property
+    # the first one already catches would inflate the count without adding
+    # coverage -- exactly the sort of decorative guard this suite exists to
+    # avoid. A3 had simply never been mutation-tested before.
+
+    # A33: the perceptual primitives still reproduce their published reference
+    # vectors. Deliberately a re-run of the module's own self-check rather than
+    # a copy of its numbers: a matrix edited in the module would otherwise be
+    # checked against a fixture carrying the same mistake.
+    try:
+        import perceptual as _P
+        problems = _P.selfcheck()
+        add("A33-perceptual-reference-vectors", not problems,
+            ("dE2000 max err %.3e over %d pairs; 4 contrast anchors; "
+             "2 CVD pins; 9 matrix row sums = 1"
+             % (_P.sharma_max_error(), len(_P.SHARMA_VECTORS)))
+            if not problems else "; ".join(problems[:3]))
+    except Exception as e:                      # noqa: BLE001
+        add("A33-perceptual-reference-vectors", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # A34: the contrast path actually runs, and it catches the case that
+    # motivated the whole perceptual layer.
+    #
+    # Without a declared pair the check reports not_applicable, which is honest
+    # but means the code is never exercised -- a guard that no default run
+    # reaches is a guard nobody would notice breaking. This drives a real pair
+    # through score.py: pure red on black. WCAG alone passes it at 5.25:1; the
+    # dichromatic observer sees 1.26:1. If the simulated-observation layer is
+    # ever dropped or the matrices rot, this goes red.
+    try:
+        spec34 = json.loads((GOOD / "spec.json").read_text(encoding="utf-8"))
+        spec34["contrast_pairs"] = [{"fg": "#FF0000", "bg": "#000000",
+                                     "role": "meaning"}]
+        p34 = tmp / "a34-spec.json"
+        p34.write_text(json.dumps(spec34), encoding="utf-8")
+        out34 = tmp / "a34-score.json"
+        _call("score.py", ["--svg", str(GOOD / "sample.svg"),
+                           "--judge", str(GOOD / "judge.json"),
+                           "--spec", str(p34), "--out", str(out34),
+                           "--run-id", "a34", "--json"], tmp)
+        s34 = json.loads(out34.read_text(encoding="utf-8"))
+        c34 = s34["scores"]["C"]["measured"]["perceptual"]["contrast"]
+        pair = (c34.get("pairs") or [{}])[0]
+        caught = (c34.get("status") == "warn"
+                  and pair.get("status") == "fail"
+                  and pair.get("min", 9) < 3.0
+                  and pair.get("normal", 0) > 4.5)
+        add("A34-contrast-catches-cvd-collapse", caught,
+            "normal=" + str(pair.get("normal")) + " min=" + str(pair.get("min"))
+            + " status=" + str(c34.get("status")))
+    except Exception as e:                      # noqa: BLE001
+        add("A34-contrast-catches-cvd-collapse", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # A35: a path that trips the short-segment escape valve must still leave
+    # evidence -- in the FILE, not merely in the library return value.
+    #
+    # The escape valve (borrowed from fontspector) exists so that genuinely
+    # detailed artwork is not punished for being detailed. The first
+    # implementation wrote `short += count if not dense else 0`, which kept the
+    # path out of the ratio -- correct -- and ALSO threw away the count, so
+    # "a circle cut into 200 chords" and "nothing to report" looked identical.
+    #
+    # The first version of THIS assertion called analyze_svg() directly and
+    # checked its return dict. That proved the library kept the numbers while
+    # score.json still dropped them: the fix had reached the function and
+    # stopped there. Same shape as the failures this project keeps closing --
+    # measured, but not in any file a reader opens. So it now runs score.py
+    # end to end and reads score.json, which is what a reviewer actually gets.
+    try:
+        import math as _m
+        _n = 200
+        _d = "M" + " L".join(
+            "%.4f,%.4f" % (100 + 70 * _m.cos(2 * _m.pi * i / _n),
+                           100 + 70 * _m.sin(2 * _m.pi * i / _n))
+            for i in range(_n)) + " Z"
+        _svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+                '<g id="a"><path d="' + _d + '" fill="none" stroke="#000"/></g></svg>')
+        _p35 = tmp / "a35-flattened.svg"
+        _p35.write_text(_svg, encoding="utf-8")
+        _out35 = tmp / "a35-score.json"
+        _call("score.py", ["--svg", str(_p35),
+                           "--judge", str(GOOD / "judge.json"),
+                           "--spec", str(GOOD / "spec.json"),
+                           "--out", str(_out35),
+                           "--run-id", "a35", "--json"], tmp)
+        _d35 = json.loads(_out35.read_text(encoding="utf-8"))["scores"]["D"]["measured"]
+        _turns = _d35.get("dense_turns_deg") or []
+        kept = (_d35.get("dense_paths") == 1
+                and _d35.get("dense_short_segments") == _n
+                and len(_turns) == 1 and _turns[0] < 5.0
+                and (_d35.get("dense_corner_fracs") or [1])[0] == 0.0)
+        add("A35-dense-path-keeps-evidence", kept,
+            "in score.json: dense=" + str(_d35.get("dense_paths"))
+            + " kept_short=" + str(_d35.get("dense_short_segments"))
+            + " turns=" + str(_turns)
+            + " corner=" + str(_d35.get("dense_corner_fracs")))
+    except Exception as e:                      # noqa: BLE001
+        add("A35-dense-path-keeps-evidence", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_measurement(tmp, add):
+    """A29: the measurement function must actually measure.
+
+    A well-formed synthetic stream is not enough to prove it: strict zlib
+    decompression accepts that too. The sample below truncates the trailing
+    adler32 the way Illustrator writes it, which is the difference between a
+    counter that works and one that silently reports "undecodable"."""
+
+    # A29: the measurement function must actually measure.
+    #
+    # Round 6 shipped a colour-operator counter that returned None on *every*
+    # real deliverable because zlib.decompress() rejected the trailing CR/LF.
+    # The function existed, was called, and produced a plausible-looking field
+    # ("undecodable") -- and no assertion noticed.
+    #
+    # A well-formed synthetic stream is not enough to catch that: strict
+    # decompression handles it fine. The sample below truncates the trailing
+    # adler32 so the stream is incomplete, which is what Illustrator actually
+    # writes. Strict decompression fails on it; decompressobj succeeds. That
+    # difference is the whole point, so it is the sample this assertion uses.
+    a29_ok, a29_detail = False, "not run"
+    try:
+        _spec = importlib.util.spec_from_file_location("lib_pdf_under_test",
+                                                       ROOT / "scripts" / "lib_pdf.py")
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+
+        payload = b"0.2 0.4 0.6 rg\n0 0 0 1 K\n"
+        complete = zlib.compress(payload)
+        truncated = complete[:-4]                      # drop adler32 -> incomplete
+        body = (b"<< /Length 99 /Filter /FlateDecode >>\nstream\n" +
+                truncated + b"\nendstream\n")
+        ops, decoded = _mod._count_ops([body])
+
+        # Declared Flate, undecodable: None, not a guessed number.
+        junk = (b"<< /Length 4 /Filter /FlateDecode >>\nstream\n"
+                b"\x00\x01\x02\x03\nendstream\n")
+        ops_junk, decoded_junk = _mod._count_ops([junk])
+
+        # Stored uncompressed, which the PDF format allows. This read as
+        # "decode failure" and the whole page went unmeasured.
+        plain = b"<< /Length 22 >>\nstream\n1 0 0 0 k\n0 0 0 1 K\nendstream\n"
+        ops_plain, dec_plain = _mod._count_ops([plain])
+
+        # Inline image samples are binary, not operators. The end is computed
+        # from the dict's /W /H /BPC /CS, not from the first whitespace " EI ":
+        # this sample contains those two bytes, and scanning for them ended the
+        # image early so the tail of the bitmap was counted (k=2, true value 1).
+        inline_sample = b"\x01\x02 EI k\x03\x00\x00\x00\x00"      # 12 = 3*1*4*8/8
+        inline = (b"<< /Length 99 >>\nstream\n"
+                  b"0 0 0 1 k\nq BI /W 3 /H 1 /BPC 8 /CS /CMYK ID " +
+                  inline_sample + b" EI Q\n"
+                  b"endstream\n")
+        ops_inline, dec_inline = _mod._count_ops([inline])
+
+        # A dict this reader cannot size is unmeasured, never half-counted: the
+        # sample would otherwise leak operators, and truncating the tail would
+        # hide the ones after it.
+        inline_unknown = (b"<< /Length 99 >>\nstream\n"
+                          b"0 0 0 1 k\nq BI /W 3 /H 1 /F /AHx ID \x01\x02 EI\n"
+                          b"endstream\n")
+        ops_iunk, dec_iunk = _mod._count_ops([inline_unknown])
+
+        # `/BI` is a name, not an inline image start. Excluding only word
+        # characters matched it, jumped to the next " EI ", and lost the k
+        # operator sitting between the two.
+        slash_bi = (b"<< /Length 99 >>\nstream\n"
+                    b"/BI 0 0 0 1 k\n/ID x EI\n0 0 0 1 K\nendstream\n")
+        ops_bi, dec_bi = _mod._count_ops([slash_bi])
+
+        # Scope guard: counting every decodable stream inflated the number ~40x
+        # on real files because ICC profiles and font programs contain k/K
+        # bytes. A page must only count its /Contents, so this fixture puts a
+        # decoy stream (20 k operators) in an object the page never references.
+        decoy = zlib.compress(b"0 0 0 1 k\n" * 20)
+        pdf = (b"%PDF-1.6\n"
+               b"1 0 obj\n<< /Type /Page /Contents 3 0 R >>\nendobj\n"
+               b"3 0 obj\n" + body + b"endobj\n"
+               b"5 0 obj\n<< /Subtype /Image >>\nstream\n" + decoy +
+               b"\nendstream\nendobj\n")
+        scoped, scoped_stats = _mod._content_ops(pdf)
+
+        # Page dictionary packed into an /ObjStm: there is no `N 0 obj` header
+        # for it, so the whole file used to read as "0 objects" -- a silent miss
+        # that looked exactly like a clean run.
+        inner = b"<< /Type /Page /Contents 7 0 R >>"
+        packed = b"6 0 " + inner                    # one pair: object 6 at 0
+        objstm = zlib.compress(packed)
+        pdf_os = (b"%PDF-1.6\n"
+                  b"5 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Length " +
+                  str(len(objstm)).encode() + b" /Filter /FlateDecode >>\nstream\n" +
+                  objstm + b"\nendstream\nendobj\n"
+                  b"7 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
+        scoped_os, stats_os = _mod._content_ops(pdf_os)
+
+        # /N smaller than the packed pair count. The page dictionary sat in the
+        # pair /N said did not exist, so it was never read: the file reported
+        # zero page streams and no operator -- a miss indistinguishable from a
+        # clean run. The packed count is authoritative; the mismatch is warned.
+        decoy_dict = b"<< /Type /Metadata >>"                 # 20 bytes
+        page_dict = b"<< /Type /Page /Contents 10 0 R >>"
+        packed2 = (b"6 0 7 " + str(len(decoy_dict)).encode() + b" " +
+                   decoy_dict + page_dict)
+        objstm2 = zlib.compress(packed2)
+        warn_os = []
+        pdf_os2 = (b"%PDF-1.6\n"
+                   b"5 0 obj\n<< /Type /ObjStm /N 1 /First 10 /Length " +
+                   str(len(objstm2)).encode() + b" /Filter /FlateDecode >>\nstream\n" +
+                   objstm2 + b"\nendstream\nendobj\n"
+                   b"10 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
+        scoped_n, stats_n = _mod._content_ops(pdf_os2, warn_os)
+
+        # Hand-computed reference, not score.py's own extractor: comparing the
+        # engine against itself passes on any bug the two share. Counted by
+        # reading the stream: two k, two K, one rg, nothing else.
+        fixed = (b"<< /Length 99 >>\nstream\n"
+                 b"1 0 0 0 k\n0 0.5 0 0 k\n0 0 0 1 K\n0 0 1 rg\nq 0 0 0 1 K Q\n"
+                 b"endstream\n")
+        ops_fixed, _dec_fixed = _mod._count_ops([fixed])
+        expect_fixed = {"k": 2, "K": 2, "rg": 1, "RG": 0, "g": 0, "G": 0,
+                        "sc": 0, "SC": 0, "scn": 0, "SCN": 0}
+
+        # 1/2/4 bpc has two readings: one packed bit stream, or rows padded to
+        # a byte boundary. Here both ends land on a whitespace " EI ", so the
+        # file does not say which one produced it. Taking either is a guess;
+        # the stream is reported unmeasured instead.
+        subbit = (b"<< /Length 99 >>\nstream\n"
+                  b"q BI /W 3 /H 2 /BPC 1 /CS /G ID \x00k EI Q\n0 0 0 1 k\n"
+                  b"endstream\n")
+        ops_sub, dec_sub = _mod._count_ops([subbit])
+
+        # A /Contents reference pointing at a missing object: refs and objects
+        # must not collapse into one number, or a page that was never read
+        # reports the same count as a page that was measured.
+        pdf_ref = (b"%PDF-1.6\n"
+                   b"3 0 obj\n<< /Type /Page /Contents [4 0 R 9 0 R] >>\nendobj\n"
+                   b"4 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
+        scoped_ref, stats_ref = _mod._content_ops(pdf_ref)
+
+        # None means "nothing decoded". Normalise to empty so a real failure
+        # reports its numbers instead of dying on a subscript and hiding which
+        # clause broke.
+        ops = ops or {}
+        ops_plain = ops_plain or {}
+        ops_inline = ops_inline or {}
+        ops_bi = ops_bi or {}
+        scoped = scoped or {}
+        scoped_os = scoped_os or {}
+        scoped_stats = scoped_stats if isinstance(scoped_stats, dict) else {}
+        stats_os = stats_os if isinstance(stats_os, dict) else {}
+        scoped_n = scoped_n or {}
+        scoped_ref = scoped_ref or {}
+        stats_ref = stats_ref if isinstance(stats_ref, dict) else {}
+        stats_n = stats_n if isinstance(stats_n, dict) else {}
+
+        # The Craft path must report the same numbers on the same bytes: one
+        # reader, not two that agree until someone edits one of them.
+        a29_pdf = tmp / "a29.pdf"
+        a29_pdf.write_bytes(pdf)
+        _spec_lc = importlib.util.spec_from_file_location(
+            "land_craft_under_test", ROOT / "scripts" / "land_craft.py")
+        _lc = importlib.util.module_from_spec(_spec_lc)
+        _spec_lc.loader.exec_module(_lc)
+        craft_facts = _lc._pdf_facts(a29_pdf)
+
+        # A page whose streams cannot be decoded is "not measured", not "no
+        # colour operator". Craft used to fill zeros here while Illustrator
+        # reported null, so the same undecodable file read as "CMYK absent" on
+        # one engine and "unknown" on the other.
+        undec = (b"%PDF-1.6\n"
+                 b"1 0 obj\n<< /Type /Page /Contents 3 0 R >>\nendobj\n"
+                 b"3 0 obj\n<< /Length 4 /Filter /FlateDecode >>\nstream\n"
+                 b"\x00\x01\x02\x03\nendstream\nendobj\n")
+        a29_undec = tmp / "a29-undecodable.pdf"
+        a29_undec.write_bytes(undec)
+        ai_undec, ai_undec_stats = _mod._content_ops(undec)
+        craft_undec = _lc._pdf_facts(a29_undec)
+
+        # One intent object, one catalog array. /OutputIntents is the array that
+        # points at the intent, so counting it as an intent published 2 for a
+        # file that declares 1 -- and only lib_pdf counted it, so the two
+        # landers reported different numbers for the same bytes.
+        intent_pdf = (b"%PDF-1.6\n"
+                      b"1 0 obj\n<< /Type /Catalog /OutputIntents [ 2 0 R ] >>\nendobj\n"
+                      b"2 0 obj\n<< /Type /OutputIntent /S /GTS_PDFX >>\nendobj\n")
+        a29_intent = tmp / "a29-intent.pdf"
+        a29_intent.write_bytes(intent_pdf)
+        intent_shared = _mod._object_counts(intent_pdf)["output_intent"]
+        intent_ai = _mod._observe_ai(a29_intent)["output_intent"]
+        intent_craft = _lc._pdf_facts(a29_intent)
+
+        # The schema is the single source of truth for the operator key set.
+        # r36 widened the code from 4 keys to 10 while the schema still declared
+        # 4, and every gate stayed green because additionalProperties is open --
+        # the drift was invisible. Comparing the two makes it red instead.
+        _decl_doc = json.loads(
+            (ROOT / "references" / "schemas" / "deliverable.schema.json")
+            .read_text(encoding="utf-8"))
+        _decl_keys = set(
+            _decl_doc["properties"]["observed"]["properties"]["content_ops"]["properties"])
+
+        # One Type0 font is two /BaseFont entries (the composite and its
+        # descendant CIDFont) but a single embedded program. Counting entries
+        # made the manifest disagree with vectorcraft's `info` on the same file.
+        fonts = _mod._font_programs(
+            b"1 0 obj << /BaseFont /Stone-Bold /DescendantFonts [2 0 R] >> endobj\n"
+            b"2 0 obj << /BaseFont /Stone-Bold-CID /FontDescriptor 3 0 R >> endobj\n"
+            b"3 0 obj << /FontFile2 4 0 R >> endobj\n")
+
+        # .get() throughout: a missing key must read as "0", so the message says
+        # which clause is wrong instead of raising KeyError and hiding it.
+        a29_ok = (ops.get("rg") == 1 and ops.get("K") == 1 and decoded == 1 and
+                  ops_junk is None and decoded_junk == 0 and
+                  ops_plain.get("k") == 1 and ops_plain.get("K") == 1 and dec_plain == 1 and
+                  ops_inline.get("k") == 1 and ops_inline.get("G") == 0 and
+                  ops_inline.get("K") == 0 and dec_inline == 1 and
+                  ops_iunk is None and dec_iunk == 0 and
+                  ops_bi.get("k") == 1 and ops_bi.get("K") == 1 and dec_bi == 1 and
+                  ops_sub is None and dec_sub == 0 and
+                  ops_fixed == expect_fixed and
+                  scoped_ref.get("K") == 1 and stats_ref.get("refs") == 2 and
+                  stats_ref.get("objects") == 1 and stats_ref.get("decoded") == 1 and
+                  scoped_os.get("k") == 0 and scoped_os.get("K") == 1 and
+                  stats_os.get("objects") == 1 and stats_os.get("decoded") == 1 and
+                  scoped_n.get("K") == 1 and stats_n.get("objects") == 1 and
+                  stats_n.get("decoded") == 1 and len(warn_os) == 1 and
+                  craft_facts["content_ops"] == scoped and
+                  craft_facts["content_streams"]["decoded"] == 1 and
+                  craft_facts["content_streams"].get("refs") == 1 and
+                  ai_undec is None and ai_undec_stats.get("decoded") == 0 and
+                  craft_undec["content_ops"] is None and
+                  craft_undec["content_streams"]["decoded"] == 0 and
+                  intent_shared == 1 and intent_ai == 1 and
+                  intent_craft.get("output_intent") == 1 and
+                  intent_craft.get("output_intent_objects") == 1 and
+                  scoped.get("k") == 0 and scoped.get("K") == 1 and scoped.get("rg") == 1 and
+                  scoped_stats.get("objects") == 1 and
+                  scoped_stats.get("refs") == 1 and
+                  scoped_stats.get("decoded") == 1 and fonts == 1 and
+                  set(scoped) == _decl_keys)
+        # Short discriminating values first, then the long dictionary: add()
+        # truncates at 220 chars, and the tail used to be cut off exactly when
+        # a red assertion needed it (the whole dict fit, the verdict did not).
+        a29_detail = ("k=" + str(scoped.get("k")) + "/0 K=" + str(scoped.get("K")) + "/1" +
+                      " objects=" + str(scoped_stats.get("objects")) + "/1" +
+                      " refs=" + str(scoped_stats.get("refs")) + "/1" +
+                      " decoded=" + str(scoped_stats.get("decoded")) + "/1" +
+                      " objstm=" + str(stats_os.get("objects")) + "/" +
+                      str(stats_os.get("decoded")) +
+                      " osN=" + str(stats_n.get("objects")) + "/" +
+                      str(stats_n.get("decoded")) + "/w" + str(len(warn_os)) +
+                      " plain=" + str(ops_plain.get("k")) + "/" + str(dec_plain) +
+                      " inline=" + str(ops_inline.get("k")) + "," + str(ops_inline.get("G")) +
+                      ",dec" + str(dec_inline) +
+                      " iunk=" + str(ops_iunk) + "/" + str(dec_iunk) +
+                      " bi=" + str(ops_bi.get("k")) + "/" + str(ops_bi.get("K")) +
+                      " sub=" + str(ops_sub) + "/" + str(dec_sub) +
+                      " ref=" + str(stats_ref.get("refs")) + "/" +
+                      str(stats_ref.get("objects")) + "/" +
+                      str(stats_ref.get("decoded")) +
+                      " fixed=" + str(ops_fixed == expect_fixed) +
+                      " fonts=" + str(fonts) + "/1" +
+                      " craft=" + str(craft_facts["content_ops"] == scoped) +
+                      " undec=" + str(ai_undec) + "/" + str(craft_undec["content_ops"]) +
+                      " intent=" + str(intent_ai) + "/" +
+                      str(intent_craft.get("output_intent")) + "/1" +
+                      " keys=" + str(set(scoped) == _decl_keys) +
+                      " ops=" + str(scoped))
+    except Exception as e:                      # noqa: BLE001 - report, do not crash
+        a29_detail = type(e).__name__ + ": " + str(e)[:140]
+    add("A29-content-ops-measurement", a29_ok, a29_detail)
+
+
+def _stage_grading(tmp, add, th, w1):
+    """A12-A25: the grading tiers and the anti-fabrication guards.
+
+    L2 has no third tier, quick mode never passes, F reaches the scores, and
+    every dimension that must stay visible does: a missing score key, a
+    backfilled F or a numeric L2 A/B turns the run red. Returns the generation
+    budget that the tail of main() reports."""
+    msg = th["messages"]
+    cap = L.capability_missing_value(th)
+
+    # A12 L2: no third grading tier, capability-missing status, delivery not blocked
+    wl = tmp / "l2"
+    wl.mkdir(parents=True, exist_ok=True)
+    if (w1 / "spec.json").is_file():
+        shutil.copyfile(w1 / "spec.json", wl / "spec.json")
+    # A16 keeps the circle-bearing sample on purpose: the builtin fallback draws
+    # circles as squares, so render_png judges the preview "limited" and aggregate
+    # must auto-degrade to L2. The unreadable judge is the second, independent road
+    # to the same status; both must land on capability_missing.
+    _copy_if(GOOD / "sample.svg", wl / "final.svg")
+    _call("render_png.py", ["--in", str(wl / "final.svg"),
+                            "--out", str(wl / "preview.png"), "--force-builtin"], tmp)
+    L.write_json_atomic(wl / "judge-src.json", {
+        "schema": "vector-ai-studio/judge-v1", "readable": False,
+        "items": [], "subject_conflict": False, "attributes": [], "align": []})
+    _call("llm_judge.py", ["--judge", str(wl / "judge-src.json"), "--validate",
+                           "--out", str(wl / "judge.json")], tmp)
+    _call("score.py", ["--svg", str(wl / "final.svg"), "--judge", str(wl / "judge.json"),
+                       "--spec", str(wl / "spec.json"), "--out", str(wl / "score.json")], tmp)
+    _call("aggregate_log.py", ["--run-dir", str(wl),
+                               "--out", str(wl / "acceptance.json")], tmp)
+    la = _jread(wl / "acceptance.json")
+    lblob = ((wl / "acceptance.json").read_text(encoding="utf-8")
+             if (wl / "acceptance.json").is_file() else "")
+    l2_words = [w for w in CLAIM_BANNED if w in lblob.replace(msg["grade_fail"], "")]
+    ldn = ((wl / "delivery-note.md").read_text(encoding="utf-8")
+           if (wl / "delivery-note.md").is_file() else "")
+    outward_words = [w for w in CLAIM_BANNED if w in ldn]
+    ok12 = (la.get("grade") == msg["l2_grade"] and
+            la.get("headline") == msg["l2_headline"] and
+            la.get("degraded") is True and
+            la.get("needs_human_review") is True and
+            la.get("reason") == msg["reason_capability_missing"] and
+            la.get("capability_missing") is True and
+            la.get("grading_entered") is True and
+            la.get("scores", {}).get("A") == cap and
+            la.get("scores", {}).get("B") == cap and
+            not l2_words and not outward_words)
+    add("A12-L2-not-pass-no-third-tier", ok12, "grade=" + str(la.get("grade")) +
+        " banned=" + ",".join(l2_words + outward_words))
+
+    # A14 runtime-derived generation budget + real generation_count + rejection
+    budget = L.generation_budget(th)
+    acc1 = _jread(w1 / "acceptance.json")
+    ok14 = (budget == {"pass": th["F"]["N_pass"] * th["iterate"]["K_max"],
+                       "excellent": th["F"]["N_excellent"] * th["iterate"]["K_max"]})
+    ok14 = (ok14 and isinstance(acc1.get("generation_count"), int) and
+            acc1["generation_count"] <= budget["excellent"] and
+            acc1.get("generation_budget") == budget)
+    rc14, env14, _ = _call("aggregate_log.py",
+                           ["--validate-case", str(BAD / "bad_budget_exceeded.json")], tmp)
+    ok14 = ok14 and rc14 == 1 and "E-BUDGET-EXCEEDED" in _codes(env14)
+    add("A14-generation-budget-derived", ok14,
+        "budget=" + json.dumps(budget, sort_keys=True) +
+        " count=" + str(acc1.get("generation_count")))
+
+    # A15 O4: f_source_runs / c2_revisions isolation, no cross-run F backfill
+    iso = tmp / "o4-isolated"
+    for i in range(1, th["F"]["N_pass"] + 1):
+        run_id = "run-" + str(i)
+        fs = iso / "f_source_runs" / run_id
+        fs.mkdir(parents=True, exist_ok=True)
+        _copy_if(w1 / "score.json", fs / "score.json")
+        _copy_if(w1 / "final.svg", fs / "draft.svg")
+        L.write_json_atomic(fs / "h1.json", {"pass": True})
+        rev = iso / "c2_revisions" / run_id / "round-2"
+        rev.mkdir(parents=True, exist_ok=True)
+        L.write_json_atomic(rev / "revision.json",
+                            {"run_id": run_id, "from_round": 2, "change_only": ["C"]})
+    rc15, _, _ = _call("batch_check.py",
+                       ["--runs-dir", str(iso), "--out", str(iso / "batch.json")], tmp)
+    bd = _jread(iso / "batch.json")
+    iso_ok = (rc15 == 0 and bd.get("f_data_isolated") is True and
+              len(bd.get("f_source_runs", [])) == th["F"]["N_pass"] and
+              len(bd.get("c2_revisions", [])) == th["F"]["N_pass"] and
+              isinstance(bd.get("generation_count"), int) and
+              bd["generation_count"] <= budget["excellent"])
+    rc15b, env15b, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(BAD / "bad_f_backfill.json")], tmp)
+    neg_ok = rc15b == 1 and "E-F-DATA-ISOLATION" in _codes(env15b)
+    # Same SVG hash must not appear both in c2_revisions and in F source stats.
+    hc = _jread(GOOD / "good_o4_isolated.json")
+    if hc.get("c2_revisions"):
+        hc["c2_revisions"][0]["draft_sha256"] = hc["f_source_runs"][0]["draft_sha256"]
+    hash_path = tmp / "hash-overlap.json"
+    L.write_json_atomic(hash_path, hc)
+    rc15c, env15c, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(hash_path)], tmp)
+    hash_ok = rc15c == 1 and "E-F-DATA-ISOLATION" in _codes(env15c)
+    add("A15-F-data-isolation", iso_ok and neg_ok and hash_ok,
+        "positive=" + str(iso_ok) + " backfill_rejected=" + str(neg_ok) +
+        " shared_hash_rejected=" + str(hash_ok) +
+        " gen_count=" + str(bd.get("generation_count")))
+
+    # A16 L2 anti-fabrication: A/B must be status enum, never numeric scores
+    ls = _jread(wl / "score.json")
+    ab_ok = (ls.get("scores", {}).get("A") == cap and
+             ls.get("scores", {}).get("B") == cap and
+             not isinstance(ls.get("scores", {}).get("A"), dict))
+    rc16, env16, _ = _call("aggregate_log.py",
+                           ["--validate-case", str(BAD / "bad_l2_fabricated.json")], tmp)
+    ok16 = ab_ok and rc16 == 1 and "E-FABRICATED-SCORE" in _codes(env16)
+    add("A16-L2-anti-fabrication", ok16,
+        "ab_status=" + str(ab_ok) + " rejected=" + str("E-FABRICATED-SCORE" in _codes(env16)))
+
+    # A17 quick mode must never participate in a pass judgement
+    rc17, env17, _ = _call("aggregate_log.py",
+                           ["--validate-case", str(BAD / "bad_quick_claimed_pass.json")], tmp)
+    ok17 = rc17 == 1 and "E-QUICK-UNVERIFIED" in _codes(env17)
+    add("A17-quick-not-graded", ok17, "rejected=" + str(ok17))
+
+    # A18 F merged into scores -> the pass tier becomes mechanically reachable.
+    # SYNTHETIC validator run: proves the F->scores wiring, not a real .ai.
+    # The SVG is rect-only with solid fills and no stroke, so render_png's own
+    # _builtin_fidelity() judges the fallback "faithful" and A/B stays numeric
+    # (a circle-bearing SVG would be "limited" and correctly flip to L2).
+    a18 = tmp / "a18"
+    a18.mkdir(parents=True, exist_ok=True)
+    rect_ok = RECT.is_file()
+    if rect_ok:
+        shutil.copyfile(RECT, a18 / "final.svg")
+    # A missing fixture deliberately leaves final.svg absent: render_png then
+    # returns exit 2 and this assertion goes red, instead of copyfile raising
+    # FileNotFoundError and aborting the whole selftest as E-INTERNAL.
+    _call("render_png.py", ["--in", str(a18 / "final.svg"),
+                            "--out", str(a18 / "preview.png"), "--force-builtin"], tmp)
+    meta18 = _jread(a18 / "preview.meta.json")
+    _copy_if(GOOD / "judge.json", a18 / "judge.json")
+    (a18 / "final.ai").write_bytes(
+        b"synthetic-h1-file-existence-placeholder-not-a-real-ai\n")
+    L.write_json_atomic(a18 / "structure_readback.json", {
+        "ok": True, "raster": 0, "placed": 0, "paths": 5,
+        "artboard_matches_viewBox": True})
+    L.write_json_atomic(a18 / "selftest.json", {
+        "status": "ok", "passed": 1, "failed": 0,
+        "assertions": [{"id": "A0", "ok": True}]})
+    L.write_json_atomic(a18 / "score.json", {
+        "round": 2, "l2_degraded": False, "degraded_dims": [], "failed_dims": [],
+        "scores": {"A": {"score": 2, "measured": {}, "threshold": {}},
+                   "B": {"score": 2, "measured": {}, "threshold": {}},
+                   "C": {"score": 1, "measured": {}, "threshold": {}},
+                   "D": {"score": 1, "measured": {}, "threshold": {}},
+                   "E": "N/A", "F": "N/A"}})
+    L.write_json_atomic(a18 / "batch.json", {
+        "schema": "vector-ai-studio/batch-v1", "quick": False,
+        "f_verified": True, "f_data_isolated": True, "isolation_problems": [],
+        "N": 3, "generation_count": 3,
+        "F": {"score": 1, "measured": {"N": 3, "h1_pass_rate": 1.0,
+                                       "ad_pass_rate": 0.8333,
+                                       "palette_consistent": True},
+              "threshold": {}, "degraded": False},
+        "f_source_runs": [{"run_id": "run-1", "draft_sha256": "a" * 64},
+                          {"run_id": "run-2", "draft_sha256": "b" * 64},
+                          {"run_id": "run-3", "draft_sha256": "c" * 64}],
+        "c2_revisions": [],
+        "per_run": [{"run": "run-" + str(i), "h1_pass": True,
+                     "ad_pass_rate": 0.85, "palette": ["#111", "#eee"]}
+                    for i in (1, 2, 3)]})
+    rc18, env18, _ = _call("aggregate_log.py",
+                           ["--run-dir", str(a18), "--run-id", "a18", "--json"], tmp)
+    d18 = env18.get("data", {}) or {}
+    acc18 = _jread(a18 / "acceptance.json")
+    f_dict = isinstance((acc18.get("scores") or {}).get("F"), dict)
+    ok18 = (rect_ok and rc18 == 0 and acc18.get("grade") == msg["grade_pass"] and f_dict
+            and acc18.get("needs_human_review") is True
+            and meta18.get("fidelity") == "faithful")
+    add("A18-F-merged-reachable", ok18,
+        ("MISSING FIXTURE rect-only.svg; " if not rect_ok else "") +
+        "synthetic rect-only run: fallback judged faithful by render_png itself; "
+        "proves the F->scores wiring, not preview fidelity; "
+        "fidelity=" + str(meta18.get("fidelity")) +
+        " grade=" + str(acc18.get("grade")) +
+        " needs_human_review=" + str(acc18.get("needs_human_review")) +
+        " F_is_dict=" + str(f_dict) +
+        " validation=" + str(d18.get("validation_problems")))
+
+    # A18b a compliant full-mode pass-tier acceptance log passes validation
+    rc18b, env18b, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(GOOD / "good_acceptance_reachable.json")], tmp)
+    add("A18b-validator-accepts-pass", rc18b == 0 and not _codes(env18b),
+        "codes=" + ",".join(_codes(env18b)))
+
+    # A19 full track without C/D is a broken chain, never an L2 degradation
+    rc19, env19, _ = _call("aggregate_log.py",
+                           ["--validate-case", str(BAD / "bad_no_score.json")], tmp)
+    ok19 = rc19 == 1 and "E-NO-SCORE" in _codes(env19)
+    add("A19-full-track-no-score-rejected", ok19, "codes=" + ",".join(_codes(env19)))
+
+    # A20 landing-only track: unevaluated (null), accepted, no tier word anywhere
+    rc20, env20, _ = _call("aggregate_log.py",
+                           ["--validate-case", str(GOOD / "good_landing_only.json")], tmp)
+    lo_blob = (GOOD / "good_landing_only.json").read_text(encoding="utf-8")
+    lo_words = [w for w in (CLAIM_BANNED + ["未验证"]) if w in lo_blob]
+    ok20 = rc20 == 0 and not _codes(env20) and not lo_words
+    add("A20-landing-only-unevaluated", ok20,
+        "codes=" + ",".join(_codes(env20)) + " words=" + ",".join(lo_words))
+
+    # A21 the exemption must be policed from both sides
+    rc21a, env21a, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(BAD / "bad_exemption_abuse_full.json")], tmp)
+    rc21b, env21b, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(BAD / "bad_exemption_abuse_lo.json")], tmp)
+    ok21 = (rc21a == 1 and "E-EXEMPTION-ABUSE" in _codes(env21a) and
+            rc21b == 1 and "E-EXEMPTION-ABUSE" in _codes(env21b))
+    add("A21-exemption-abuse-both-ways", ok21,
+        "full_track_exit=" + str(rc21a) + " lo_track_exit=" + str(rc21b))
+
+    # A22 package hygiene: runtime output/ must never live inside the skill dir,
+    # and no stray __pycache__ may be shipped. scripts/ bytecode cache is created
+    # by this very run, so it is ignored here and excluded by the packager.
+    stray = []
+    if (ROOT / "output").exists():
+        stray.append("output/")
+    for p in ROOT.rglob("__pycache__"):
+        if p.is_dir() and p.parent != SCRIPTS:
+            stray.append(str(p.relative_to(ROOT)))
+    add("A22-package-hygiene", not stray,
+        ",".join(stray[:6]) if stray
+        else "no output/ and no stray __pycache__ (scripts/ bytecode cache ignored)")
+
+    # A23 L2 must carry all six score keys with the right per-key status.
+    # Reverse side: dropping A or F must be rejected with E-NO-SCORE.
+    l2_sc = la.get("scores") or {}
+    l2_keys = set(l2_sc) >= {"A", "B", "C", "D", "E", "F"}
+    l2_shape = (l2_sc.get("A") == cap and l2_sc.get("B") == cap
+                and isinstance(l2_sc.get("C"), dict) and isinstance(l2_sc.get("D"), dict)
+                and (l2_sc.get("E") == "N/A" or isinstance(l2_sc.get("E"), dict))
+                and (l2_sc.get("F") == "N/A" or isinstance(l2_sc.get("F"), dict)))
+    rc_mf, env_mf, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(BAD / "bad_missing_f.json")], tmp)
+    rc_ma, env_ma, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(BAD / "bad_missing_a.json")], tmp)
+    mf_rej = rc_mf == 1 and "E-NO-SCORE" in _codes(env_mf)
+    ma_rej = rc_ma == 1 and "E-NO-SCORE" in _codes(env_ma)
+    add("A23-L2-six-keys", l2_keys and l2_shape and mf_rej and ma_rej,
+        "keys=" + str(sorted(l2_sc)) + " shape=" + str(l2_shape) +
+        " missing_f_rejected=" + str(mf_rej) + " missing_a_rejected=" + str(ma_rej))
+
+    # A24 a graded (full-track) log must carry every grade-required dimension.
+    full_sc = acc18.get("scores") or {}
+    req_missing = sorted({"A", "B", "C", "D", "F"} - set(full_sc))
+    add("A24-full-required-dims", not req_missing and mf_rej and ma_rej,
+        "keys=" + str(sorted(full_sc)) + " missing=" + str(req_missing))
+
+    # A25 a passing (grade=达标) log must keep E visible: dropping E would hide
+    # "E applicable but scored 0", which is the same fake-pass surface as a
+    # missing graded dimension. Reverse-verified with bad_pass_missing_e.json.
+    rc_me, env_me, _ = _call("aggregate_log.py",
+                             ["--validate-case", str(BAD / "bad_pass_missing_e.json")], tmp)
+    me_rej = rc_me == 1 and "E-NO-SCORE" in _codes(env_me)
+    add("A25-pass-missing-e-rejected", me_rej,
+        "pass_missing_e_rejected=" + str(me_rej) + " codes=" + ",".join(_codes(env_me)))
+
+
+def main():
+    ap = argparse.ArgumentParser(description="pure-script selftest")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--log-dir", default="")
+    ap.add_argument("--fixtures", action="store_true")
+    ap.add_argument("--run-id", default="")
+    args = ap.parse_args()
+
+    th = L.load_thresholds()
+    rid = args.run_id or L.sha_run_id("selftest", th["version"])
+    log_dir = Path(args.log_dir) if args.log_dir else (L.default_output_root() / "selftest" / rid)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(prefix="vector-ai-selftest-"))
+    a = []
+
+    def add(aid, ok, detail="", skipped=False):
+        # ok is True / False / None. None means "not evaluated", matching how
+        # this project already expresses an unevaluated gate (h2=null with
+        # h2_status=not_evaluated). A skip must not read as a pass to anything
+        # that aggregates assertions[].ok -- that was the hole: exit 0, status
+        # ok, and ok=true on an assertion that never ran.
+        a.append({"id": aid, "ok": (None if skipped else bool(ok)),
+                  "detail": str(detail)[:220], "skipped": bool(skipped)})
+
+    w1, _, chain, optional = _stage_pure_chain(tmp, add, th)
+    budget = _stage_grading(tmp, add, th, w1)
+    _stage_contract_registry(tmp, add, w1)
+    _stage_measurement(tmp, add)
+    _stage_alt_engine(tmp, add)
+    _stage_perceptual(tmp, add)
+    _stage_p2_survivors(tmp, add)
+    _check_stale_preview(tmp, add, RECT)
+    _stage_silent_cli(tmp, add)
+    _check_archetypes_legal(tmp, add)
+    _stage_studio_chain(tmp, add)
+    _check_review_pack(tmp, add)
+    _check_deal_history(tmp, add)
+    _stage_legibility(tmp, add)
+    _check_failed_dimension(tmp, add)
+    _check_empty_review_sheet(tmp, add)
+    # A55 and the conformance block are separate functions, but they were
+    # adjacent in the original main(); keeping the calls adjacent keeps the
+    # assertion order unchanged. Until r61 this call was the last line of
+    # _check_empty_review_sheet, where an early exception would have skipped
+    # A56 and A59 without anything going red.
+    _check_conformance(tmp, add)
+    _check_ledger_trace(tmp, add)
+    _check_licence_claim(tmp, add)
+    _stage_print_route(tmp, add)
 
     # optional: fixtures regression (now includes the six v1.3 samples)
     if args.fixtures:

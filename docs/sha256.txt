@@ -1631,3 +1631,51 @@ sha256        : 8fd64f21101f456b3816791bfaf5044263687e8102a46b001104de7a9b5039de
 
 已推送发布提交 `7b84268`（父 `7c17441`）；回读见下。
 
+
+────────────────────────────────────────────────────────────
+r61（2026-11-10）　selftest.main() 拆完：1829 行 → 89 行
+────────────────────────────────────────────────────────────
+版本          : r61
+文件数        : 95
+字节数        : 261044
+sha256        : 7cae05c1000261287bdb1a115d1b2f033c549e9920822e154010c6662563511b
+冻结时刻      : 2026-11-10（04-QA/test-log-r61/00-freeze-r61-manifest.txt，95 文件逐件 md5）
+
+相对 r60 变更 : 1 个文件
+                scripts/selftest.py  c6f005ad6ab4306a888f3a8ecbecd050e5d61b0eb28fed92b2b897840ea2a3af
+
+内容          : 1) main() 剩余全部断言块按阶段提取为 10 个函数（37 条断言）：
+                  _stage_grading(A12,A14-A25) / _stage_contract_registry(A26-A28)
+                  _stage_measurement(A29) / _stage_alt_engine(A30-A31)
+                  _stage_perceptual(A33-A35) / _stage_p2_survivors(A36-A41)
+                  _stage_silent_cli(A48) / _stage_studio_chain(A50)
+                  _stage_legibility(A53) / _stage_print_route(A42-A46)
+                2) main() 1829 行 / 163 条顶层语句 → 89 行 / 42 条；
+                   现为「准备 → 19 次调用 → 汇总」，模块级辅助函数 20 个
+                3) _landing40 提为模块级 _landing(where)：A48 原先依赖
+                   定义在 A36 块内的嵌套函数
+                4) main 内两个已无用局部量（msg / cap）删除
+
+缺陷修正      : a) r60 把 _check_conformance(tmp, add) 的调用留在了
+                   _check_empty_review_sheet 末尾。该函数若在中途抛异常，
+                   A56 与 A59 会静默不执行，且没有任何项变红。已移回 main。
+                b) r60 对 _check_conformance docstring 的「改正」本身是错的：
+                   它称 A54、A55 在该函数内，实际 A54 在 _check_failed_dimension、
+                   A55 在 _check_empty_review_sheet。已改回 A56 + A59 并写明。
+                c) _stage_grading 首版漏取 msg / cap（依赖分析器误把它们当作
+                   环境变量），运行即 E-INTERNAL: NameError。改为函数内由 th 派生。
+
+实测证据      : selftest 58/0/58（--fixtures 59/59），断言顺序与拆分前逐项一致
+                run_fixtures all_ok=True；validate_skill 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 261044 B / 7cae05c1…511b）
+                zip ↔ 冻结清单 双向 md5：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、196425 B、output_intent=1、
+                intent 对象 1、DeviceRGB 算子 0、CMYK 算子 21、unverified 空
+                证据目录 04-QA/test-log-r61/
+
+已知限制      : 1) 断言条数仍无内建守卫（靠三数比对 58/0/58 人工确认）
+                2) 外部真人评审 0 份，usable_for_claim 恒为假
+                3) conformance 仍不读 style="" 与样式表
+
+校验方式      : python scripts/selftest.py 期望 58/58；带 --fixtures 期望 59/59
+                get-filehash 发布包应为 7cae05c1…511b（261,044 B）
