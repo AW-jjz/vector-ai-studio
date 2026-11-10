@@ -151,13 +151,20 @@ land_ai.py 的保存选项全部显式写入 `IllustratorSaveOptions`，不依�
 | `unverified` | **要求了但没兑现**的项。例如要求转 CMYK 而 PDF 兼容层仍以 `rg` 算子写 RGB，此条会出现在这里，不会被静默略过 |
 | `verify_yourself` | 客户可自行执行的校验命令与 sha256 |
 
-流记「未测」的三种情形——**只有第三种写 `warnings`**，前两种只能从 `decoded` 与 `content_ops: null` 看出来：
+流记「未测」的已知情形——**只有一条会留下提示**：对象流 `/N` 与实际配对数不符时写一条 `pdf reader: …` 到 `deliverable.tool_warnings`（不是顶层 `warnings`）；`land_vc` 调 `_observe_ai` 时不传收集列表，该提示在 vectorcraft 引擎下落不下来。其余情形只能从 `decoded < objects` 与 `content_ops: null` 看出来：
 
 | 情形 | 表现 |
 |---|---|
-| 内联图像字典算不出样本长度（带 `/F`、`/DP`，或索引色空间） | 该流不计入 `decoded`，无 warning |
+| 内联图像字典算不出样本长度（带 `/F`、`/DP`，或索引色空间） | 该流不计入 `decoded`，无提示 |
 | 1/2/4 bpc 的两种字节数（整体位流 / 行对齐）**都**落在合法 `EI` 上，无法判别 | 同上 |
-| 对象流 `/N` 与实际配对数不符 | 按实际对数读取，并写一条 `warning` |
+| 内联图像声明的样本长度越过流尾，找不到端点 | 同上 |
+| 页面内容流声明的滤镜**全部**未实现（LZW / ASCII85 / DCT 等） | 同上（`_decode_stream` 返回 None，不猜解压） |
+| 声明了 Flate 但解压失败，或流边界缺失（无 `endstream`、仅 CR 换行） | 同上 |
+| 对象流 `/N` 与实际配对数不符 | 按实际对数读取，并写一条 `tool_warnings` |
+
+这张表不是穷举：凡是「本读取器无法确定边界或解码」的输入，一律走同一条兜底——整条流记未测，宁可交白卷，不给一个猜出来的数。
+
+**一个已知的口径例外**：滤镜链里同时含 Flate 和未实现的滤镜（如 `[/FlateDecode /DCTDecode]`）时，`_decode_stream` 只认 Flate、忽略其余名字并照常计数——这类输入会给出数值而不是未测。属实现取舍，不改判据，列在这里以免被当成"已覆盖所有滤镜"。
 
 ### 交付清单的幂等口径
 

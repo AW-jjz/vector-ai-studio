@@ -364,3 +364,59 @@ sha256        : 44b973f2feb82d97c2de3164043dc4a067bf605c0bb07303f0841b3c3083eedb
 被替换的旧包  : r37 → 03-源码/_dev-logs/superseded/vector-ai-studio_r37-58files_SUPERSEDED_20261110-1105.zip
                 （190,683 B；第 28 轮已签收并推送，发布提交 ec1deca；仍按纪律降级保留）
 
+
+════════════════════════════════════════════════════════════════════
+r39（2026-11-10，版本 1.1.0，58 文件 / 194,443 B）— 当前候选
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 194,443 B
+sha256        : 4e59f47f8b8df6b364982c49822d98fa288496e109c7a193c6fa2e036dc170f7
+对应冻结基线  : 04-QA/test-log-r39/00-freeze-r39-manifest.txt（58 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 12:35:24，529,657 B
+                清单 sha256 efe06f94b968a8a479d0a4bf44e939fd0a6d9e0725ff7e451ee40effc42380f5
+
+本版包含      : 第 29 轮 QA P3-2 backlog 的文档补全（纯文档，代码零改动）
+                · 「流记未测」表由 3 条扩到 6 条，补上实测存在但没写进表的路：
+                  声明长度越过流尾、滤镜全部未实现、Flate 解压失败或流边界缺失
+                · 写「warnings」改为写 `pdf reader: …` 到 `deliverable.tool_warnings`，
+                  并写明 land_vc 不传收集列表、该提示在 vectorcraft 引擎下落不下来
+                · 「第三种」序数指认改为按字段名指认（对象流 /N 不符）
+                · 新增「已知的口径例外」：滤镜链含 Flate 时只认 Flate 并照常计数
+
+相对 r38 变更 : 新增 0 / 删除 0 / 修改 1 / 其余 57 个 sha256 不变
+                references/pipeline-contract.md（24,222 → 25,310 B）
+
+实测证据      : 代码未动，两份历史真机 PDF 复算与 r38 逐键相同
+                （print-x1a k=20/K=1/scn=1/SCN=32；vc-final k=4/K=1）。
+                重跑新冒烟 smoke_ai.py --run-id r39-real：exit=0 / status=ok /
+                final.ai 53,884 B；REAL_AI=1 复跑 selftest 46/0/0，
+                A31 = ai(real:run-r39-real)。
+                见 04-QA/test-log-r39/r39-07-真机零漂移.txt 与 r39-00-gates.txt
+
+四道闸        : selftest --fixtures 46/0/0（A29 detail 与 r38 逐字相同）·
+                run_fixtures 24/24 · validate 0 error 0 warning ·
+                zip ↔ 基线 58/0/0/0 · 重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异自测      : 0 项新增；r38 的 9 红 + 1 对照绿结论沿用（代码零改动）。
+                本轮没有断言在测「文档写了几种情形」，不为此造变异充数。
+
+已知限制      : 同 r38。另该表仍是「已知情形」而非完备清单：凡本读取器
+                无法确定边界或解码的输入，一律走同一条兜底（整条流记未测、
+                content_ops 可为 null），没有逐类错误码；滤镜链同时含 Flate
+                与未实现滤镜时按 Flate 处理并照常计数（文档已列为例外）
+
+独立 QA       : 第 30 轮对首版（194,155 B / d43187d9…）判签收 · 可推送，
+                同时记 3 条 P3，其中 2 条是本版文档措辞的实质错误
+                （warnings 字段名、滤镜链含 Flate 未写）。据此改文档并重打包，
+                首版未进 05-发布。**增补复核：签收 · 可推送**（对现包 194,443 B），
+                zip 与基线双向 58/0/0/0，scripts/*.py 与 r38 逐条相同，三处修正均改对；
+                另记 2 条 P3 留 backlog（均不阻断，本轮不再重打包）：
+                · 154 行引用的 `deliverable.tool_warnings` 在字段表里没有条目
+                  （字段本体定义在 schemas/deliverable.schema.json）
+                · 154 行「decoded < objects 与 content_ops: null」应为「或」——
+                  content_ops 只在 decoded==0 时为 null，两者是或非与
+
+远端状态      : 未推送
+
+
