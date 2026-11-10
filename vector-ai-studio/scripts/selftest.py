@@ -43,7 +43,7 @@ CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 # --fixtures. Declared rather than asserted-in-prose because two rounds lost
 # ten assertions to a bad block extraction and the only thing that noticed was
 # a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 66
+EXPECTED_ASSERTIONS = 69
 
 
 def _call(name, args, cwd, flags=()):
@@ -216,7 +216,7 @@ def _schema_diff(doc, schema, check_missing=True, optional=()):
 
 
 def _check_conformance(tmp, add):
-    """A56, A59, A61-A67: the mechanical half of brief conformance.
+    """A56, A59, A61-A70: the mechanical half of brief conformance.
 
     Extracted from main() so this block can be read and changed without
     scrolling past two thousand lines of unrelated assertions. It owns no
@@ -224,6 +224,8 @@ def _check_conformance(tmp, add):
     here -- r60 said they were, which was wrong: they live in
     _check_failed_dimension and _check_empty_review_sheet, and only their
     execution order (A54, A55, then this) puts them next to each other.
+    A68-A70 are the r67 additions: stroke ink, a picture with no ink, and
+    the three shipped examples.
     """
     # ---- A56: brief conformance is checked, and unchecked rules stay visible --
     # The review sheet cannot judge need-fit (no brief is shown to reviewers), so
@@ -512,8 +514,8 @@ def _check_conformance(tmp, add):
             bool(_rc63a == 2 and "E-SCHEMA" in _cd63a
                  and _rc63b == 2 and "E-SCHEMA" in _cd63b
                  and _rc63c == 2 and "E-SCHEMA" in _cd63c
-                 and _rc63d == 1 and _bad63d == ["MARGIN"]
-                 and _rc63e == 1 and _bad63e == ["CANVAS"]),
+                 and _rc63d == 1 and _bad63d == ["PAINTED", "MARGIN"]
+                 and _rc63e == 1 and _bad63e == ["PAINTED", "CANVAS"]),
             "typo_key=" + str(_rc63a) + " typo_forbid=" + str(_rc63b)
             + " typo_span=" + str(_rc63c) + " empty_bad=" + str(_bad63d)
             + " nocanvas_bad=" + str(_bad63e))
@@ -716,6 +718,122 @@ def _check_conformance(tmp, add):
             + " unknown_colours=" + str(_m67c.get("colours")))
     except Exception as e:                      # noqa: BLE001
         add("A67-currentcolor-resolves-through-color", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A68: a stroke is measured as ink, not as its fill area --------------
+    # r66 kept the old number on purpose (0.6944 for a band that is 0.1389) and
+    # this round replaces it with perimeter x width. Four cases: a 10-wide
+    # outline passes a 20% cap, the same outline at 40 wide fails it, a filled
+    # and stroked rectangle splits the two colours (fill loses the half of the
+    # band that lies over it), and a circle uses its circumference.
+    try:
+        _d68 = tmp / "a68"
+        _d68.mkdir()
+        _head68 = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+
+        def _run68(name, body, caps):
+            svg = _d68 / (name + ".svg")
+            rules = _d68 / (name + ".json")
+            svg.write_text(_head68 + body + "</svg>", encoding="utf-8")
+            doc = {"schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240],
+                   "area_ratio_max": caps}
+            rules.write_text(json.dumps(doc), encoding="utf-8")
+            rc, env, _ = _call("conformance.py", ["--svg", str(svg), "--rules",
+                                                  str(rules), "--json"], tmp)
+            dat = env.get("data") or {}
+            m = dat.get("measured") or {}
+            bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
+            return rc, m, bad
+
+        _rc68a, _m68a, _bad68a = _run68(
+            "band10", '<rect x="20" y="20" width="200" height="200" fill="none"'
+                      ' stroke="#111111" stroke-width="10"/>', {"#111111": 0.2})
+        _rc68b, _m68b, _bad68b = _run68(
+            "band40", '<rect x="20" y="20" width="200" height="200" fill="none"'
+                      ' stroke="#111111" stroke-width="40"/>', {"#111111": 0.2})
+        _rc68c, _m68c, _bad68c = _run68(
+            "split", '<rect x="20" y="20" width="200" height="200" fill="#111111"'
+                     ' stroke="#c8362c" stroke-width="10"/>',
+            {"#111111": 0.7, "#c8362c": 0.2})
+        _rc68d, _m68d, _bad68d = _run68(
+            "circle", '<circle cx="120" cy="120" r="80" fill="none"'
+                      ' stroke="#111111" stroke-width="10"/>', {"#111111": 0.1})
+        add("A68-stroke-is-measured-as-ink",
+            bool(_rc68a == 0 and not _bad68a
+                 and _m68a.get("area_ratio") == {"#111111": 0.1389}
+                 and _rc68b == 1 and _bad68b == ["AREA-111111"]
+                 and _rc68c == 0 and not _bad68c
+                 and _m68c.get("area_ratio") == {"#111111": 0.625, "#c8362c": 0.1389}
+                 and _rc68d == 0 and not _bad68d
+                 and _m68d.get("area_ratio") == {"#111111": 0.0873}),
+            "band10=" + str(_m68a.get("area_ratio")) + " band40_rc=" + str(_rc68b)
+            + " split=" + str(_m68c.get("area_ratio"))
+            + " circle=" + str(_m68d.get("area_ratio"))
+            + " bad=" + str(_bad68a + _bad68b + _bad68c + _bad68d))
+    except Exception as e:                      # noqa: BLE001
+        add("A68-stroke-is-measured-as-ink", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A69: a picture with no visible ink fails before any rule ------------
+    # r66 made opacity readable, which exposed this: an all-transparent file
+    # measured nothing and every rule passed vacuously. PAINTED turns that into
+    # a red.
+    try:
+        _d69 = tmp / "a69"
+        _d69.mkdir()
+        _rules69 = _d69 / "rules.json"
+        _rules69.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240]}),
+            encoding="utf-8")
+
+        def _run69(name, body):
+            p = _d69 / (name + ".svg")
+            p.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+                         + body + "</svg>", encoding="utf-8")
+            rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
+                                                  str(_rules69), "--json"], tmp)
+            dat = env.get("data") or {}
+            m = dat.get("measured") or {}
+            bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
+            return rc, m, bad
+
+        _rc69a, _m69a, _bad69a = _run69(
+            "transparent",
+            '<rect width="240" height="240" fill="#111111" fill-opacity="0"/>')
+        _rc69b, _m69b, _bad69b = _run69(
+            "visible", '<rect x="20" y="20" width="200" height="200" fill="#111111"/>')
+        add("A69-a-picture-with-no-ink-fails",
+            bool(_rc69a == 1 and _bad69a == ["PAINTED"]
+                 and _m69a.get("painted") == 0
+                 and _rc69b == 0 and not _bad69b and _m69b.get("painted") == 1),
+            "empty_rc=" + str(_rc69a) + " empty_bad=" + str(_bad69a)
+            + " painted=" + str(_m69a.get("painted"))
+            + " visible_rc=" + str(_rc69b))
+    except Exception as e:                      # noqa: BLE001
+        add("A69-a-picture-with-no-ink-fails", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A70: the three shipped examples still pass their own rules ----------
+    # They are the only end-to-end samples a user opens first, and nothing was
+    # asserting them; a change to measurement could have made them red quietly.
+    try:
+        _ex = ROOT / "examples"
+        _bad70 = []
+        _rows = []
+        for _name in ("01-bookshop", "02-coffee", "03-devtool"):
+            _dir = _ex / _name
+            _rc, _env, _ = _call("conformance.py", ["--svg", str(_dir / "final.svg"),
+                                                    "--rules", str(_dir / "conformance.json"),
+                                                    "--json"], tmp)
+            _ids = [c.get("id") for c in (_env.get("data") or {}).get("checks") or []
+                    if not c.get("ok")]
+            _rows.append(_name + ":" + str(_rc))
+            if _rc != 0 or _ids:
+                _bad70.append(_name + " " + str(_ids))
+        add("A70-shipped-examples-pass-their-rules", not _bad70,
+            " ".join(_rows) + (" bad=" + str(_bad70) if _bad70 else ""))
+    except Exception as e:                      # noqa: BLE001
+        add("A70-shipped-examples-pass-their-rules", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 

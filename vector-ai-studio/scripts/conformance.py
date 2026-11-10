@@ -55,25 +55,41 @@ def _f(v, default=0.0):
         return default
 
 
-def _area(el, stroke_width=0.0):
+def _geom(el):
+    """(fill area, perimeter) of a shape; (None, None) when not computable.
+
+    The perimeter exists so a stroke can be measured as ink (perimeter x
+    width) instead of being reported as its fill area -- r66 found the old
+    number was 0.6944 where the band was 0.1389. Joins and caps are ignored,
+    which is stated in the docs; the ellipse uses Ramanujan's approximation.
+    """
     t = _tag(el)
     if t == "rect":
-        return _f(el.get("width")) * _f(el.get("height"))
+        w, h = _f(el.get("width")), _f(el.get("height"))
+        return w * h, 2.0 * (w + h)
     if t == "circle":
-        return math.pi * _f(el.get("r")) ** 2
+        r = _f(el.get("r"))
+        return math.pi * r * r, 2.0 * math.pi * r
     if t == "ellipse":
-        return math.pi * _f(el.get("rx")) * _f(el.get("ry"))
+        a, b = _f(el.get("rx")), _f(el.get("ry"))
+        per = math.pi * (3.0 * (a + b) - math.sqrt((3.0 * a + b) * (a + 3.0 * b)))
+        return math.pi * a * b, per
     if t == "line":
-        return math.hypot(_f(el.get("x2")) - _f(el.get("x1")),
-                          _f(el.get("y2")) - _f(el.get("y1"))) * _f(stroke_width, 1.0)
+        return 0.0, math.hypot(_f(el.get("x2")) - _f(el.get("x1")),
+                               _f(el.get("y2")) - _f(el.get("y1")))
     if t in ("polygon", "polyline"):
         pts = [tuple(map(float, p.split(","))) for p in (el.get("points") or "").split()]
-        if len(pts) < 3:
-            return 0.0
-        s = sum(pts[i][0] * pts[(i + 1) % len(pts)][1] -
-                pts[(i + 1) % len(pts)][0] * pts[i][1] for i in range(len(pts)))
-        return abs(s) / 2
-    return 0.0
+        if len(pts) < 2:
+            return 0.0, 0.0
+        edges = sum(math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
+                    for i in range(len(pts) - 1))
+        if t == "polygon" and len(pts) >= 3:
+            edges += math.hypot(pts[0][0] - pts[-1][0], pts[0][1] - pts[-1][1])
+            s = sum(pts[i][0] * pts[(i + 1) % len(pts)][1] -
+                    pts[(i + 1) % len(pts)][0] * pts[i][1] for i in range(len(pts)))
+            return abs(s) / 2.0, edges
+        return 0.0, edges
+    return None, None
 
 
 def _bbox(el, expand, has_stroke):
@@ -170,13 +186,6 @@ def _resolve(colour, vals):
         if c:
             return c
     return colour
-
-
-def _area_state(el, width):
-    """Painted area, or the reason it cannot be measured."""
-    if _tag(el) == "path":
-        return 0.0, "path"
-    return _area(el, width), ""
 
 
 def _inline(el):
@@ -375,7 +384,7 @@ def _measure(svg, canvas):
 
     els = [e for e in svg.iter() if _tag(e) in SHAPES and _visible(e)]
     colours, widths, per_colour, boxes = set(), set(), {}, []
-    area_unknown, bbox_unknown = {}, ""
+    area_unknown, bbox_unknown, painted_shapes = {}, "", 0
     for e in els:
         vals = comp.get(e, {})
         fill, stroke = _colour(vals.get("fill")), _colour(vals.get("stroke"))
@@ -390,24 +399,40 @@ def _measure(svg, canvas):
         width = _f(vals.get("stroke-width"), 1.0)
         if stroke:
             widths.add(width)
-        owner = fill or stroke
         moved = _transformed(e, parents)
-        if owner:
-            amount, why = _area_state(e, width)
-            per_colour[owner] = per_colour.get(owner, 0.0) + amount
-            if why:
-                area_unknown[owner] = why
-            if moved:
-                area_unknown[owner] = "transform"
+        fill_area, perimeter = _geom(e)
+        if fill:
+            if fill_area is None:
+                area_unknown[fill] = "path"
+            else:
+                painted = fill_area
+                if stroke and perimeter is not None:
+                    # Half the stroke band lies over the fill, so only the half
+                    # outside adds painted area to the fill colour.
+                    painted = max(0.0, fill_area - perimeter * width / 2.0)
+                per_colour[fill] = per_colour.get(fill, 0.0) + painted
+        if stroke:
+            if perimeter is None:
+                area_unknown[stroke] = "path"
+            else:
+                per_colour[stroke] = per_colour.get(stroke, 0.0) + perimeter * width
+        if fill or stroke:
+            painted_shapes += 1
         if moved:
             bbox_unknown = "transform"
+            for c in (fill, stroke):
+                if c:
+                    area_unknown[c] = "transform"
             continue
         box = _bbox(e, width, bool(stroke))
         if box:
             boxes.append(box)
-        elif owner:
-            area_unknown[owner] = "path"
-            bbox_unknown = bbox_unknown or "path"
+        else:
+            if fill or stroke:
+                bbox_unknown = bbox_unknown or "path"
+                for c in (fill, stroke):
+                    if c:
+                        area_unknown[c] = area_unknown.get(c, "path")
     bbox = ([min(b[0] for b in boxes), min(b[1] for b in boxes),
              max(b[2] for b in boxes), max(b[3] for b in boxes)] if boxes else None)
     total = float(canvas[0] * canvas[1])
@@ -424,6 +449,7 @@ def _measure(svg, canvas):
                 forbid["filter" if attr == "filter" else attr] += 1
     return {
         "elements": len(els),
+        "painted": painted_shapes,
         "types": sorted({_tag(e) for e in els}),
         "colours": sorted(colours),
         "style_sheets": len(sheets),
@@ -504,6 +530,12 @@ def main():
               "stylesheet inside the supported subset (fill/stroke/stroke-width)",
               m["style_error"] or ("%d sheet(s), %d rule(s) applied"
                                    % (m["style_sheets"], m["style_rules"])))
+
+    # A file where nothing visible is painted has no conformance to report:
+    # every rule below would be evaluated against an empty picture. r66 found
+    # that a fully transparent document came out green once opacity was read.
+    if not m["painted"]:
+        check("PAINTED", False, "at least one visible shape", "no visible ink")
 
     vb = (root.get("viewBox") or "").split()
     if vb:
