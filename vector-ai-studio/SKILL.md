@@ -335,7 +335,7 @@ python scripts/conformance.py --svg path/to/round/sanitized.svg \
   --rules path/to/brief/conformance.json --out path/to/round/conformance.json
 ```
 
-`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过。
+`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过。颜色与描边按 CSS 继承取值：写在根 `<svg>` 上的 presentation attribute 与内联 `style=""` 都会向下继承，同元素上 `style` 压过属性，显式 `none` 终止继承。`<style>` 样式表不做选择器匹配——它出现几次记在 `measured.style_sheets` 里，不假装已应用。
 
 ### 判读、打分与收敛
 

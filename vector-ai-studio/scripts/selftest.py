@@ -38,6 +38,13 @@ CORE_SCRIPTS = ["score.py", "batch_check.py", "iterate.py", "aggregate_log.py"]
 O3_BANNED = ["优秀", "Excellent"]
 CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 
+# How many assertions a complete run must leave behind, including the guard
+# that checks this number (A60) but excluding A13, which only runs with
+# --fixtures. Declared rather than asserted-in-prose because two rounds lost
+# ten assertions to a bad block extraction and the only thing that noticed was
+# a human comparing counts. Add or remove an assertion, bump this.
+EXPECTED_ASSERTIONS = 60
+
 
 def _call(name, args, cwd, flags=()):
     cmd = ([sys.executable] + list(flags) + [str(SCRIPTS / name)]
@@ -330,6 +337,62 @@ def _check_conformance(tmp, add):
             + " none_rc=" + str(_rc59b) + " none_ids=" + str(_ids59b))
     except Exception as e:                      # noqa: BLE001
         add("A59-inherited-presentation-attrs", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A61: inline style is read, outranks the attribute, and inherits -----
+    # A59 covered attributes only. Real icon sets ship style="stroke-width:2",
+    # and reading that as "no width" is the same false red A59 closed, one
+    # syntax further along. Three cases, each of which fails if prop() stops
+    # looking at style: style on the element, style on the root (inherited),
+    # and style overriding a conflicting attribute on the same element plus
+    # stroke:none in style ending the inheritance.
+    try:
+        _d61 = tmp / "a61"
+        _d61.mkdir()
+        _rules61 = _d61 / "rules.json"
+        _rules61.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1",
+            "colors_allowed": ["#111111"],
+            "stroke_widths_allowed": [10],
+            "types_allowed": ["rect"],
+            "elements": {"min": 1, "max": 1}}), encoding="utf-8")
+        _base61 = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"{root}>'
+                   '<rect x="20" y="20" width="200" height="200"{el}/></svg>')
+        _svg61a = _d61 / "style-on-element.svg"
+        _svg61a.write_text(_base61.format(
+            root="", el=' style="fill:#111111;stroke:#111111;stroke-width:10"'),
+            encoding="utf-8")
+        _svg61b = _d61 / "style-inherited.svg"
+        _svg61b.write_text(_base61.format(
+            root=' style="stroke:#111111;stroke-width:10" fill="none"',
+            el=""), encoding="utf-8")
+        _svg61c = _d61 / "style-wins-and-none.svg"
+        _svg61c.write_text(_base61.format(
+            root="", el=' fill="#111111" stroke="#111111" stroke-width="2"'
+                        ' style="stroke-width:10;stroke:none"'), encoding="utf-8")
+
+        def _run61(p):
+            rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
+                                                  str(_rules61), "--json"], tmp)
+            chk = {c.get("id"): c for c in (env.get("data") or {}).get("checks") or []}
+            bad = [c.get("id") for c in (env.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+            return rc, chk, bad
+
+        _rc61a, _chk61a, _bad61a = _run61(_svg61a)
+        _rc61b, _chk61b, _bad61b = _run61(_svg61b)
+        _rc61c, _chk61c, _bad61c = _run61(_svg61c)
+        add("A61-inline-style-is-read-and-inherited",
+            bool(_rc61a == 0 and not _bad61a
+                 and _chk61a.get("STROKE-WIDTHS", {}).get("measured") == str([10.0])
+                 and _rc61b == 0 and not _bad61b
+                 and _chk61b.get("STROKE-WIDTHS", {}).get("measured") == str([10.0])
+                 and _rc61c == 1 and _bad61c == ["STROKE-WIDTHS"]),
+            "element_rc=" + str(_rc61a) + " inherited_rc=" + str(_rc61b)
+            + " widths=" + str(_chk61b.get("STROKE-WIDTHS", {}).get("measured"))
+            + " none_rc=" + str(_rc61c) + " none_bad=" + str(_bad61c))
+    except Exception as e:                      # noqa: BLE001
+        add("A61-inline-style-is-read-and-inherited", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
@@ -2802,6 +2865,15 @@ def main():
         frc, fenv, _ = _call("run_fixtures.py", ["--json", "--log-dir", str(log_dir)], tmp)
         add("A13-fixtures-regression", frc == 0 and fenv.get("data", {}).get("all_ok") is True,
             "exit=" + str(frc))
+
+    # A60: the suite must not silently lose an assertion. This counts itself,
+    # so the declared number and the observed one are compared on equal terms:
+    # a dropped block, a duplicated block or a stale EXPECTED_ASSERTIONS all
+    # land here instead of in a human's head.
+    _expected = EXPECTED_ASSERTIONS + (1 if args.fixtures else 0)
+    _ran = len(a) + 1
+    add("A60-assertion-count-declared", _ran == _expected,
+        "declared=" + str(_expected) + " ran=" + str(_ran))
 
     passed = sum(1 for x in a if x["ok"] is True)
     skipped = [x["id"] for x in a if x.get("skipped")]

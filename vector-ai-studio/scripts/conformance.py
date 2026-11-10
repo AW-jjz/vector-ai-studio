@@ -104,15 +104,29 @@ def _measure(svg, canvas):
     # Presentation attributes inherit: an icon library writes stroke and
     # stroke-width once on the root <svg> and every path reads them. Measuring
     # only the element's own attributes reported "no stroke, no width" for
-    # such files, so a legal 2pt icon failed a 2pt rule. Only attributes are
-    # inherited here; a width declared in style="" or a stylesheet stays out of
-    # scope, and that is reported as unmeasured rather than guessed.
+    # such files, so a legal 2pt icon failed a 2pt rule.
+    #
+    # Inline style="" is read too, and it outranks the presentation attribute
+    # on the same element, which is the CSS cascade: style is author-level, the
+    # attribute is the lowest-priority hint. A <style> sheet is NOT applied --
+    # no selector matching happens here -- so its presence is counted and
+    # reported instead of being silently ignored.
     parents = {c: p for p in svg.iter() for c in p}
+
+    def inline(el):
+        out = {}
+        for part in (el.get("style") or "").split(";"):
+            if ":" in part:
+                k, _, v = part.partition(":")
+                out[k.strip().lower()] = v.strip()
+        return out
 
     def prop(el, key):
         cur = el
         while cur is not None:
-            val = cur.get(key)
+            val = inline(cur).get(key)
+            if val is None:
+                val = cur.get(key)
             if val is not None:
                 return val
             cur = parents.get(cur)
@@ -152,6 +166,7 @@ def _measure(svg, canvas):
         "elements": len(els),
         "types": sorted({_tag(e) for e in els}),
         "colours": sorted(colours),
+        "style_sheets": sum(1 for e in svg.iter() if _tag(e) == "style"),
         "stroke_widths": sorted(widths),
         "area_ratio": {k: round(v / total, 4) for k, v in sorted(per_colour.items())},
         "bbox": [round(v, 2) for v in bbox] if bbox else None,
