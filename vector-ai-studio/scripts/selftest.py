@@ -201,11 +201,12 @@ def _schema_diff(doc, schema, check_missing=True, optional=()):
 
 
 def _check_conformance(tmp, add):
-    """A56 + A59: the mechanical half of brief conformance.
+    """A54, A55, A56, A59: the mechanical half of brief conformance.
 
     Extracted from main() so this block can be read and changed without
     scrolling past two thousand lines of unrelated assertions. It owns no
-    state beyond the temp dir and the assertion sink.
+    state beyond the temp dir and the assertion sink. A54 and A55 sit inside
+    this block because they were between A56 and A59 in the original file.
     """
     # ---- A56: brief conformance is checked, and unchecked rules stay visible --
     # The review sheet cannot judge need-fit (no brief is shown to reviewers), so
@@ -321,6 +322,454 @@ def _check_conformance(tmp, add):
         add("A59-inherited-presentation-attrs", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+
+
+def _check_stale_preview(tmp, add, rect):
+    """A47: a failed preview render must clear the previous picture and its meta.
+
+    Extracted from main(); `rect` is the rect-only fixture the caller owns.
+    """
+    # ---- A47: a failed preview render must not leave the previous picture ----
+    # H2 only asks whether preview.png parses, so a stale PNG from an earlier
+    # design passed H2 for a run whose own render failed -- and the stale
+    # preview.meta.json described a renderer that never ran this time.
+    # _ensure_preview deletes both before rendering. Both halves are asserted:
+    # failure clears them, success replaces the picture instead of returning
+    # True beside the old one.
+    try:
+        _spec47 = importlib.util.spec_from_file_location("lib_pdf_a47",
+                                                         SCRIPTS / "lib_pdf.py")
+        _lp47 = importlib.util.module_from_spec(_spec47)
+        _spec47.loader.exec_module(_lp47)
+        _p47 = tmp / "a47-preview"
+        _p47.mkdir()
+        _junk47 = b"\x89PNG\r\n\x1a\nstale-from-previous-run"
+        (_p47 / "preview.png").write_bytes(_junk47)
+        (_p47 / "preview.meta.json").write_text('{"renderer": "stale"}', encoding="utf-8")
+        _fail47 = _lp47._ensure_preview(_p47, tmp / "no-such.svg")
+        _cleared47 = (not (_p47 / "preview.png").exists()
+                      and not (_p47 / "preview.meta.json").exists())
+        _ok47 = _lp47._ensure_preview(_p47, rect)
+        _fresh47 = bool(_ok47 and (_p47 / "preview.png").is_file()
+                        and (_p47 / "preview.png").read_bytes() != _junk47
+                        and (_p47 / "preview.meta.json").is_file())
+        add("A47-failed-preview-clears-stale-png",
+            bool(_fail47 is False and _cleared47 and _fresh47),
+            "fail_returns=" + str(_fail47) + " cleared=" + str(_cleared47)
+            + " rerender=" + str(_ok47) + " replaced=" + str(_fresh47))
+    except Exception as e:                      # noqa: BLE001
+        add("A47-failed-preview-clears-stale-png", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _check_archetypes_legal(tmp, add):
+    """Extracted from main(): one assertion block, no state of its own."""
+    # ---- A49: the design-language archetypes must be legal vectors ----------
+    # The archetypes are the only stand-in for "what good looks like". If one of
+    # them uses a bitmap, a filter or a single group, the reference undermines
+    # the rule it is meant to demonstrate -- and nobody notices by eye.
+    try:
+        _arch = sorted((ROOT / "references" / "archetypes").glob("*.svg"))
+        _bad49 = []
+        for _a in _arch:
+            _p49 = subprocess.run(
+                [sys.executable, str(SCRIPTS / "sanitize_svg.py"),
+                 "--in", str(_a), "--out", str(tmp / ("a49-" + _a.name)), "--json"],
+                capture_output=True, text=True, timeout=120)
+            try:
+                _e49 = json.loads(_p49.stdout)
+            except json.JSONDecodeError:
+                _bad49.append(_a.name + ":no-envelope")
+                continue
+            _c49 = (_e49.get("data") or {}).get("static_checks") or {}
+            _vb = _c49.get("viewBox") or []
+            _bb = _c49.get("ink_bbox") or []
+            _inside = (len(_vb) == 4 and len(_bb) == 4
+                       and _bb[0] >= _vb[0] - 1 and _bb[1] >= _vb[1] - 1
+                       and _bb[2] <= _vb[0] + _vb[2] + 1
+                       and _bb[3] <= _vb[1] + _vb[3] + 1)
+            if not (_p49.returncode == 0 and _c49.get("xml_ok")
+                    and not _c49.get("bitmap") and not _c49.get("forbidden")
+                    and _c49.get("degenerate_paths") == 0
+                    and (_c49.get("g_count") or 0) >= 3
+                    and len(_c49.get("colors") or []) <= 5
+                    and len(_c49.get("stroke_widths") or []) <= 2
+                    and _inside):
+                _bad49.append(_a.name)
+        add("A49-design-archetypes-are-legal-vectors",
+            bool(len(_arch) >= 10 and not _bad49),
+            "files=" + str(len(_arch)) + " bad=" + str(_bad49))
+    except Exception as e:                      # noqa: BLE001
+        add("A49-design-archetypes-are-legal-vectors", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _check_review_pack(tmp, add):
+    """Extracted from main(): one assertion block, no state of its own."""
+    # ---- A51: the review pack must be anonymous and reproducible -----------
+    # A blind review is only blind if the sheet cannot name the candidate and
+    # the mapping lives in a separate file. Same seed must give the same pack,
+    # or a re-run silently produces a different experiment.
+    try:
+        import contextlib
+        import io
+
+        _spec51 = importlib.util.spec_from_file_location("studio_a51",
+                                                         SCRIPTS / "studio.py")
+        _st51 = importlib.util.module_from_spec(_spec51)
+        _spec51.loader.exec_module(_st51)
+        _cands51 = []
+        for _i in (1, 2):
+            _d51 = tmp / ("a51-c" + str(_i))
+            (_d51 / "round-1").mkdir(parents=True)
+            (_d51 / "round-1" / "sanitized.svg").write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>',
+                encoding="utf-8")
+            (_d51 / "round-1" / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\ncase")
+            _cands51.append(str(_d51))
+        _packs51 = []
+        for _j in (1, 2):
+            _pk51 = tmp / ("a51-pack" + str(_j))
+            with contextlib.redirect_stdout(io.StringIO()):
+                _rc51 = _st51._review_pack(argparse.Namespace(
+                    review_pack=str(_pk51), candidate=_cands51, seed=11))
+            _packs51.append(_pk51)
+        _k51 = json.loads((_packs51[0] / "key.json").read_text(encoding="utf-8"))
+        _k51b = json.loads((_packs51[1] / "key.json").read_text(encoding="utf-8"))
+        _rows51 = (_packs51[0] / "review-sheet.csv").read_text(
+            encoding="utf-8").splitlines()
+        _sources51 = sorted(c["source"] for c in _k51["cases"])
+        _anon51 = all(str(c) not in ln for ln in _rows51 for c in _cands51)
+        _empty51 = (len(_rows51) == 3
+                    and all(ln.endswith(",,,,,,") for ln in _rows51[1:]))
+        _readme51 = (_packs51[0] / "README.md").read_text(encoding="utf-8")
+        _key_kept51 = all(str(c) not in _readme51 for c in _cands51)
+        add("A51-review-pack-anonymous-and-deterministic",
+            bool(_rc51 == 0 and len(_k51["cases"]) == 2
+                 and _sources51 == sorted(_cands51)
+                 and _k51["cases"] == _k51b["cases"]
+                 and _anon51 and _empty51 and _key_kept51),
+            "cases=" + str(len(_k51.get("cases") or []))
+            + " anon=" + str(_anon51) + " empty=" + str(_empty51)
+            + " same_seed=" + str(_k51["cases"] == _k51b["cases"]))
+    except Exception as e:                      # noqa: BLE001
+        add("A51-review-pack-anonymous-and-deterministic", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _check_deal_history(tmp, add):
+    """Extracted from main(): one assertion block, no state of its own."""
+    # ---- A52: the deal must not repeat itself or reset its history silently --
+    # The point of deal.py is that the next round cannot look like the last two.
+    # A deck with no memory just reproduces the model's default look with extra
+    # steps, so the exclusion window is pinned against real rounds: three deals
+    # in a row, then the same seed replayed on the same history.
+    try:
+        _spec52 = ROOT / "examples" / "01-bookshop" / "spec.json"
+        _h52 = tmp / "a52-history.json"
+        _pre3 = tmp / "a52-pre3.json"
+        _rounds52, _rcs52 = [], []
+        for _i in range(3):
+            if _i == 2 and _h52.is_file():
+                _pre3.write_bytes(_h52.read_bytes())
+            _o52 = tmp / ("a52-round%d.json" % (_i + 1))
+            _rc52, _env52, _ = _call("deal.py", [
+                "--spec", str(_spec52), "--out", str(_o52),
+                "--history", str(_h52), "--seed", "7", "--json"], tmp)
+            _doc52 = json.loads(_o52.read_text(encoding="utf-8"))
+            _rcs52.append(_rc52)
+            _rounds52.append([d["archetype"] for d in _doc52["directions"]])
+        _distinct52 = all(len(r) == 3 and len(set(r)) == 3 for r in _rounds52)
+        _norep52 = (not (set(_rounds52[1]) & set(_rounds52[0]))
+                    and not (set(_rounds52[2])
+                             & (set(_rounds52[0]) | set(_rounds52[1]))))
+        _o52r = tmp / "a52-replay.json"
+        _h52r = tmp / "a52-history-replay.json"
+        _h52r.write_bytes(_pre3.read_bytes())
+        _call("deal.py", ["--spec", str(_spec52), "--out", str(_o52r),
+                          "--history", str(_h52r), "--seed", "7", "--json"], tmp)
+        _rep52 = [d["archetype"] for d in json.loads(
+            _o52r.read_text(encoding="utf-8"))["directions"]]
+        _same52 = _rep52 == _rounds52[2]
+        _hbad = tmp / "a52-bad-history.json"
+        _hbad.write_text('{"schema": "nope", "rounds": []}', encoding="utf-8")
+        _before52 = _hbad.read_bytes()
+        _rc52x, _env52x, _ = _call("deal.py", ["--spec", str(_spec52),
+                                               "--history", str(_hbad), "--json"], tmp)
+        _kept52 = _hbad.read_bytes() == _before52
+        add("A52-deal-no-repeat-and-no-silent-reset",
+            bool(_rcs52 == [0, 0, 0] and _distinct52 and _norep52 and _same52
+                 and _rc52x == L.EXIT_USAGE and "E-SCHEMA" in _codes(_env52x)
+                 and _kept52),
+            "rc=" + str(_rcs52) + " distinct=" + str(_distinct52)
+            + " no_repeat=" + str(_norep52) + " replay_same=" + str(_same52)
+            + " corrupt_rc=" + str(_rc52x) + " kept=" + str(_kept52))
+    except Exception as e:                      # noqa: BLE001
+        add("A52-deal-no-repeat-and-no-silent-reset", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _check_failed_dimension(tmp, add):
+    """Extracted from main(): one assertion block, no state of its own."""
+    # ---- A54: every failed dimension must name itself and its next action ----
+    # A number tells a reader that something failed and nothing else. The
+    # verdict table turns each failure into one sentence with an action, so the
+    # assertion is a contract: one verdict per failed dimension, ids drawn from
+    # the registered table, and a clean run that says PASS rather than nothing.
+    try:
+        _common54 = ["--judge", str(GOOD / "judge.json"),
+                     "--spec", str(GOOD / "spec.json"), "--json"]
+        _rc54g, _env54g, _ = _call("score.py", ["--svg", str(GOOD / "sample.svg")]
+                                   + _common54, tmp)
+        _rc54b, _env54b, _ = _call("score.py", ["--svg", str(BAD / "palette_overflow.svg")]
+                                   + _common54, tmp)
+        _g54 = (_env54g.get("data") or {}).get("verdicts") or []
+        _b54 = (_env54b.get("data") or {}).get("verdicts") or []
+        _f54 = (_env54b.get("data") or {}).get("failed_dims") or []
+        _spec54 = importlib.util.spec_from_file_location("score_a54",
+                                                        SCRIPTS / "score.py")
+        _sc54 = importlib.util.module_from_spec(_spec54)
+        _spec54.loader.exec_module(_sc54)
+        _reg54 = set(_sc54.VERDICT_ACTIONS) - {"PASS"}
+        _clean54 = (len(_g54) == 1 and _g54[0].get("id") == "PASS"
+                    and not _g54[0].get("action"))
+        _named54 = (bool(_f54) and len(_b54) == len(_f54)
+                    and all(v.get("dim") in _f54 and v.get("id") in _reg54
+                            and v.get("msg") and v.get("action")
+                            for v in _b54))
+        add("A54-failed-dimension-names-its-action",
+            bool(_rc54g == 0 and _clean54 and _rc54b == 1 and _named54),
+            "good=" + str([v.get("id") for v in _g54])
+            + " bad=" + str([v.get("id") for v in _b54])
+            + " failed_dims=" + str(_f54))
+    except Exception as e:                      # noqa: BLE001
+        add("A54-failed-dimension-names-its-action", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _check_empty_review_sheet(tmp, add):
+    """Extracted from main(): one assertion block, no state of its own."""
+    # ---- A55: an empty review sheet must not pass as evidence -----------------
+    # r48 and r49 shipped a review sheet whose score cells were all blank, and
+    # "the file exists" was the only thing anyone could check. A blank cell is
+    # not a zero, and one reviewer is not a panel, so the script must refuse
+    # both and name which one it refused.
+    try:
+        _pack55 = tmp / "a55"
+        _pack55.mkdir()
+        _keyp55 = _pack55 / "key.json"
+        _keyp55.write_text(json.dumps({
+            "schema": "vector-ai-studio/review-key-v1", "seed": 7,
+            "cases": [{"case": "case-01", "source": "run-a"},
+                      {"case": "case-02", "source": "run-b"},
+                      {"case": "case-03", "source": "run-c"}]}), encoding="utf-8")
+        _head55 = "case,concept,hierarchy,proportion,detail,durability,notes"
+        _empty55 = _pack55 / "empty.csv"
+        _empty55.write_text("\n".join([_head55, "case-01,,,,,,", "case-02,,,,,,",
+                                       "case-03,,,,,,"]) + "\n", encoding="utf-8")
+        _rows55 = {
+            "a": ["case-01,2,2,1,2,2,ok", "case-02,1,2,1,1,2,ok",
+                  "case-03,2,1,1,2,1,ok"],
+            "b": ["case-01,2,1,1,2,1,x", "case-02,1,2,1,1,2,y",
+                  "case-03,2,1,1,2,2,z"],
+            "hole": ["case-01,2,1,1,2,1,x", "case-02,1,2,,1,2,y",
+                     "case-03,2,1,1,2,2,z"],
+        }
+        _paths55 = {}
+        for _k, _rows in _rows55.items():
+            _p55 = _pack55 / ("rev-" + _k + ".csv")
+            _p55.write_text("\n".join([_head55] + _rows) + "\n", encoding="utf-8")
+            _paths55[_k] = str(_p55)
+
+        _rc55e, _env55e, _ = _call("review.py", ["--sheet", str(_empty55),
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "external",
+                                                 "--json"], tmp)
+        _rc55h, _env55h, _ = _call("review.py", ["--sheet", _paths55["hole"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "external",
+                                                 "--json"], tmp)
+        _rc55g, _env55g, _ = _call("review.py", ["--sheet", _paths55["a"],
+                                                 "--sheet", _paths55["b"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "external",
+                                                 "--json"], tmp)
+        _rc55i, _env55i, _ = _call("review.py", ["--sheet", _paths55["a"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "internal",
+                                                 "--json"], tmp)
+        _rc55m, _env55m, _ = _call("review.py", ["--sheet", _paths55["a"],
+                                                 "--sheet", _paths55["b"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "machine",
+                                                 "--json"], tmp)
+        _g55 = _env55g.get("data") or {}
+        _u55i = ((_env55i.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
+        _u55m = ((_env55m.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
+        add("A55-review-sheet-empty-is-not-evidence",
+            bool(_rc55e == 1 and "E-REVIEW-EMPTY" in _codes(_env55e)
+                 and _rc55h == 1 and "E-REVIEW-INVALID" in _codes(_env55h)
+                 and _rc55g == 0
+                 and (_g55.get("evidence") or {}).get("usable_for_claim") is True
+                 and (_g55.get("agreement") or {}).get("rate") == 0.8
+                 and [c["verdict"] for c in _g55.get("cases") or []] == ["pass"] * 3
+                 and _u55i is False and _u55m is False),
+            "empty_rc=" + str(_rc55e) + " hole_rc=" + str(_rc55h)
+            + " good_rc=" + str(_rc55g) + " agreement="
+            + str((_g55.get("agreement") or {}).get("rate"))
+            + " internal=" + str(_u55i) + " machine=" + str(_u55m))
+    except Exception as e:                      # noqa: BLE001
+        add("A55-review-sheet-empty-is-not-evidence", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    _check_conformance(tmp, add)
+
+
+def _check_ledger_trace(tmp, add):
+    """Extracted from main(): one assertion block, no state of its own."""
+    # ---- A57: a component that enters the artwork must be traceable -----------
+    # Reference material never enters the SVG; a component that does needs a URL,
+    # a licence and an element id. Three failures must be caught: a data-source
+    # with no ledger entry, a licence outside the allowed set, and an element id
+    # that is not in the file.
+    try:
+        _d57 = tmp / "a57"
+        _d57.mkdir()
+        _base57 = {"schema": "vector-ai-studio/conformance-v1",
+                   "colors_allowed": ["#111111"],
+                   "source_ledger": "ledger.json",
+                   "licenses_allowed": ["own", "cc0"]}
+        _rules57 = _d57 / "rules.json"
+        _rules57.write_text(json.dumps(_base57), encoding="utf-8")
+        _svg57 = _d57 / "good.svg"
+        _svg57.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<rect id="tile" x="40" y="40" width="60" height="60" fill="#111111"/></svg>',
+            encoding="utf-8")
+        _svg57b = _d57 / "marked.svg"
+        _svg57b.write_text(
+            _svg57.read_text(encoding="utf-8").replace(
+                'id="tile"', 'id="tile" data-source="https://example.com/tile"'),
+            encoding="utf-8")
+        _own57 = [{"id": "own-01", "channel": "output", "url": "", "license": "own",
+                   "fetched": "2026-11-10", "use": "self-drawn", "in_output": True,
+                   "element": None}]
+        _paths57 = {}
+        for _k, _entries in {
+            "own": _own57,
+            "licensed": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                          "license": "cc0", "fetched": "2026-11-10", "use": "tile",
+                          "in_output": True, "element": "tile",
+                          "license_source": "https://example.com/licence",
+                          "license_verified_at": "2026-11-10"}],
+            "bad-licence": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                             "license": "all-rights-reserved", "fetched": "2026-11-10",
+                             "use": "tile", "in_output": True, "element": "tile"}],
+            "ghost": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                       "license": "cc0", "fetched": "2026-11-10", "use": "tile",
+                       "in_output": True, "element": "ghost"}],
+        }.items():
+            _p57 = _d57 / ("ledger-" + _k + ".json")
+            _p57.write_text(json.dumps({"schema": "vector-ai-studio/source-ledger-v1",
+                                        "entries": _entries}), encoding="utf-8")
+            _paths57[_k] = _p57
+
+        def _with_ledger(path):
+            r57 = dict(_base57)
+            r57["source_ledger"] = path.name
+            p57 = _d57 / ("rules-" + path.stem + ".json")
+            p57.write_text(json.dumps(r57), encoding="utf-8")
+            return str(p57)
+
+        _rc57g, _env57g, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57), "--rules",
+                                    _with_ledger(_paths57["own"]), "--json"], tmp)
+        _rc57m, _env57m, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57b), "--rules",
+                                    _with_ledger(_paths57["own"]), "--json"], tmp)
+        _rc57l, _env57l, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57b), "--rules",
+                                    _with_ledger(_paths57["bad-licence"]), "--json"], tmp)
+        _rc57e, _env57e, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57), "--rules",
+                                    _with_ledger(_paths57["ghost"]), "--json"], tmp)
+        _rc57o, _env57o, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57b), "--rules",
+                                    _with_ledger(_paths57["licensed"]), "--json"], tmp)
+        _ids57m = [c["id"] for c in (_env57m.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+        _ids57l = [c["id"] for c in (_env57l.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+        _ids57e = [c["id"] for c in (_env57e.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+        add("A57-source-ledger-tracks-what-enters-the-artwork",
+            bool(_rc57g == 0 and _rc57o == 0
+                 and _rc57m == 1 and "LEDGER-DATASOURCE" in _ids57m
+                 and "E-CONFORMANCE" in _codes(_env57m)
+                 and _rc57l == 1 and "LEDGER-LICENSE" in _ids57l
+                 and _rc57e == 1 and "LEDGER-ELEMENT" in _ids57e),
+            "own_rc=" + str(_rc57g) + " licensed_rc=" + str(_rc57o)
+            + " unmarked=" + str(_ids57m) + " licence=" + str(_ids57l)
+            + " ghost=" + str(_ids57e))
+    except Exception as e:                      # noqa: BLE001
+        add("A57-source-ledger-tracks-what-enters-the-artwork", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _check_licence_claim(tmp, add):
+    """Extracted from main(): one assertion block, no state of its own."""
+    # ---- A58: a licence name without a source is an unverifiable claim ------
+    # "cc0" is an assertion, not evidence. It becomes checkable only when the
+    # ledger also records where the claim came from and when a human read it,
+    # because aggregators routinely tag a file with a different licence than its
+    # origin. Own work carries no external licence, so it is exempt rather than
+    # forced to invent a URL -- A57's own-case already proves that exemption.
+    try:
+        _d58 = tmp / "a58"
+        _d58.mkdir()
+        (_d58 / "rules.json").write_text(json.dumps(
+            {"schema": "vector-ai-studio/conformance-v1",
+             "colors_allowed": ["#111111"],
+             "source_ledger": "ledger.json",
+             "licenses_allowed": ["own", "cc0"]}), encoding="utf-8")
+        _svg58 = _d58 / "marked.svg"
+        _svg58.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<rect id="tile" data-source="https://example.com/tile" x="40" y="40"'
+            ' width="60" height="60" fill="#111111"/></svg>', encoding="utf-8")
+        _base58 = {"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                   "license": "cc0", "fetched": "2026-11-10", "use": "tile",
+                   "in_output": True, "element": "tile",
+                   "license_source": "https://example.com/licence",
+                   "license_verified_at": "2026-11-10"}
+
+        def _run58(entry):
+            (_d58 / "ledger.json").write_text(json.dumps(
+                {"schema": "vector-ai-studio/source-ledger-v1", "entries": [entry]}),
+                encoding="utf-8")
+            _r, _e, _ = _call("conformance.py",
+                              ["--svg", str(_svg58), "--rules",
+                               str(_d58 / "rules.json"), "--json"], tmp)
+            _bad = [c["id"] for c in (_e.get("data") or {}).get("checks") or []
+                    if not c.get("ok")]
+            return _r, _bad
+
+        _nos58 = dict(_base58)
+        _nos58.pop("license_source")
+        _bad58 = dict(_base58)
+        _bad58["license_verified_at"] = "2026/11/10"
+        _r58a, _b58a = _run58(dict(_base58))
+        _r58b, _b58b = _run58(_nos58)
+        _r58c, _b58c = _run58(_bad58)
+        add("A58-licence-claim-needs-source-and-date",
+            bool(_r58a == 0 and not _b58a
+                 and _r58b == 1 and "LICENSE-SOURCE" in _b58b
+                 and _r58c == 1 and "LICENSE-VERIFIED" in _b58c),
+            "ok=" + str(_r58a) + str(_b58a) + " nosrc=" + str(_r58b) + str(_b58b)
+            + " baddate=" + str(_r58c) + str(_b58c))
+    except Exception as e:                      # noqa: BLE001
+        add("A58-licence-claim-needs-source-and-date", False,
+            type(e).__name__ + ": " + str(e)[:140])
 
 
 def main():
@@ -1663,37 +2112,7 @@ def main():
             if not any(x["id"] == _id for x in a):
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])
 
-    # ---- A47: a failed preview render must not leave the previous picture ----
-    # H2 only asks whether preview.png parses, so a stale PNG from an earlier
-    # design passed H2 for a run whose own render failed -- and the stale
-    # preview.meta.json described a renderer that never ran this time.
-    # _ensure_preview deletes both before rendering. Both halves are asserted:
-    # failure clears them, success replaces the picture instead of returning
-    # True beside the old one.
-    try:
-        _spec47 = importlib.util.spec_from_file_location("lib_pdf_a47",
-                                                         SCRIPTS / "lib_pdf.py")
-        _lp47 = importlib.util.module_from_spec(_spec47)
-        _spec47.loader.exec_module(_lp47)
-        _p47 = tmp / "a47-preview"
-        _p47.mkdir()
-        _junk47 = b"\x89PNG\r\n\x1a\nstale-from-previous-run"
-        (_p47 / "preview.png").write_bytes(_junk47)
-        (_p47 / "preview.meta.json").write_text('{"renderer": "stale"}', encoding="utf-8")
-        _fail47 = _lp47._ensure_preview(_p47, tmp / "no-such.svg")
-        _cleared47 = (not (_p47 / "preview.png").exists()
-                      and not (_p47 / "preview.meta.json").exists())
-        _ok47 = _lp47._ensure_preview(_p47, RECT)
-        _fresh47 = bool(_ok47 and (_p47 / "preview.png").is_file()
-                        and (_p47 / "preview.png").read_bytes() != _junk47
-                        and (_p47 / "preview.meta.json").is_file())
-        add("A47-failed-preview-clears-stale-png",
-            bool(_fail47 is False and _cleared47 and _fresh47),
-            "fail_returns=" + str(_fail47) + " cleared=" + str(_cleared47)
-            + " rerender=" + str(_ok47) + " replaced=" + str(_fresh47))
-    except Exception as e:                      # noqa: BLE001
-        add("A47-failed-preview-clears-stale-png", False,
-            type(e).__name__ + ": " + str(e)[:140])
+    _check_stale_preview(tmp, add, RECT)
 
     # ---- A48: a CLI that exits 0 without writing must not inherit outputs ----
     # "the file is there" was the only evidence that the engine produced
@@ -1761,44 +2180,7 @@ def main():
         add("A48-silent-cli-cannot-inherit-outputs", False,
             type(e).__name__ + ": " + str(e)[:140])
 
-    # ---- A49: the design-language archetypes must be legal vectors ----------
-    # The archetypes are the only stand-in for "what good looks like". If one of
-    # them uses a bitmap, a filter or a single group, the reference undermines
-    # the rule it is meant to demonstrate -- and nobody notices by eye.
-    try:
-        _arch = sorted((ROOT / "references" / "archetypes").glob("*.svg"))
-        _bad49 = []
-        for _a in _arch:
-            _p49 = subprocess.run(
-                [sys.executable, str(SCRIPTS / "sanitize_svg.py"),
-                 "--in", str(_a), "--out", str(tmp / ("a49-" + _a.name)), "--json"],
-                capture_output=True, text=True, timeout=120)
-            try:
-                _e49 = json.loads(_p49.stdout)
-            except json.JSONDecodeError:
-                _bad49.append(_a.name + ":no-envelope")
-                continue
-            _c49 = (_e49.get("data") or {}).get("static_checks") or {}
-            _vb = _c49.get("viewBox") or []
-            _bb = _c49.get("ink_bbox") or []
-            _inside = (len(_vb) == 4 and len(_bb) == 4
-                       and _bb[0] >= _vb[0] - 1 and _bb[1] >= _vb[1] - 1
-                       and _bb[2] <= _vb[0] + _vb[2] + 1
-                       and _bb[3] <= _vb[1] + _vb[3] + 1)
-            if not (_p49.returncode == 0 and _c49.get("xml_ok")
-                    and not _c49.get("bitmap") and not _c49.get("forbidden")
-                    and _c49.get("degenerate_paths") == 0
-                    and (_c49.get("g_count") or 0) >= 3
-                    and len(_c49.get("colors") or []) <= 5
-                    and len(_c49.get("stroke_widths") or []) <= 2
-                    and _inside):
-                _bad49.append(_a.name)
-        add("A49-design-archetypes-are-legal-vectors",
-            bool(len(_arch) >= 10 and not _bad49),
-            "files=" + str(len(_arch)) + " bad=" + str(_bad49))
-    except Exception as e:                      # noqa: BLE001
-        add("A49-design-archetypes-are-legal-vectors", False,
-            type(e).__name__ + ": " + str(e)[:140])
+    _check_archetypes_legal(tmp, add)
 
     # ---- A50: one command must run the stages in order and stop honestly ----
     # studio.py exists so a human does not have to remember six commands. The
@@ -1922,104 +2304,9 @@ def main():
         add("A50-studio-chain-orders-and-stops", False,
             type(e).__name__ + ": " + str(e)[:140])
 
-    # ---- A51: the review pack must be anonymous and reproducible -----------
-    # A blind review is only blind if the sheet cannot name the candidate and
-    # the mapping lives in a separate file. Same seed must give the same pack,
-    # or a re-run silently produces a different experiment.
-    try:
-        import contextlib
-        import io
+    _check_review_pack(tmp, add)
 
-        _spec51 = importlib.util.spec_from_file_location("studio_a51",
-                                                         SCRIPTS / "studio.py")
-        _st51 = importlib.util.module_from_spec(_spec51)
-        _spec51.loader.exec_module(_st51)
-        _cands51 = []
-        for _i in (1, 2):
-            _d51 = tmp / ("a51-c" + str(_i))
-            (_d51 / "round-1").mkdir(parents=True)
-            (_d51 / "round-1" / "sanitized.svg").write_text(
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>',
-                encoding="utf-8")
-            (_d51 / "round-1" / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\ncase")
-            _cands51.append(str(_d51))
-        _packs51 = []
-        for _j in (1, 2):
-            _pk51 = tmp / ("a51-pack" + str(_j))
-            with contextlib.redirect_stdout(io.StringIO()):
-                _rc51 = _st51._review_pack(argparse.Namespace(
-                    review_pack=str(_pk51), candidate=_cands51, seed=11))
-            _packs51.append(_pk51)
-        _k51 = json.loads((_packs51[0] / "key.json").read_text(encoding="utf-8"))
-        _k51b = json.loads((_packs51[1] / "key.json").read_text(encoding="utf-8"))
-        _rows51 = (_packs51[0] / "review-sheet.csv").read_text(
-            encoding="utf-8").splitlines()
-        _sources51 = sorted(c["source"] for c in _k51["cases"])
-        _anon51 = all(str(c) not in ln for ln in _rows51 for c in _cands51)
-        _empty51 = (len(_rows51) == 3
-                    and all(ln.endswith(",,,,,,") for ln in _rows51[1:]))
-        _readme51 = (_packs51[0] / "README.md").read_text(encoding="utf-8")
-        _key_kept51 = all(str(c) not in _readme51 for c in _cands51)
-        add("A51-review-pack-anonymous-and-deterministic",
-            bool(_rc51 == 0 and len(_k51["cases"]) == 2
-                 and _sources51 == sorted(_cands51)
-                 and _k51["cases"] == _k51b["cases"]
-                 and _anon51 and _empty51 and _key_kept51),
-            "cases=" + str(len(_k51.get("cases") or []))
-            + " anon=" + str(_anon51) + " empty=" + str(_empty51)
-            + " same_seed=" + str(_k51["cases"] == _k51b["cases"]))
-    except Exception as e:                      # noqa: BLE001
-        add("A51-review-pack-anonymous-and-deterministic", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    # ---- A52: the deal must not repeat itself or reset its history silently --
-    # The point of deal.py is that the next round cannot look like the last two.
-    # A deck with no memory just reproduces the model's default look with extra
-    # steps, so the exclusion window is pinned against real rounds: three deals
-    # in a row, then the same seed replayed on the same history.
-    try:
-        _spec52 = ROOT / "examples" / "01-bookshop" / "spec.json"
-        _h52 = tmp / "a52-history.json"
-        _pre3 = tmp / "a52-pre3.json"
-        _rounds52, _rcs52 = [], []
-        for _i in range(3):
-            if _i == 2 and _h52.is_file():
-                _pre3.write_bytes(_h52.read_bytes())
-            _o52 = tmp / ("a52-round%d.json" % (_i + 1))
-            _rc52, _env52, _ = _call("deal.py", [
-                "--spec", str(_spec52), "--out", str(_o52),
-                "--history", str(_h52), "--seed", "7", "--json"], tmp)
-            _doc52 = json.loads(_o52.read_text(encoding="utf-8"))
-            _rcs52.append(_rc52)
-            _rounds52.append([d["archetype"] for d in _doc52["directions"]])
-        _distinct52 = all(len(r) == 3 and len(set(r)) == 3 for r in _rounds52)
-        _norep52 = (not (set(_rounds52[1]) & set(_rounds52[0]))
-                    and not (set(_rounds52[2])
-                             & (set(_rounds52[0]) | set(_rounds52[1]))))
-        _o52r = tmp / "a52-replay.json"
-        _h52r = tmp / "a52-history-replay.json"
-        _h52r.write_bytes(_pre3.read_bytes())
-        _call("deal.py", ["--spec", str(_spec52), "--out", str(_o52r),
-                          "--history", str(_h52r), "--seed", "7", "--json"], tmp)
-        _rep52 = [d["archetype"] for d in json.loads(
-            _o52r.read_text(encoding="utf-8"))["directions"]]
-        _same52 = _rep52 == _rounds52[2]
-        _hbad = tmp / "a52-bad-history.json"
-        _hbad.write_text('{"schema": "nope", "rounds": []}', encoding="utf-8")
-        _before52 = _hbad.read_bytes()
-        _rc52x, _env52x, _ = _call("deal.py", ["--spec", str(_spec52),
-                                               "--history", str(_hbad), "--json"], tmp)
-        _kept52 = _hbad.read_bytes() == _before52
-        add("A52-deal-no-repeat-and-no-silent-reset",
-            bool(_rcs52 == [0, 0, 0] and _distinct52 and _norep52 and _same52
-                 and _rc52x == L.EXIT_USAGE and "E-SCHEMA" in _codes(_env52x)
-                 and _kept52),
-            "rc=" + str(_rcs52) + " distinct=" + str(_distinct52)
-            + " no_repeat=" + str(_norep52) + " replay_same=" + str(_same52)
-            + " corrupt_rc=" + str(_rc52x) + " kept=" + str(_kept52))
-    except Exception as e:                      # noqa: BLE001
-        add("A52-deal-no-repeat-and-no-silent-reset", False,
-            type(e).__name__ + ": " + str(e)[:140])
+    _check_deal_history(tmp, add)
 
     # ---- A53: the 16px / grey / silhouette check must actually fail things ---
     # Three failures are invisible at preview size: ink that vanishes at 16px,
@@ -2114,256 +2401,13 @@ def main():
         add("A53-legibility-fails-what-the-eye-misses", False,
             type(e).__name__ + ": " + str(e)[:140])
 
-    # ---- A54: every failed dimension must name itself and its next action ----
-    # A number tells a reader that something failed and nothing else. The
-    # verdict table turns each failure into one sentence with an action, so the
-    # assertion is a contract: one verdict per failed dimension, ids drawn from
-    # the registered table, and a clean run that says PASS rather than nothing.
-    try:
-        _common54 = ["--judge", str(GOOD / "judge.json"),
-                     "--spec", str(GOOD / "spec.json"), "--json"]
-        _rc54g, _env54g, _ = _call("score.py", ["--svg", str(GOOD / "sample.svg")]
-                                   + _common54, tmp)
-        _rc54b, _env54b, _ = _call("score.py", ["--svg", str(BAD / "palette_overflow.svg")]
-                                   + _common54, tmp)
-        _g54 = (_env54g.get("data") or {}).get("verdicts") or []
-        _b54 = (_env54b.get("data") or {}).get("verdicts") or []
-        _f54 = (_env54b.get("data") or {}).get("failed_dims") or []
-        _spec54 = importlib.util.spec_from_file_location("score_a54",
-                                                        SCRIPTS / "score.py")
-        _sc54 = importlib.util.module_from_spec(_spec54)
-        _spec54.loader.exec_module(_sc54)
-        _reg54 = set(_sc54.VERDICT_ACTIONS) - {"PASS"}
-        _clean54 = (len(_g54) == 1 and _g54[0].get("id") == "PASS"
-                    and not _g54[0].get("action"))
-        _named54 = (bool(_f54) and len(_b54) == len(_f54)
-                    and all(v.get("dim") in _f54 and v.get("id") in _reg54
-                            and v.get("msg") and v.get("action")
-                            for v in _b54))
-        add("A54-failed-dimension-names-its-action",
-            bool(_rc54g == 0 and _clean54 and _rc54b == 1 and _named54),
-            "good=" + str([v.get("id") for v in _g54])
-            + " bad=" + str([v.get("id") for v in _b54])
-            + " failed_dims=" + str(_f54))
-    except Exception as e:                      # noqa: BLE001
-        add("A54-failed-dimension-names-its-action", False,
-            type(e).__name__ + ": " + str(e)[:140])
+    _check_failed_dimension(tmp, add)
 
-    # ---- A55: an empty review sheet must not pass as evidence -----------------
-    # r48 and r49 shipped a review sheet whose score cells were all blank, and
-    # "the file exists" was the only thing anyone could check. A blank cell is
-    # not a zero, and one reviewer is not a panel, so the script must refuse
-    # both and name which one it refused.
-    try:
-        _pack55 = tmp / "a55"
-        _pack55.mkdir()
-        _keyp55 = _pack55 / "key.json"
-        _keyp55.write_text(json.dumps({
-            "schema": "vector-ai-studio/review-key-v1", "seed": 7,
-            "cases": [{"case": "case-01", "source": "run-a"},
-                      {"case": "case-02", "source": "run-b"},
-                      {"case": "case-03", "source": "run-c"}]}), encoding="utf-8")
-        _head55 = "case,concept,hierarchy,proportion,detail,durability,notes"
-        _empty55 = _pack55 / "empty.csv"
-        _empty55.write_text("\n".join([_head55, "case-01,,,,,,", "case-02,,,,,,",
-                                       "case-03,,,,,,"]) + "\n", encoding="utf-8")
-        _rows55 = {
-            "a": ["case-01,2,2,1,2,2,ok", "case-02,1,2,1,1,2,ok",
-                  "case-03,2,1,1,2,1,ok"],
-            "b": ["case-01,2,1,1,2,1,x", "case-02,1,2,1,1,2,y",
-                  "case-03,2,1,1,2,2,z"],
-            "hole": ["case-01,2,1,1,2,1,x", "case-02,1,2,,1,2,y",
-                     "case-03,2,1,1,2,2,z"],
-        }
-        _paths55 = {}
-        for _k, _rows in _rows55.items():
-            _p55 = _pack55 / ("rev-" + _k + ".csv")
-            _p55.write_text("\n".join([_head55] + _rows) + "\n", encoding="utf-8")
-            _paths55[_k] = str(_p55)
+    _check_empty_review_sheet(tmp, add)
 
-        _rc55e, _env55e, _ = _call("review.py", ["--sheet", str(_empty55),
-                                                 "--key", str(_keyp55),
-                                                 "--reviewer-kind", "external",
-                                                 "--json"], tmp)
-        _rc55h, _env55h, _ = _call("review.py", ["--sheet", _paths55["hole"],
-                                                 "--key", str(_keyp55),
-                                                 "--reviewer-kind", "external",
-                                                 "--json"], tmp)
-        _rc55g, _env55g, _ = _call("review.py", ["--sheet", _paths55["a"],
-                                                 "--sheet", _paths55["b"],
-                                                 "--key", str(_keyp55),
-                                                 "--reviewer-kind", "external",
-                                                 "--json"], tmp)
-        _rc55i, _env55i, _ = _call("review.py", ["--sheet", _paths55["a"],
-                                                 "--key", str(_keyp55),
-                                                 "--reviewer-kind", "internal",
-                                                 "--json"], tmp)
-        _rc55m, _env55m, _ = _call("review.py", ["--sheet", _paths55["a"],
-                                                 "--sheet", _paths55["b"],
-                                                 "--key", str(_keyp55),
-                                                 "--reviewer-kind", "machine",
-                                                 "--json"], tmp)
-        _g55 = _env55g.get("data") or {}
-        _u55i = ((_env55i.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
-        _u55m = ((_env55m.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
-        add("A55-review-sheet-empty-is-not-evidence",
-            bool(_rc55e == 1 and "E-REVIEW-EMPTY" in _codes(_env55e)
-                 and _rc55h == 1 and "E-REVIEW-INVALID" in _codes(_env55h)
-                 and _rc55g == 0
-                 and (_g55.get("evidence") or {}).get("usable_for_claim") is True
-                 and (_g55.get("agreement") or {}).get("rate") == 0.8
-                 and [c["verdict"] for c in _g55.get("cases") or []] == ["pass"] * 3
-                 and _u55i is False and _u55m is False),
-            "empty_rc=" + str(_rc55e) + " hole_rc=" + str(_rc55h)
-            + " good_rc=" + str(_rc55g) + " agreement="
-            + str((_g55.get("agreement") or {}).get("rate"))
-            + " internal=" + str(_u55i) + " machine=" + str(_u55m))
-    except Exception as e:                      # noqa: BLE001
-        add("A55-review-sheet-empty-is-not-evidence", False,
-            type(e).__name__ + ": " + str(e)[:140])
+    _check_ledger_trace(tmp, add)
 
-    _check_conformance(tmp, add)
-
-    # ---- A57: a component that enters the artwork must be traceable -----------
-    # Reference material never enters the SVG; a component that does needs a URL,
-    # a licence and an element id. Three failures must be caught: a data-source
-    # with no ledger entry, a licence outside the allowed set, and an element id
-    # that is not in the file.
-    try:
-        _d57 = tmp / "a57"
-        _d57.mkdir()
-        _base57 = {"schema": "vector-ai-studio/conformance-v1",
-                   "colors_allowed": ["#111111"],
-                   "source_ledger": "ledger.json",
-                   "licenses_allowed": ["own", "cc0"]}
-        _rules57 = _d57 / "rules.json"
-        _rules57.write_text(json.dumps(_base57), encoding="utf-8")
-        _svg57 = _d57 / "good.svg"
-        _svg57.write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
-            '<rect id="tile" x="40" y="40" width="60" height="60" fill="#111111"/></svg>',
-            encoding="utf-8")
-        _svg57b = _d57 / "marked.svg"
-        _svg57b.write_text(
-            _svg57.read_text(encoding="utf-8").replace(
-                'id="tile"', 'id="tile" data-source="https://example.com/tile"'),
-            encoding="utf-8")
-        _own57 = [{"id": "own-01", "channel": "output", "url": "", "license": "own",
-                   "fetched": "2026-11-10", "use": "self-drawn", "in_output": True,
-                   "element": None}]
-        _paths57 = {}
-        for _k, _entries in {
-            "own": _own57,
-            "licensed": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
-                          "license": "cc0", "fetched": "2026-11-10", "use": "tile",
-                          "in_output": True, "element": "tile",
-                          "license_source": "https://example.com/licence",
-                          "license_verified_at": "2026-11-10"}],
-            "bad-licence": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
-                             "license": "all-rights-reserved", "fetched": "2026-11-10",
-                             "use": "tile", "in_output": True, "element": "tile"}],
-            "ghost": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
-                       "license": "cc0", "fetched": "2026-11-10", "use": "tile",
-                       "in_output": True, "element": "ghost"}],
-        }.items():
-            _p57 = _d57 / ("ledger-" + _k + ".json")
-            _p57.write_text(json.dumps({"schema": "vector-ai-studio/source-ledger-v1",
-                                        "entries": _entries}), encoding="utf-8")
-            _paths57[_k] = _p57
-
-        def _with_ledger(path):
-            r57 = dict(_base57)
-            r57["source_ledger"] = path.name
-            p57 = _d57 / ("rules-" + path.stem + ".json")
-            p57.write_text(json.dumps(r57), encoding="utf-8")
-            return str(p57)
-
-        _rc57g, _env57g, _ = _call("conformance.py",
-                                   ["--svg", str(_svg57), "--rules",
-                                    _with_ledger(_paths57["own"]), "--json"], tmp)
-        _rc57m, _env57m, _ = _call("conformance.py",
-                                   ["--svg", str(_svg57b), "--rules",
-                                    _with_ledger(_paths57["own"]), "--json"], tmp)
-        _rc57l, _env57l, _ = _call("conformance.py",
-                                   ["--svg", str(_svg57b), "--rules",
-                                    _with_ledger(_paths57["bad-licence"]), "--json"], tmp)
-        _rc57e, _env57e, _ = _call("conformance.py",
-                                   ["--svg", str(_svg57), "--rules",
-                                    _with_ledger(_paths57["ghost"]), "--json"], tmp)
-        _rc57o, _env57o, _ = _call("conformance.py",
-                                   ["--svg", str(_svg57b), "--rules",
-                                    _with_ledger(_paths57["licensed"]), "--json"], tmp)
-        _ids57m = [c["id"] for c in (_env57m.get("data") or {}).get("checks") or []
-                   if not c.get("ok")]
-        _ids57l = [c["id"] for c in (_env57l.get("data") or {}).get("checks") or []
-                   if not c.get("ok")]
-        _ids57e = [c["id"] for c in (_env57e.get("data") or {}).get("checks") or []
-                   if not c.get("ok")]
-        add("A57-source-ledger-tracks-what-enters-the-artwork",
-            bool(_rc57g == 0 and _rc57o == 0
-                 and _rc57m == 1 and "LEDGER-DATASOURCE" in _ids57m
-                 and "E-CONFORMANCE" in _codes(_env57m)
-                 and _rc57l == 1 and "LEDGER-LICENSE" in _ids57l
-                 and _rc57e == 1 and "LEDGER-ELEMENT" in _ids57e),
-            "own_rc=" + str(_rc57g) + " licensed_rc=" + str(_rc57o)
-            + " unmarked=" + str(_ids57m) + " licence=" + str(_ids57l)
-            + " ghost=" + str(_ids57e))
-    except Exception as e:                      # noqa: BLE001
-        add("A57-source-ledger-tracks-what-enters-the-artwork", False,
-            type(e).__name__ + ": " + str(e)[:140])
-
-    # ---- A58: a licence name without a source is an unverifiable claim ------
-    # "cc0" is an assertion, not evidence. It becomes checkable only when the
-    # ledger also records where the claim came from and when a human read it,
-    # because aggregators routinely tag a file with a different licence than its
-    # origin. Own work carries no external licence, so it is exempt rather than
-    # forced to invent a URL -- A57's own-case already proves that exemption.
-    try:
-        _d58 = tmp / "a58"
-        _d58.mkdir()
-        (_d58 / "rules.json").write_text(json.dumps(
-            {"schema": "vector-ai-studio/conformance-v1",
-             "colors_allowed": ["#111111"],
-             "source_ledger": "ledger.json",
-             "licenses_allowed": ["own", "cc0"]}), encoding="utf-8")
-        _svg58 = _d58 / "marked.svg"
-        _svg58.write_text(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
-            '<rect id="tile" data-source="https://example.com/tile" x="40" y="40"'
-            ' width="60" height="60" fill="#111111"/></svg>', encoding="utf-8")
-        _base58 = {"id": "s1", "channel": "output", "url": "https://example.com/tile",
-                   "license": "cc0", "fetched": "2026-11-10", "use": "tile",
-                   "in_output": True, "element": "tile",
-                   "license_source": "https://example.com/licence",
-                   "license_verified_at": "2026-11-10"}
-
-        def _run58(entry):
-            (_d58 / "ledger.json").write_text(json.dumps(
-                {"schema": "vector-ai-studio/source-ledger-v1", "entries": [entry]}),
-                encoding="utf-8")
-            _r, _e, _ = _call("conformance.py",
-                              ["--svg", str(_svg58), "--rules",
-                               str(_d58 / "rules.json"), "--json"], tmp)
-            _bad = [c["id"] for c in (_e.get("data") or {}).get("checks") or []
-                    if not c.get("ok")]
-            return _r, _bad
-
-        _nos58 = dict(_base58)
-        _nos58.pop("license_source")
-        _bad58 = dict(_base58)
-        _bad58["license_verified_at"] = "2026/11/10"
-        _r58a, _b58a = _run58(dict(_base58))
-        _r58b, _b58b = _run58(_nos58)
-        _r58c, _b58c = _run58(_bad58)
-        add("A58-licence-claim-needs-source-and-date",
-            bool(_r58a == 0 and not _b58a
-                 and _r58b == 1 and "LICENSE-SOURCE" in _b58b
-                 and _r58c == 1 and "LICENSE-VERIFIED" in _b58c),
-            "ok=" + str(_r58a) + str(_b58a) + " nosrc=" + str(_r58b) + str(_b58b)
-            + " baddate=" + str(_r58c) + str(_b58c))
-    except Exception as e:                      # noqa: BLE001
-        add("A58-licence-claim-needs-source-and-date", False,
-            type(e).__name__ + ": " + str(e)[:140])
+    _check_licence_claim(tmp, add)
 
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
