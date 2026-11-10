@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="blue-quarter">
+    <path d="M30 210 L30 60 A150 150 0 0 1 180 210 Z" fill="#1f4fd8"/>
+  </g>
+  <g id="red-disc">
+    <circle cx="162" cy="78" r="54" fill="#d7263d"/>
+  </g>
+  <g id="yellow-wedge">
+    <polygon points="150,210 210,210 180,150" fill="#f2b705"/>
+  </g>
+</svg>

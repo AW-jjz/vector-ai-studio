@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="page-left">
+    <polygon points="36,176 114,162 114,58 36,70" fill="#111111"/>
+  </g>
+  <g id="page-right">
+    <polygon points="126,162 204,176 204,70 126,58" fill="#111111"/>
+  </g>
+  <g id="folded-corner">
+    <polygon points="204,70 204,110 164,70" fill="#c8362c"/>
+  </g>
+  <g id="base-rule">
+    <rect x="36" y="198" width="168" height="8" fill="#111111"/>
+  </g>
+</svg>

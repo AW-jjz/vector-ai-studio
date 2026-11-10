@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="headline-rule">
+    <rect x="36" y="54" width="168" height="12" fill="#111111"/>
+  </g>
+  <g id="deck-rules">
+    <rect x="36" y="90" width="120" height="4" fill="#111111"/>
+    <rect x="36" y="110" width="84" height="4" fill="#111111"/>
+  </g>
+  <g id="imprint-block">
+    <rect x="36" y="158" width="60" height="60" fill="#c8362c"/>
+  </g>
+</svg>

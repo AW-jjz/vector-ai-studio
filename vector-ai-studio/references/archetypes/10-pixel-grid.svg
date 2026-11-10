@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="glyph">
+    <rect x="20" y="20" width="32" height="32" fill="#111111"/>
+    <rect x="20" y="56" width="32" height="32" fill="#111111"/>
+    <rect x="20" y="92" width="32" height="32" fill="#111111"/>
+    <rect x="56" y="128" width="32" height="32" fill="#111111"/>
+    <rect x="92" y="164" width="32" height="32" fill="#111111"/>
+    <rect x="128" y="128" width="32" height="32" fill="#111111"/>
+    <rect x="164" y="92" width="32" height="32" fill="#111111"/>
+    <rect x="164" y="56" width="32" height="32" fill="#111111"/>
+    <rect x="164" y="20" width="32" height="32" fill="#111111"/>
+  </g>
+  <g id="accent-cell">
+    <rect x="92" y="128" width="32" height="32" fill="#d7263d"/>
+  </g>
+  <g id="baseline">
+    <rect x="20" y="212" width="176" height="4" fill="#111111"/>
+  </g>
+</svg>

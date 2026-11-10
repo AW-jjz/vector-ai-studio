@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="cube-top">
+    <polygon points="120,36 204,84 120,132 36,84" fill="#cfd6e4"/>
+  </g>
+  <g id="cube-left">
+    <polygon points="36,84 120,132 120,204 36,156" fill="#6b7a99"/>
+  </g>
+  <g id="cube-right">
+    <polygon points="204,84 120,132 120,204 204,156" fill="#2f3e5c"/>
+  </g>
+</svg>

@@ -1621,6 +1621,189 @@ def main():
         add("A48-silent-cli-cannot-inherit-outputs", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+    # ---- A49: the design-language archetypes must be legal vectors ----------
+    # The archetypes are the only stand-in for "what good looks like". If one of
+    # them uses a bitmap, a filter or a single group, the reference undermines
+    # the rule it is meant to demonstrate -- and nobody notices by eye.
+    try:
+        _arch = sorted((ROOT / "references" / "archetypes").glob("*.svg"))
+        _bad49 = []
+        for _a in _arch:
+            _p49 = subprocess.run(
+                [sys.executable, str(SCRIPTS / "sanitize_svg.py"),
+                 "--in", str(_a), "--out", str(tmp / ("a49-" + _a.name)), "--json"],
+                capture_output=True, text=True, timeout=120)
+            try:
+                _e49 = json.loads(_p49.stdout)
+            except json.JSONDecodeError:
+                _bad49.append(_a.name + ":no-envelope")
+                continue
+            _c49 = (_e49.get("data") or {}).get("static_checks") or {}
+            _vb = _c49.get("viewBox") or []
+            _bb = _c49.get("ink_bbox") or []
+            _inside = (len(_vb) == 4 and len(_bb) == 4
+                       and _bb[0] >= _vb[0] - 1 and _bb[1] >= _vb[1] - 1
+                       and _bb[2] <= _vb[0] + _vb[2] + 1
+                       and _bb[3] <= _vb[1] + _vb[3] + 1)
+            if not (_p49.returncode == 0 and _c49.get("xml_ok")
+                    and not _c49.get("bitmap") and not _c49.get("forbidden")
+                    and _c49.get("degenerate_paths") == 0
+                    and (_c49.get("g_count") or 0) >= 3
+                    and len(_c49.get("colors") or []) <= 5
+                    and len(_c49.get("stroke_widths") or []) <= 2
+                    and _inside):
+                _bad49.append(_a.name)
+        add("A49-design-archetypes-are-legal-vectors",
+            bool(len(_arch) >= 10 and not _bad49),
+            "files=" + str(len(_arch)) + " bad=" + str(_bad49))
+    except Exception as e:                      # noqa: BLE001
+        add("A49-design-archetypes-are-legal-vectors", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A50: one command must run the stages in order and stop honestly ----
+    # studio.py exists so a human does not have to remember six commands. The
+    # risk is that it quietly skips a gate or keeps going after one fails, so
+    # the stage sequence, the stop on failure and the degraded exit are pinned
+    # with a stubbed runner -- no engine, no renderer, no network.
+    try:
+        import contextlib
+        import io
+
+        _spec50 = importlib.util.spec_from_file_location("studio_a50",
+                                                         SCRIPTS / "studio.py")
+        _st50 = importlib.util.module_from_spec(_spec50)
+        _spec50.loader.exec_module(_st50)
+        _out50 = tmp / "a50"
+        _out50.mkdir()
+        _calls50 = []
+        _state50 = {"fail_spec": False, "land_missing": False}
+
+        def _fake50(stage, args, timeout=1800):
+            _calls50.append((stage, list(args)))
+            if _state50["fail_spec"] and stage == "spec":
+                return 1, {"status": "fail",
+                           "errors": [{"code": "E-EMPTY-SPEC", "msg": "empty"}]}
+            if stage == "render":
+                return 0, {"status": "degraded", "errors": []}
+            if stage == "land" and _state50["land_missing"]:
+                return 3, {"status": "degraded",
+                           "errors": [{"code": "E-CAPABILITY-MISSING", "msg": "no cli"}]}
+            return 0, {"status": "ok", "errors": []}
+
+        _orig50 = _st50._call
+        _buf50 = io.StringIO()
+        try:
+            _st50._call = _fake50
+            _args50 = argparse.Namespace(spec="s.json", svg="d.svg", out=str(_out50),
+                                         judge="", reference="", profile="screen")
+            with contextlib.redirect_stdout(_buf50):
+                _rc50 = _st50._run_chain(_args50, _out50)
+            _sj50 = json.loads((_out50 / "studio.json").read_text(encoding="utf-8"))
+            _order50 = [s["stage"] for s in _sj50["stages"]]
+            _land50 = [a for (st, a) in _calls50 if st == "land"]
+            _clean50 = [a for (st, a) in _calls50 if st == "clean"]
+            _landed_sanitized = bool(_land50 and any("sanitized.svg" in x
+                                                     for x in _land50[0]))
+            _goto_land = bool(_clean50 and any("d.svg" in x for x in _clean50[0]))
+
+            # Second half: a blocking spec must end the chain at the first stage
+            _state50["fail_spec"] = True
+            _calls50.clear()
+            _out50b = tmp / "a50b"
+            _out50b.mkdir()
+            _buf50b = io.StringIO()
+            with contextlib.redirect_stdout(_buf50b):
+                _rc50b = _st50._run_chain(argparse.Namespace(
+                    spec="s.json", svg="d.svg", out=str(_out50b),
+                    judge="", reference="", profile="screen"), _out50b)
+            _order50b = [st for (st, a) in _calls50]
+
+            # Third half: the engine is missing. Land reports EXIT_MISSING and
+            # the chain must pass 3 through instead of flattening it to 0/1.
+            _state50["fail_spec"] = False
+            _state50["land_missing"] = True
+            _calls50.clear()
+            _out50c = tmp / "a50c"
+            _out50c.mkdir()
+            _buf50c = io.StringIO()
+            with contextlib.redirect_stdout(_buf50c):
+                _rc50c = _st50._run_chain(argparse.Namespace(
+                    spec="s.json", svg="d.svg", out=str(_out50c),
+                    judge="", reference="", profile="screen"), _out50c)
+            _env50c = {}
+            try:
+                _env50c = json.loads(_buf50c.getvalue() or "{}")
+            except json.JSONDecodeError:
+                _env50c = {}
+            _codes50c = [e.get("code") for e in (_env50c.get("errors") or [])]
+            add("A50-studio-chain-orders-and-stops",
+                bool(_rc50 == 3 and _order50 == ["spec", "clean", "render",
+                                                 "judge", "land"]
+                     and _landed_sanitized and _goto_land
+                     and _sj50["status"] == "degraded"
+                     and _rc50b == 1 and _order50b == ["spec"]
+                     and _rc50c == 3 and "E-CAPABILITY-MISSING" in _codes50c),
+                "rc=" + str(_rc50) + " order=" + str(_order50)
+                + " land_args_ok=" + str(_landed_sanitized)
+                + " clean_args_ok=" + str(_goto_land)
+                + " stop_rc=" + str(_rc50b) + " stop=" + str(_order50b)
+                + " missing_rc=" + str(_rc50c) + " codes=" + str(_codes50c))
+        finally:
+            _st50._call = _orig50
+    except Exception as e:                      # noqa: BLE001
+        add("A50-studio-chain-orders-and-stops", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A51: the review pack must be anonymous and reproducible -----------
+    # A blind review is only blind if the sheet cannot name the candidate and
+    # the mapping lives in a separate file. Same seed must give the same pack,
+    # or a re-run silently produces a different experiment.
+    try:
+        import contextlib
+        import io
+
+        _spec51 = importlib.util.spec_from_file_location("studio_a51",
+                                                         SCRIPTS / "studio.py")
+        _st51 = importlib.util.module_from_spec(_spec51)
+        _spec51.loader.exec_module(_st51)
+        _cands51 = []
+        for _i in (1, 2):
+            _d51 = tmp / ("a51-c" + str(_i))
+            (_d51 / "round-1").mkdir(parents=True)
+            (_d51 / "round-1" / "sanitized.svg").write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>',
+                encoding="utf-8")
+            (_d51 / "round-1" / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\ncase")
+            _cands51.append(str(_d51))
+        _packs51 = []
+        for _j in (1, 2):
+            _pk51 = tmp / ("a51-pack" + str(_j))
+            with contextlib.redirect_stdout(io.StringIO()):
+                _rc51 = _st51._review_pack(argparse.Namespace(
+                    review_pack=str(_pk51), candidate=_cands51, seed=11))
+            _packs51.append(_pk51)
+        _k51 = json.loads((_packs51[0] / "key.json").read_text(encoding="utf-8"))
+        _k51b = json.loads((_packs51[1] / "key.json").read_text(encoding="utf-8"))
+        _rows51 = (_packs51[0] / "review-sheet.csv").read_text(
+            encoding="utf-8").splitlines()
+        _sources51 = sorted(c["source"] for c in _k51["cases"])
+        _anon51 = all(str(c) not in ln for ln in _rows51 for c in _cands51)
+        _empty51 = (len(_rows51) == 3
+                    and all(ln.endswith(",,,,,,") for ln in _rows51[1:]))
+        _readme51 = (_packs51[0] / "README.md").read_text(encoding="utf-8")
+        _key_kept51 = all(str(c) not in _readme51 for c in _cands51)
+        add("A51-review-pack-anonymous-and-deterministic",
+            bool(_rc51 == 0 and len(_k51["cases"]) == 2
+                 and _sources51 == sorted(_cands51)
+                 and _k51["cases"] == _k51b["cases"]
+                 and _anon51 and _empty51 and _key_kept51),
+            "cases=" + str(len(_k51.get("cases") or []))
+            + " anon=" + str(_anon51) + " empty=" + str(_empty51)
+            + " same_seed=" + str(_k51["cases"] == _k51b["cases"]))
+    except Exception as e:                      # noqa: BLE001
+        add("A51-review-pack-anonymous-and-deterministic", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
     # lighting, a vector has no physical size, and the tracer hides its settings

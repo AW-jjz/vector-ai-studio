@@ -1,0 +1,17 @@
+{
+  "schema": "vector-ai-studio/spec-v1",
+  "prompt": "独立书店「页间」标识：安静克制，两片书页夹出脊缝，红色折角点缀，单色可辨",
+  "elements": [
+    { "id": "e1", "desc": "左页：一块向左倾斜的四边形页面" },
+    { "id": "e2", "desc": "右页：与左页镜像但透视更缓的四边形页面" },
+    { "id": "e3", "desc": "脊缝：两页之间贯穿上下的窄空隙" },
+    { "id": "e4", "desc": "折角：右上角一枚红色三角形" },
+    { "id": "e5", "desc": "底线：横贯画面下部的粗规线" }
+  ],
+  "attributes": [
+    { "id": "a1", "desc": "两页左右对称，脊缝宽度不超过画板宽度的 4%", "kind": "count" },
+    { "id": "a2", "desc": "红色面积不超过画面 8%", "kind": "count" }
+  ],
+  "palette": ["#111111", "#c8362c"],
+  "rounds": { "current": 1, "K_max_ref": "config/thresholds.json" }
+}

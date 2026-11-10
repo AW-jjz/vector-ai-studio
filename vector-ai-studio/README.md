@@ -22,7 +22,7 @@ python scripts/smoke_ai.py
 
 ## 完整出图
 
-主流程见 `SKILL.md`：冻结必备元素清单与风格色板 → 生成结构化纯矢量 SVG → 净化与六维打分 → N 个独立 run 各自内部完成至多 K 轮定向收敛 → 汇总 F → VectorCraft 落地为原生 `.ai` → 聚合验收日志。按需求 §7.5.1 原编排实现，无编排变更。
+主流程见 `SKILL.md`：冻结必备元素清单与风格色板，按 `references/design-language.md` 选型 → 生成结构化纯矢量 SVG → 净化与六维打分 → N 个独立 run 各自内部完成至多 K 轮定向收敛 → 汇总 F → VectorCraft 落地为原生 `.ai` → 聚合验收日志。按需求 §7.5.1 原编排实现，无编排变更。
 
 ## 四件产物
 
@@ -47,7 +47,8 @@ python scripts/smoke_ai.py
 - 不伪造 `.ai`；引擎缺失时明确标注「非原生 `.ai`，格式底线未满足」。
 - 路径含中文或空格时，需确认 VectorCraft CLI 能读取该路径；运行期请勿移动源文件。
 - 对外说明只承诺「达标」；未达标或降级时首行标注需人工终审。
-- 用户可见说明仅此一页；references 目录下的两份文件是施工契约，不是使用手册。
+- 用户可见说明仅此一页；`references/design-language.md` 与 `references/archetypes/` 是设计与生成约束，其余 references 是施工契约，都不是使用手册。
+- 单稿链路可压成一条命令：`python scripts/studio.py --spec ... --svg ... --out output/<run-id>`；阶段状态见 `output/<run-id>/studio.json`。
 
 ## 自检说明
 

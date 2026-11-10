@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="red-block">
+    <rect x="36" y="36" width="72" height="72" fill="#d7263d"/>
+  </g>
+  <g id="blue-block">
+    <rect x="132" y="60" width="72" height="108" fill="#1f4fd8"/>
+  </g>
+  <g id="yellow-disc">
+    <circle cx="72" cy="168" r="36" fill="#f2b705"/>
+  </g>
+  <g id="dot-run">
+    <circle cx="120" cy="192" r="4" fill="#111111"/>
+    <circle cx="136" cy="192" r="4" fill="#111111"/>
+    <circle cx="152" cy="192" r="4" fill="#111111"/>
+    <circle cx="168" cy="192" r="4" fill="#111111"/>
+    <circle cx="184" cy="192" r="4" fill="#111111"/>
+  </g>
+  <g id="base-rule">
+    <rect x="36" y="208" width="168" height="8" fill="#111111"/>
+  </g>
+</svg>

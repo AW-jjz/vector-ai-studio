@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="solid-field">
+    <rect x="30" y="30" width="180" height="180" rx="6" fill="#111111"/>
+  </g>
+  <g id="cut-arrow">
+    <path d="M96 156 L96 108 L72 108 L120 60 L168 108 L144 108 L144 156 Z" fill="#ffffff"/>
+  </g>
+  <g id="base-rule">
+    <rect x="30" y="216" width="180" height="4" fill="#d7263d"/>
+  </g>
+</svg>

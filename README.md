@@ -38,7 +38,7 @@ python vector-ai-studio/scripts/run_fixtures.py
 
 | 环境 | `selftest --fixtures` | `run_fixtures` |
 |---|---|---|
-| 装了 VectorCraft CLI | **48/48**，`status=ok`，**exit 0** | **24/24**，exit 0 |
+| 装了 VectorCraft CLI | **51/51**，`status=ok`，**exit 0** | **24/24**，exit 0 |
 | 没装 | A30/A31 两条转 skipped，`status=partial`，**exit 3** | 24/24，exit 0 |
 
 **`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。

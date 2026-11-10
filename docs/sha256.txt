@@ -903,7 +903,7 @@ sha256        : a0d3cd703a06815b7289036b1dbd8c0ce7ca64680916e9009c0f5964d7d87565
                 详见 04-QA/test-log-r46/r46-08-远端回读.txt
 
 ════════════════════════════════════════════════════════════════════
-r47（2026-11-10，版本 1.1.0，55 文件 / 183,286 B）— 当前版本
+r47（2026-11-10，版本 1.1.0，55 文件 / 183,286 B）— 历史版本
 ════════════════════════════════════════════════════════════════════
 
 文件数        : 55
@@ -959,3 +959,57 @@ sha256        : 64a1c4db65f77515032f5607a0bf2e175f23adae427ba4ffb8adbab92c18a2b9
                 回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
                 55/55 全等，missing/diff 均为空；docs 三件同 md5。
                 详见 04-QA/test-log-r47/r47-08-远端回读.txt
+════════════════════════════════════════════════════════════════════
+r48（2026-11-10，版本 1.1.0，79 文件 / 209,585 B）— 当前版本
+════════════════════════════════════════════════════════════════════
+
+文件数        : 79
+字节数        : 209,585 B
+sha256        : c4b5cba91c25c84e7d62e292713aa397fea8447d8083e616a5af05e7c254de1a
+对应冻结基线  : 04-QA/test-log-r48/00-freeze-r48-manifest.txt（79 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 17:13:50，545,860 B
+                清单 sha256 54cc3b7cab9ca986031a6e7c59387041e5c2e06a9cabcd32dd4f92f244f4adf5
+
+本版包含      : 按收益排序的三项改进
+                1) 设计知识层：references/design-language.md（网格/比例/层级/字排/
+                   色彩/形态/负空间/十原型/廉价感清单/人评口径）
+                   + references/archetypes/ 十个原创范例 SVG + 索引
+                2) 最小链路：scripts/studio.py 一条命令完成 spec→净化→预览→
+                   判读打分（有 --judge 才做）→落地；阶段状态写 studio.json；
+                   --review-pack 生成匿名盲评包（case + 空评分表 + 独立 key）
+                3) 真实口径示例：examples/ 三个需求（brief / spec / final.svg），
+                   并新增 templates/design-review.md 盲评表
+                断言 A49（范例必须合法矢量）、A50（单稿链顺序/停链/退出码）、
+                A51（盲评包匿名且同 seed 可复现）；48→51
+
+相对 r47 变更 : 新增 24 / 删除 0 / 修改 5 / 其余 50 个 sha256 不变
+                scripts/selftest.py 109,716 → 119,282 B
+                SKILL.md 29,769 → 31,199 B
+                references/pipeline-contract.md 26,828 → 27,182 B
+                references/error-codes.md 5,059 → 5,231 B
+                README.md 2,663 → 2,941 B
+                新增：scripts/studio.py、references/design-language.md、
+                references/archetypes/（11 件）、examples/（10 件）、
+                templates/design-review.md
+
+实测证据      : selftest --fixtures 51/0/0（REAL_AI=1 复跑同为 51/0/0）
+                run_fixtures 24/24；validate_skill 0 error / 0 warning
+                双打包 ×2 字节一致；zip ↔ 基线 79/0/0/0
+                真机 smoke：status=ok / h1=true / acceptance.h2=true / grade=不达标
+                studio 三例：spec/clean/land 均 ok，render 走内置兜底故 degraded（exit 3）
+                盲评包 9 件（3 case × svg/png + key + 表 + 说明）
+                变异：A49/A50/A51 各有一条有效反例，均转红
+                证据目录 04-QA/test-log-r48/
+
+已知限制      : 1) 三例为原创示例，无外部评审结论；盲评表为空，设计主张仍未被证据支持
+                2) 本机无 resvg/cairosvg/无头浏览器，预览走内置兜底（保真度受限）
+                3) 文件数 55→79，包体 183,286→209,585 B；只压缩了操作步数，未减少脚本数
+                4) 其余同 r47：无 /OutputIntent、无 /ICCBased；Illustrator 中文字读成轮廓
+
+独立 QA       : 本轮无独立第三方复核；04-QA/test-log-r48/r48-09-自检复核.txt
+                记录自检结论与弱点，不冒充外部签收
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r48-manifest.txt 比对，应 79/79
+                2) python scripts/selftest.py --fixtures 期望 51/51；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 c4b5cba9…de1a（209,585 B）

@@ -31,6 +31,8 @@
 | preview.meta.json | vector-ai-studio/preview-meta-v1 | `../scripts/render_png.py` | renderer / degraded / note / width / height / fidelity（full 或 faithful 或 limited；缺字段按 limited 处理） |
 | structure_readback.json | vector-ai-studio/structure-readback-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | raster / placed / paths / artboard_matches_viewBox / ok |
 | landing.json | vector-ai-studio/landing-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | automation / status / degradation / ai_produced |
+| studio.json | vector-ai-studio/studio-v1 | `../scripts/studio.py` | status / stages[]（stage / status / code / errors / detail）；单稿编排的阶段流水，不参与评级 |
+| key.json | vector-ai-studio/review-key-v1 | `../scripts/studio.py --review-pack` | seed / cases[]（case → source）；盲评映射，只给归档、不给评审人 |
 | acceptance.json | vector-ai-studio/acceptance-v1 | `../scripts/aggregate_log.py` | headline(首行) / grade / scores / rounds / hard_gates / degradation |
 | selftest.json | vector-ai-studio/selftest-v1 | `../scripts/selftest.py` | assertions[] / chain[] / passed / failed |
 

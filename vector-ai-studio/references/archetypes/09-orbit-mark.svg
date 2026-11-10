@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="orbit-ring">
+    <circle cx="120" cy="120" r="84" fill="none" stroke="#111111" stroke-width="6"/>
+  </g>
+  <g id="core-disc">
+    <circle cx="120" cy="120" r="26" fill="#d7263d"/>
+  </g>
+  <g id="path-line">
+    <line x1="60" y1="180" x2="180" y2="60" stroke="#111111" stroke-width="6"/>
+  </g>
+</svg>

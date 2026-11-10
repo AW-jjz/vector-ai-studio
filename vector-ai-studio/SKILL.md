@@ -68,6 +68,12 @@ python scripts/freeze_spec.py --spec path/to/spec.json --validate --out path/to/
 
 空 prompt / 空清单 / 畸形 schema 一律显式拒绝并要求补充，不臆造需求。冻结清单与色板全轮次只读。
 
+### 步 1.5 选型与设计语言（C1 质量前置）
+
+冻结清单之后、动笔之前，先读 `references/design-language.md`，从第 8 节的十个原型里选一个，并写清「为什么是它」。原型范例在 `references/archetypes/`，只作语法参照，直接改色改形复用只会得到「像范例但不如范例」的结果。
+
+这一步决定成品上限。跳过它，后面的净化与打分只能保证「不出错」，不能保证「好看」。人评口径见该文件第 10 节，盲评表模板是 `templates/design-review.md`。
+
 ### 步 2 生成结构化纯矢量 SVG（C1）
 
 宿主 LLM 按 `references/svg-dsl.md` 的冻结清单逐条覆盖、色板内取值、语义分组命名、纯矢量子集约束，直接写出一轮草稿。默认链路零凭据、零联网。
@@ -223,6 +229,24 @@ python scripts/selftest.py --fixtures --log-dir <RUN_DIR>
 python scripts/run_fixtures.py
 python scripts/smoke_ai.py
 ```
+
+### 一条命令跑完单稿（推荐入口）
+
+```
+python scripts/studio.py --spec path/to/spec.json --svg path/to/draft.svg \
+  --out output/<run-id> --profile screen [--judge path/to/judge.json] [--reference path/to/reference.svg]
+```
+
+依次执行冻结校验、净化、预览、判读与打分（只有给了 `--judge` 才做）、落地。任一阶段失败即停，每阶段状态写进 `output/<run-id>/studio.json`。它不替代步 7–10 的 F 汇总与验收聚合，只是把「单稿能不能干净落地」压成一条命令，少一次漏跑 `--validate` 的机会。
+
+盲评包：
+
+```
+python scripts/studio.py --review-pack output/review --seed 7 \
+  --candidate output/run-1 --candidate output/run-2
+```
+
+生成匿名 case 与空评分表，映射单独放在 `output/<run-id>/review/key.json`。分数由真人回填，脚本不写审美分。
 
 ### 结果契约校验
 

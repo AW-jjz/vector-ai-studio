@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <g id="grid-rules">
+    <line x1="30" y1="120" x2="210" y2="120" stroke="#111111" stroke-width="1"/>
+    <line x1="120" y1="30" x2="120" y2="210" stroke="#111111" stroke-width="1"/>
+  </g>
+  <g id="mass">
+    <rect x="34" y="34" width="172" height="172" fill="none" stroke="#111111" stroke-width="8"/>
+  </g>
+  <g id="accent">
+    <rect x="34" y="34" width="48" height="48" fill="#d7263d"/>
+  </g>
+</svg>

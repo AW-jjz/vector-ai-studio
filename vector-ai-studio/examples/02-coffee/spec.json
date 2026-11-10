@@ -1,0 +1,16 @@
+{
+  "schema": "vector-ai-studio/spec-v1",
+  "prompt": "咖啡烘焙工作室「深焙」印章式标识：粗环、一条横分割、朱红圆与小方块，墨黑加朱红",
+  "elements": [
+    { "id": "e1", "desc": "外环：完整闭合的粗圆环" },
+    { "id": "e2", "desc": "横分割：环内贯通左右的粗横线" },
+    { "id": "e3", "desc": "朱红圆：横线上方居中的实心圆" },
+    { "id": "e4", "desc": "小方块：横线下方居中的实心方块" }
+  ],
+  "attributes": [
+    { "id": "a1", "desc": "环与横线同宽，线宽为环外径的 12%", "kind": "count" },
+    { "id": "a2", "desc": "圆与方块垂直对齐于环心轴线", "kind": "position" }
+  ],
+  "palette": ["#111111", "#c8362c"],
+  "rounds": { "current": 1, "K_max_ref": "config/thresholds.json" }
+}

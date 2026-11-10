@@ -1,0 +1,15 @@
+{
+  "schema": "vector-ai-studio/spec-v1",
+  "prompt": "命令行工具「折线」标识：四根直角柱等差递增，一条蓝色趋势线穿过柱顶，16px 可辨",
+  "elements": [
+    { "id": "e1", "desc": "四根直角柱，高度等差递增" },
+    { "id": "e2", "desc": "蓝色趋势线穿过四根柱顶，末端略伸出" },
+    { "id": "e3", "desc": "底部规线，压住画面下缘" }
+  ],
+  "attributes": [
+    { "id": "a1", "desc": "柱宽一致，间隔一致，落 8pt 网格", "kind": "count" },
+    { "id": "a2", "desc": "蓝色面积不超过画面 5%", "kind": "count" }
+  ],
+  "palette": ["#111111", "#1f4fd8"],
+  "rounds": { "current": 1, "K_max_ref": "config/thresholds.json" }
+}
