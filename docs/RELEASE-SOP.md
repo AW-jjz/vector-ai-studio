@@ -41,11 +41,30 @@ python <toolkit>/scripts/package_skill.py  --platform workbuddy --channel market
 
 `sha256.txt` 不是给我看的，是给拿到包的人自证用的。所以里面必须写清「怎么验」，而不只是「验什么值」。
 
+### 镜像仓库的目录结构（r61 记）
+
+`repo-vector-ai-studio/` 不是「技能目录的镜像」，它自己是一层仓库：
+
+```
+repo-vector-ai-studio/
+├ README.md  LICENSE  .gitattributes  .gitignore
+├ docs/                ← 本目录的三份文档
+└ vector-ai-studio/    ← 技能本体，95 个文件放这里
+```
+
+所以同步命令的目标是 `repo-vector-ai-studio\vector-ai-studio`，**不是仓库根**。
+r61 我在仓库根上跑了 `robocopy /MIR`，`/MIR` 会删除目标端多余项，`.git`、`docs/`、
+`LICENSE` 全被清掉。远端未受影响（按 `20a9834` 重新 clone 即恢复），但这类操作不可
+回滚的前提是远端还在——若当时本地有未推送提交，就没了。
+
+规则两条：一是 `/MIR` 只对 `vector-ai-studio\` 子目录用，且先用 `git status` 确认路径；
+二是仓库根上只用 `git checkout` / `git clean` 恢复，不用 robocopy。
+
 ## 三、发布前的四道闸，缺一不可
 
 ```
-selftest.py --fixtures    期望 46/46（不带 --fixtures 为 45/45；条数随断言增加，以实际清单为准）
-run_fixtures.py           期望 24/24
+selftest.py --fixtures    期望 59/59（不带 --fixtures 为 58/58；条数随断言增加，以实际清单为准）
+run_fixtures.py           期望 24/24（r61 实测 24 passed / 0 failed）
 validate_skill.py         期望 0 error / 0 warning
 zip ↔ 冻结基线 双向 md5   期望缺失 0 / 多余 0 / 差异 0
 ```
