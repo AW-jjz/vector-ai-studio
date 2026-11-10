@@ -209,6 +209,15 @@ def main():
     def check(cid, ok, rule, measured):
         checks.append({"id": cid, "ok": bool(ok), "rule": rule, "measured": measured})
 
+    # A <style> sheet is counted, never interpreted: no selector matching
+    # happens in this script. That makes every number below possibly wrong for
+    # such a file -- a sheet setting stroke-width:10 while the rule allows 2
+    # would otherwise be measured as 2 and pass. Fail closed and say why.
+    if m["style_sheets"]:
+        check("STYLE-SHEETS", False,
+              "stylesheets are not interpreted; inline the declarations",
+              "%d <style> element(s)" % m["style_sheets"])
+
     vb = (root.get("viewBox") or "").split()
     if vb:
         check("CANVAS", [round(_f(x), 2) for x in vb] == [0.0, 0.0, float(canvas[0]), float(canvas[1])],

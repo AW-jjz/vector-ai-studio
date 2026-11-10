@@ -43,7 +43,7 @@ CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 # --fixtures. Declared rather than asserted-in-prose because two rounds lost
 # ten assertions to a bad block extraction and the only thing that noticed was
 # a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 60
+EXPECTED_ASSERTIONS = 61
 
 
 def _call(name, args, cwd, flags=()):
@@ -393,6 +393,57 @@ def _check_conformance(tmp, add):
             + " none_rc=" + str(_rc61c) + " none_bad=" + str(_bad61c))
     except Exception as e:                      # noqa: BLE001
         add("A61-inline-style-is-read-and-inherited", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A62: a <style> sheet is counted and never applied -------------------
+    # r62 shipped measured.style_sheets with no assertion, so a change that
+    # stopped counting it -- or started applying it -- would have gone
+    # unnoticed. Three files: no sheet, one sheet, two sheets. The one-sheet
+    # file would fail STROKE-WIDTHS if any selector matching happened (the
+    # sheet says 10, the rule allows 2), so rc 1 with STYLE-SHEETS as the only
+    # failed check proves "counted, not applied" in a single run.
+    try:
+        _d62 = tmp / "a62"
+        _d62.mkdir()
+        _rules62 = _d62 / "rules.json"
+        _rules62.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1",
+            "colors_allowed": ["#111111"],
+            "stroke_widths_allowed": [2],
+            "types_allowed": ["rect"],
+            "elements": {"min": 1, "max": 1}}), encoding="utf-8")
+        _head62 = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+        _rect62 = ('<rect x="20" y="20" width="200" height="200" fill="#111111"'
+                   ' stroke="#111111" stroke-width="2"/>')
+        _sheet62 = '<style>.k{stroke-width:10}</style>'
+
+        def _run62(name, body):
+            p = _d62 / (name + ".svg")
+            p.write_text(_head62 + body + "</svg>", encoding="utf-8")
+            rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
+                                                  str(_rules62), "--json"], tmp)
+            dat = env.get("data") or {}
+            bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
+            return rc, dat.get("measured") or {}, bad
+
+        _rc62a, _m62a, _bad62a = _run62("plain", _rect62)
+        _rc62b, _m62b, _bad62b = _run62("one-sheet", _sheet62 + _rect62)
+        _rc62c, _m62c, _bad62c = _run62("two-sheets", _sheet62 + _sheet62 + _rect62)
+        add("A62-style-sheets-are-counted-not-applied",
+            bool(_rc62a == 0 and not _bad62a and _m62a.get("style_sheets") == 0
+                 and _m62a.get("stroke_widths") == [2.0]
+                 and _rc62b == 1 and _bad62b == ["STYLE-SHEETS"]
+                 and _m62b.get("style_sheets") == 1
+                 and _m62b.get("stroke_widths") == [2.0]
+                 and _rc62c == 1 and _bad62c == ["STYLE-SHEETS"]
+                 and _m62c.get("style_sheets") == 2),
+            "plain_rc=" + str(_rc62a) + " sheets0=" + str(_m62a.get("style_sheets"))
+            + " one_rc=" + str(_rc62b) + " sheets1=" + str(_m62b.get("style_sheets"))
+            + " widths=" + str(_m62b.get("stroke_widths"))
+            + " one_bad=" + str(_bad62b)
+            + " sheets2=" + str(_m62c.get("style_sheets")))
+    except Exception as e:                      # noqa: BLE001
+        add("A62-style-sheets-are-counted-not-applied", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
