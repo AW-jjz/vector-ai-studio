@@ -1763,3 +1763,43 @@ sha256        : 8f0f9c04591057c4ce3b759b8632dd6b28df59284e319565e3357a7fb49ecd09
 校验方式      : python scripts/selftest.py 期望 61/61；带 --fixtures 期望 62/62
                 get-filehash 发布包应为 8f0f9c04…9ecd（263,289 B）
 已推送发布提交 `cedcd57`（父 `0abc45b`）；回读 95/95 见 04-QA/test-log-r63/r63-06-readback.txt。
+
+────────────────────────────────────────────────────────────
+r64（2026-11-10）　规则文件看不懂即报错，不再空过
+────────────────────────────────────────────────────────────
+版本          : r64
+文件数        : 95
+字节数        : 264641
+sha256        : dc814204741f15f2b931e22274ab2071cb799a35be2dfd110587510f4dd62da8
+冻结时刻      : 2026-11-10（04-QA/test-log-r64/00-freeze-r64-manifest.txt，95 文件逐件 md5）
+
+相对 r63 变更 : 3 个文件
+                SKILL.md                 b67a1d1aadb2fcb81aee3db76457b9a63d88affe0e21e75ba0ea6c9c87c30d4f
+                scripts/conformance.py   3994ce14ae326e2cbc6c75e5f04e0f1e379511a9451979a2ed6ce496e4b999e8
+                scripts/selftest.py      965064bfec323f3288e8fc62bd543a0f372248016040f37eb37cc174d8b295fa
+
+内容          : 1) conformance：RULES_KEYS 白名单，未知键 / 未知 forbid 构造 /
+                   未知 elements 子键一律 E-SCHEMA 退出 2
+                2) CANVAS 无 viewBox、MARGIN 无可测几何改为判失败并写明
+                   "no viewBox" / "no drawable geometry"
+                3) A63 五例覆盖上述五种输入
+                4) SKILL.md 写明白名单与两种退出码的分工
+                5) EXPECTED_ASSERTIONS 61 → 62
+
+实测证据      : selftest 62/0/62（--fixtures 63/63）
+                变异 恢复忽略未知键 → A63 单红 typo_key=0
+                变异 留白规则跳过空图 → A63 单红 empty_bad=[]
+                示例规则文件 12 键合法，run_fixtures 24/24 未变
+                validate 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 264641 B / dc814204…2da8）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、195435 B、output_intent=1、
+                intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
+                证据目录 04-QA/test-log-r64/
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) <style> 不做选择器匹配，出现即判红（刻意边界）
+
+校验方式      : python scripts/selftest.py 期望 62/62；带 --fixtures 期望 63/63
+                get-filehash 发布包应为 dc814204…2da8（264,641 B）
+已推送发布提交 `3b74430`（父 `65e8709`）；回读 95/95 见 04-QA/test-log-r64/r64-06-readback.txt。
