@@ -335,7 +335,7 @@ python scripts/conformance.py --svg path/to/round/sanitized.svg \
   --rules path/to/brief/conformance.json --out path/to/round/conformance.json
 ```
 
-`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过。颜色与描边按 CSS 继承取值：写在根 `<svg>` 上的 presentation attribute 与内联 `style=""` 都会向下继承，同元素上 `style` 压过属性，显式 `none` 终止继承。`<style>` 样式表不做选择器匹配——一旦出现即判 `STYLE-SHEETS` 失败，要求把声明内联；出现次数仍记在 `measured.style_sheets` 里。宁可判红，也不拿属性值冒充渲染结果。
+`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过；反过来，写了但脚本不认识的键也不忽略——拼错的键名、编造的 `forbid` 构造名、`elements` 里的多余子键一律报 `E-SCHEMA` 退出 2，画板缺 `viewBox`、或图上没有可测量几何时对应规则判失败而不是跳过。颜色与描边按 CSS 继承取值：写在根 `<svg>` 上的 presentation attribute 与内联 `style=""` 都会向下继承，同元素上 `style` 压过属性，显式 `none` 终止继承。`<style>` 样式表不做选择器匹配——一旦出现即判 `STYLE-SHEETS` 失败，要求把声明内联；出现次数仍记在 `measured.style_sheets` 里。宁可判红，也不拿属性值冒充渲染结果。
 
 ### 判读、打分与收敛
 

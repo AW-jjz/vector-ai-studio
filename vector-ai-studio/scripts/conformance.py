@@ -35,6 +35,12 @@ FORBID_TAGS = {"image": NS + "image", "text": NS + "text",
                "filter": NS + "filter", "clipPath": NS + "clipPath",
                "mask": NS + "mask", "use": NS + "use"}
 FORBID_ATTRS = ("filter", "clip-path", "mask")
+# Every key the script understands. A key it does not know used to be ignored
+# silently, so a typo ("stroke_width_allowed") looked like an enforced rule and
+# an invented forbid name ("texts") produced a check that could never fail.
+RULES_KEYS = {"schema", "canvas", "colors_allowed", "colors_max", "area_ratio_max",
+              "stroke_widths_allowed", "types_allowed", "elements",
+              "bbox_margin_min", "forbid", "source_ledger", "licenses_allowed"}
 
 
 def _tag(el):
@@ -197,6 +203,28 @@ def main():
     if rules.get("schema") != "vector-ai-studio/conformance-v1":
         raise L.ToolError("E-SCHEMA", "rules schema must be vector-ai-studio/conformance-v1",
                           L.EXIT_USAGE)
+
+    # A rule the script cannot see is worse than a rule that fails: it reports
+    # nothing at all, so the run stays green while the brief is unmet. Reject
+    # instead, at usage level, before any measurement is reported.
+    unknown = sorted(set(rules) - RULES_KEYS)
+    if unknown:
+        raise L.ToolError("E-SCHEMA", "unknown rules keys: " + ", ".join(unknown),
+                          L.EXIT_USAGE)
+    forbid_want = rules.get("forbid") or []
+    if isinstance(forbid_want, list):
+        bad_forbid = [str(k) for k in forbid_want if k not in FORBID_TAGS]
+        if bad_forbid:
+            raise L.ToolError(
+                "E-SCHEMA", "unknown forbid constructs: " + ", ".join(bad_forbid)
+                + " (known: " + ", ".join(sorted(FORBID_TAGS)) + ")", L.EXIT_USAGE)
+    span_rules = rules.get("elements")
+    if isinstance(span_rules, dict):
+        bad_span = sorted(set(span_rules) - {"min", "max"})
+        if bad_span:
+            raise L.ToolError("E-SCHEMA", "unknown elements keys: " + ", ".join(bad_span),
+                              L.EXIT_USAGE)
+
     canvas = rules.get("canvas") or [240, 240]
     try:
         root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
@@ -222,6 +250,10 @@ def main():
     if vb:
         check("CANVAS", [round(_f(x), 2) for x in vb] == [0.0, 0.0, float(canvas[0]), float(canvas[1])],
               "viewBox 0 0 %d %d" % (canvas[0], canvas[1]), " ".join(vb))
+    else:
+        # The rule is written as a viewBox. Without one the canvas cannot be
+        # checked as stated, and silence here used to read as "canvas fine".
+        check("CANVAS", False, "viewBox 0 0 %d %d" % (canvas[0], canvas[1]), "no viewBox")
     for key in ("width", "height"):
         if root.get(key):
             check("CANVAS-" + key.upper(), _f(root.get(key)) == float(canvas[0 if key == "width" else 1]),
@@ -251,10 +283,16 @@ def main():
         lo, hi = int(span.get("min", 0)), int(span.get("max", 10 ** 6))
         check("ELEMENT-COUNT", lo <= m["elements"] <= hi,
               "%d..%d elements" % (lo, hi), str(m["elements"]))
-    if rules.get("bbox_margin_min") is not None and m["margins"]:
-        worst = min(m["margins"])
-        check("MARGIN", worst >= float(rules["bbox_margin_min"]),
-              "margin >= %s" % rules["bbox_margin_min"], "%s (min %s)" % (m["margins"], worst))
+    if rules.get("bbox_margin_min") is not None:
+        if m["margins"]:
+            worst = min(m["margins"])
+            check("MARGIN", worst >= float(rules["bbox_margin_min"]),
+                  "margin >= %s" % rules["bbox_margin_min"],
+                  "%s (min %s)" % (m["margins"], worst))
+        else:
+            # A margin rule on a drawing with nothing in it cannot be verified.
+            check("MARGIN", False, "margin >= %s" % rules["bbox_margin_min"],
+                  "no drawable geometry")
     for key in rules.get("forbid", []):
         check("FORBID-" + key.upper(), m["forbidden"].get(key, 0) == 0,
               "no " + key, str(m["forbidden"].get(key, 0)))

@@ -43,7 +43,7 @@ CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 # --fixtures. Declared rather than asserted-in-prose because two rounds lost
 # ten assertions to a bad block extraction and the only thing that noticed was
 # a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 61
+EXPECTED_ASSERTIONS = 62
 
 
 def _call(name, args, cwd, flags=()):
@@ -444,6 +444,65 @@ def _check_conformance(tmp, add):
             + " sheets2=" + str(_m62c.get("style_sheets")))
     except Exception as e:                      # noqa: BLE001
         add("A62-style-sheets-are-counted-not-applied", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A63: a rule the script cannot read is an error, not a pass ----------
+    # r63 closed the stylesheet-shaped version of this: input the script cannot
+    # interpret must not come out green. Three more shapes of the same defect
+    # were still there: a misspelled rule key (silently ignored), an invented
+    # forbid name (produced a check that can never fail), and two rules that
+    # were skipped when the drawing or canvas gave them nothing to measure.
+    try:
+        _d63 = tmp / "a63"
+        _d63.mkdir()
+        _svg63 = _d63 / "one-rect.svg"
+        _svg63.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<rect x="20" y="20" width="200" height="200" fill="#111111"/></svg>',
+            encoding="utf-8")
+        _svg63b = _d63 / "empty.svg"
+        _svg63b.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"></svg>',
+            encoding="utf-8")
+        _svg63c = _d63 / "no-canvas.svg"
+        _svg63c.write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+                           encoding="utf-8")
+
+        def _rules63(name, extra):
+            p = _d63 / (name + ".json")
+            doc = {"schema": "vector-ai-studio/conformance-v1"}
+            doc.update(extra)
+            p.write_text(json.dumps(doc), encoding="utf-8")
+            return p
+
+        def _run63(svg, rules):
+            rc, env, _ = _call("conformance.py", ["--svg", str(svg), "--rules",
+                                                  str(rules), "--json"], tmp)
+            dat = env.get("data") or {}
+            bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
+            return rc, _codes(env), bad
+
+        _rc63a, _cd63a, _ = _run63(
+            _svg63, _rules63("typo-key", {"stroke_width_allowed": [10]}))
+        _rc63b, _cd63b, _ = _run63(
+            _svg63, _rules63("typo-forbid", {"forbid": ["texts"]}))
+        _rc63c, _cd63c, _ = _run63(
+            _svg63, _rules63("typo-elements", {"elements": {"min": 1, "max": 1, "exactly": 1}}))
+        _rc63d, _cd63d, _bad63d = _run63(
+            _svg63b, _rules63("margin", {"canvas": [240, 240], "bbox_margin_min": 10}))
+        _rc63e, _cd63e, _bad63e = _run63(
+            _svg63c, _rules63("canvas", {"canvas": [240, 240]}))
+        add("A63-unreadable-rules-fail-closed",
+            bool(_rc63a == 2 and "E-SCHEMA" in _cd63a
+                 and _rc63b == 2 and "E-SCHEMA" in _cd63b
+                 and _rc63c == 2 and "E-SCHEMA" in _cd63c
+                 and _rc63d == 1 and _bad63d == ["MARGIN"]
+                 and _rc63e == 1 and _bad63e == ["CANVAS"]),
+            "typo_key=" + str(_rc63a) + " typo_forbid=" + str(_rc63b)
+            + " typo_span=" + str(_rc63c) + " empty_bad=" + str(_bad63d)
+            + " nocanvas_bad=" + str(_bad63e))
+    except Exception as e:                      # noqa: BLE001
+        add("A63-unreadable-rules-fail-closed", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
