@@ -355,3 +355,12 @@ sha256        : 44b973f2feb82d97c2de3164043dc4a067bf605c0bb07303f0841b3c3083eedb
                 本轮不改包）；
                 A29 的 220 字符截断仍为硬编码
 
+远端状态      : 已推送，发布提交 **4a3c81d**（父 2d95852，7 files changed）。
+                回读校验：从远端 clone --depth 1，与 r38 发布包逐文件比 md5 ——
+                pkg_files=58 / remote_files=58，missing=0 / extra=0 / diff=0；
+                docs 三件（sha256 / 发布说明 / RELEASE-SOP）与本地同文。
+                证据：04-QA/test-log-r38/r38-08-远端回读.txt
+
+被替换的旧包  : r37 → 03-源码/_dev-logs/superseded/vector-ai-studio_r37-58files_SUPERSEDED_20261110-1105.zip
+                （190,683 B；第 28 轮已签收并推送，发布提交 ec1deca；仍按纪律降级保留）
+
