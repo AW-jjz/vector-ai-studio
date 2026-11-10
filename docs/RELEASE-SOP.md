@@ -63,8 +63,8 @@ r61 我在仓库根上跑了 `robocopy /MIR`，`/MIR` 会删除目标端多余�
 ## 三、发布前的四道闸，缺一不可
 
 ```
-selftest.py --fixtures    期望 63/63（不带 --fixtures 为 62/62；条数随断言增加，以实际清单为准）
-run_fixtures.py           期望 24/24（r64 实测 24 passed / 0 failed）
+selftest.py --fixtures    期望 64/64（不带 --fixtures 为 63/63；条数随断言增加，以实际清单为准）
+run_fixtures.py           期望 24/24（r65 实测 24 passed / 0 failed）
 validate_skill.py         期望 0 error / 0 warning
 zip ↔ 冻结基线 双向 md5   期望缺失 0 / 多余 0 / 差异 0
 ```

@@ -1803,3 +1803,50 @@ sha256        : dc814204741f15f2b931e22274ab2071cb799a35be2dfd110587510f4dd62da8
 校验方式      : python scripts/selftest.py 期望 62/62；带 --fixtures 期望 63/63
                 get-filehash 发布包应为 dc814204…2da8（264,641 B）
 已推送发布提交 `3b74430`（父 `65e8709`）；回读 95/95 见 04-QA/test-log-r64/r64-06-readback.txt。
+
+────────────────────────────────────────────────────────────
+r65（2026-11-10）　样式表按写明的最小 CSS 子集生效
+────────────────────────────────────────────────────────────
+版本          : r65
+文件数        : 95
+字节数        : 267250
+sha256        : c505ac1a7d149f3bf64f7f93ee5276631f07631d3ba328e43641a6d298b57e73
+冻结时刻      : 2026-11-10（04-QA/test-log-r65/00-freeze-r65-manifest.txt，95 文件逐件 md5）
+
+相对 r64 变更 : 3 个文件
+                SKILL.md                 ef14c9efd1703ddaf3b8d979780298d0a1eca4a871822e23e45f2836bf81bbcf
+                scripts/conformance.py   f151e05115e58cf7643eec4b7f859bfc8e38f633ee5903d1fe7851069eeca940
+                scripts/selftest.py      16790b9c2c66456d7322ca03430bf543179bc9eb6eae06b85ee067d4f73555c9
+
+内容          : 1) conformance：实现最小 CSS 子集并真正应用
+                   选择器 类型/类/ID 组合 + 后代 + 子代 + 逗号分组
+                   声明   fill / stroke / stroke-width（另放行四个不参与测量的描边属性）
+                   级联   !important > 内联 style > 样式表 > presentation attribute
+                   特异性 (id, class, type)，同权按出现顺序；三属性向下继承
+                2) 子集之外整份拒绝：伪类、属性选择器、兄弟选择器、@ 规则、
+                   media、未放行属性 → STYLE-SHEETS 失败并写出原因
+                3) measured 新增 style_rules（命中规则数）
+                4) A62 重写为 applied/beats-attribute/pseudo/two-sheets 四例；
+                   新增 A64 覆盖特异性、!important、子代与后代
+                5) SKILL.md 写明子集与拒绝规则
+                6) EXPECTED_ASSERTIONS 62 → 63
+
+实测证据      : selftest 63/0/63（--fixtures 64/64）
+                变异 停掉样式表解析 → A62 与 A64 同红（widths 全回 2.0）
+                变异 子代当后代 → 仅 A64 红（child=9.0）
+                Tabler coffee.svg 去掉根 stroke-width、由 svg{} 供宽
+                  → exit=0 widths=[2.0] style_rules=1
+                同文件换 opacity / :hover → exit=1 唯一红项 STYLE-SHEETS
+                run_fixtures 24/24；validate 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 267250 B / c505ac1a…7e73）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、195517 B、output_intent=1、
+                intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
+                证据目录 04-QA/test-log-r65/
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) CSS 子集之外的写法判红（范围已写明，不是遗漏）
+
+校验方式      : python scripts/selftest.py 期望 63/63；带 --fixtures 期望 64/64
+                get-filehash 发布包应为 c505ac1a…7e73（267,250 B）
+已推送发布提交 `c1afe77`（父 `f9bfb57`）；回读 95/95 见 04-QA/test-log-r65/r65-06-readback.txt。
