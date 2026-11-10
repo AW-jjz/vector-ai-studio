@@ -1206,7 +1206,7 @@ sha256        : 7fbb68a4f227c827fe06374baee34060f97c6fef056a63eedc555ba273aebbf8
                 4) get-filehash 发布包，sha256 应为 7fbb68a4…bbf8（232,962 B）
 
 ════════════════════════════════════════════════════════════════════
-r52（2026-11-10，版本 1.1.0，83 文件 / 233,514 B）— 当前版本
+r52（2026-11-10，版本 1.1.0，83 文件 / 233,514 B）— 历史版本
 ════════════════════════════════════════════════════════════════════
 
 文件数        : 83
@@ -1251,3 +1251,55 @@ sha256        : a87c7d0e21f18b1f0d694095d894511a1d1494eb2f5d5c1d77de3874561454fb
                 2) python scripts/selftest.py --fixtures 期望 55/55；run_fixtures.py 期望 24/24
                 3) validate_skill.py 期望 0 error / 0 warning
                 4) get-filehash 发布包，sha256 应为 a87c7d0e…54fb（233,514 B）
+
+════════════════════════════════════════════════════════════════════
+r53（2026-11-10，版本 1.1.0，86 文件 / 237,876 B）— 当前版本
+════════════════════════════════════════════════════════════════════
+
+文件数        : 86
+字节数        : 237,876 B
+sha256        : db8c003574d911ae7bc7c3473cf0d9865fcc1b2492776b0b8c7dfa00a5ba085c
+对应冻结基线  : 04-QA/test-log-r53/00-freeze-r53-manifest.txt（86 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 18:15:21，612,742 B
+                清单 sha256 8ce7113ec11d259578ab5d55caa51ea076bf6357653d845409f84a146cf6836b
+
+本版包含      : 没有真人时，把「无外部评审」做成显式状态
+                1) 新增 examples/01-bookshop/review-status.md
+                       examples/02-coffee/review-status.md
+                       examples/03-devtool/review-status.md
+                   每份写清：证据等级 machine_only、三票五维读数与总分、
+                   需求符合度逐条实测、还缺两名真人
+                2) README.md 新增「三例示例的证据状态」一节：
+                   machine_only 可归档、不可对外；usable_for_claim 恒为假直到外部回收
+                3) 需求符合度实测（机械可判部分）：
+                   01 红面积 1.39% ≤8%，全墨黑重渲染 legibility=OK（18.42 / 0.406）
+                   02 环外沿 33–207 四边留白 33，4 组语义件，两色，描边 {10}
+                   03 柱高 60/84/108/132 公差 24，无圆角，蓝线 1.12% ≤5%，legibility=OK
+                本轮无脚本改动，断言数不变（55）
+
+相对 r52 变更 : 新增 3 / 删除 0 / 修改 1 / 其余 82 个 sha256 不变
+                examples/01-bookshop/review-status.md  新增
+                examples/02-coffee/review-status.md    新增
+                examples/03-devtool/review-status.md   新增
+                README.md  3,230 → 3,905 B
+
+实测证据      : selftest --fixtures 55/0/0（REAL_AI=1 复跑同为 55/0/0）
+                run_fixtures 24/24；validate_skill exit 0 / 0 error / 0 warning
+                双打包 ×2 字节一致；zip ↔ 基线 86/0/0/0
+                真机 smoke：status=ok / h1=true / acceptance.h2=true / grade=不达标
+                证据目录 04-QA/test-log-r53/
+
+已知限制      : 1) 仍是 machine_only：三个模型实例不能替代外部评审，
+                   usable_for_claim 恒为假
+                2) 需求符合度数值由一次性几何脚本算出（未进包），复核方式为照 SVG 手算
+                3) 「不画豆/杯/蒸汽」只判到「无 image/gradient/text、纯几何」一层
+                4) 01 的 16px 单色下折角与书页合并（组件 3→2），主结构仍在
+                5) 外部评审两名真人未回收
+
+独立 QA       : 本轮无独立第三方复核；04-QA/test-log-r53/r53-07-自检复核.txt
+                记录自检结论与弱点，不冒充外部签收
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r53-manifest.txt 比对，应 86/86
+                2) python scripts/selftest.py --fixtures 期望 55/55；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 db8c0035…085c（237,876 B）
