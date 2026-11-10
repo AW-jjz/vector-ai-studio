@@ -1722,3 +1722,44 @@ sha256        : 04eba6cb16b35ba122fb496062ba9b8cc3768b9511510980e93a7bfe1e4eeaed
 校验方式      : python scripts/selftest.py 期望 60/60；带 --fixtures 期望 61/61
                 get-filehash 发布包应为 04eba6cb…eaed（262,462 B）
 已推送发布提交 `f85432b`（父 `5ecd825`）；回读 95/95 见 04-QA/test-log-r62/r62-06-readback.txt。
+
+────────────────────────────────────────────────────────────
+r63（2026-11-10）　样式表出现即判红，不再假通过
+────────────────────────────────────────────────────────────
+版本          : r63
+文件数        : 95
+字节数        : 263289
+sha256        : 8f0f9c04591057c4ce3b759b8632dd6b28df59284e319565e3357a7fb49ecd09
+冻结时刻      : 2026-11-10（04-QA/test-log-r63/00-freeze-r63-manifest.txt，95 文件逐件 md5）
+
+相对 r62 变更 : 3 个文件
+                SKILL.md                 07b0ab8e34e2ae7b2536c147bb21a0716a268a48baf0eb49d202bc4d31bf544c
+                scripts/conformance.py   2da3d8f8f54d1101adff23f0265d0dd926d27a4341531f1c3aaa2b0a29355d14
+                scripts/selftest.py      cd2b9585321725bb2b33c6209b167b2818572d873b1eeb20d0d7576d8fcedc59
+
+内容          : 1) conformance：m["style_sheets"] 非零即报 STYLE-SHEETS 失败
+                   （"stylesheets are not interpreted; inline the declarations"），
+                   不再按 attribute 量完就报 all checks pass
+                2) A62 三例（0/1/2 张样式表）：计数准确、样式表不应用、
+                   含样式表必红且唯一红项为 STYLE-SHEETS
+                3) SKILL.md：写明「出现即判 STYLE-SHEETS 失败」
+                4) EXPECTED_ASSERTIONS 60 → 61
+
+实测证据      : selftest 61/0/61（--fixtures 62/62）
+                变异 删 STYLE-SHEETS 检查 → A62 单红（one_rc=0 one_bad=[] 复现旧假通过）
+                变异 计数写死 1 → 6 条红（A56/A57/A58/A59/A61/A62）
+                Tabler coffee.svg raw/sanitized/styled 均 exit=0 widths=[2.0]
+                注入 <style> 的同文件 exit=1 唯一红项 STYLE-SHEETS widths 仍 [2.0]
+                run_fixtures 24/24；validate 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 263289 B / 8f0f9c04…9ecd）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、195195 B、output_intent=1、
+                intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
+                证据目录 04-QA/test-log-r63/
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) <style> 不做选择器匹配，出现即判红（刻意边界）
+
+校验方式      : python scripts/selftest.py 期望 61/61；带 --fixtures 期望 62/62
+                get-filehash 发布包应为 8f0f9c04…9ecd（263,289 B）
+已推送发布提交 `cedcd57`（父 `0abc45b`）；回读 95/95 见 04-QA/test-log-r63/r63-06-readback.txt。
