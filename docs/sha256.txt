@@ -1152,7 +1152,7 @@ sha256        : f9acb8ee62f35368d41ed77984931d655289d2d7ebceb7ec9fa5228af001769b
                 详见 04-QA/test-log-r50/r50-08-远端回读.txt
 
 ════════════════════════════════════════════════════════════════════
-r51（2026-11-10，版本 1.1.0，83 文件 / 232,962 B）— 当前版本
+r51（2026-11-10，版本 1.1.0，83 文件 / 232,962 B）— 历史版本
 ════════════════════════════════════════════════════════════════════
 
 文件数        : 83
@@ -1204,3 +1204,50 @@ sha256        : 7fbb68a4f227c827fe06374baee34060f97c6fef056a63eedc555ba273aebbf8
                 2) python scripts/selftest.py --fixtures 期望 55/55；run_fixtures.py 期望 24/24
                 3) validate_skill.py 期望 0 error / 0 warning
                 4) get-filehash 发布包，sha256 应为 7fbb68a4…bbf8（232,962 B）
+
+════════════════════════════════════════════════════════════════════
+r52（2026-11-10，版本 1.1.0，83 文件 / 233,514 B）— 当前版本
+════════════════════════════════════════════════════════════════════
+
+文件数        : 83
+字节数        : 233,514 B
+sha256        : a87c7d0e21f18b1f0d694095d894511a1d1494eb2f5d5c1d77de3874561454fb
+对应冻结基线  : 04-QA/test-log-r52/00-freeze-r52-manifest.txt（83 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 18:09:42，606,906 B
+                清单 sha256 4fcddb43af4ef669b476594f64c6045cd3cc571b77c62174c18930abab4d49a0
+
+本版包含      : 修「概念」维的定义缺口
+                1) references/design-language.md 第 10 节 —— 概念锚点改为不依赖 brief
+                   的措辞；新增说明：本表测「主张清不清楚」，不测「是否满足需求」，
+                   需求符合度由甲方开包对照 brief 后单独判，不并入五维总分
+                2) templates/design-review.md —— 评分表下加同一句限定；否决项第一条
+                   改标「由甲方判，评审人不判」并移到末位
+                3) templates/review-request.md —— 概念锚点同步；否决项第一条改为
+                   「这条你不用判」，仅保留评审人可判的两条
+                4) 重建 05-发布/vector-ai-studio_盲评包-r52.zip（16 件，不含 key.json）；
+                   图与 r51 相同，仅请求件措辞更新；r51 盲评包已降级
+                本轮无脚本改动，断言数不变（55）
+
+相对 r51 变更 : 新增 0 / 删除 0 / 修改 3 / 其余 80 个 sha256 不变
+                references/design-language.md  10,547 → 11,095 B
+                templates/design-review.md      1,606 → 1,916 B
+                templates/review-request.md     2,730 → 3,078 B
+
+实测证据      : selftest --fixtures 55/0/0（REAL_AI=1 复跑同为 55/0/0）
+                run_fixtures 24/24；validate_skill exit 0 / 0 error / 0 warning
+                双打包 ×2 字节一致；zip ↔ 基线 83/0/0/0
+                真机 smoke：status=ok / h1=true / acceptance.h2=true / grade=不达标
+                证据目录 04-QA/test-log-r52/
+
+已知限制      : 1) 只改口径，不改能力：机器评审仍不能判需求符合度
+                2) 外部评审两名真人未回收，usable_for_claim=false
+                3) 历史评审包（test-log-r51/review-pack）保留旧措辞，未回改
+                4) 其余同 r51
+
+独立 QA       : 本轮无独立第三方复核；04-QA/test-log-r52/r52-05-自检复核.txt
+                记录自检结论与弱点，不冒充外部签收
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r52-manifest.txt 比对，应 83/83
+                2) python scripts/selftest.py --fixtures 期望 55/55；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 a87c7d0e…54fb（233,514 B）
