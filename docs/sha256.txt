@@ -547,4 +547,7 @@ sha256        : c5817a02e4b3e0af571be9bcac0d4973cee1b0c01e0814ce231bff07ccacca6b
                 3) validate_skill.py 期望 0 error / 0 warning
                 4) get-filehash 发布包，sha256 应为 c5817a02…acca6b（195,137 B）
 
-远端状态      : 未推送
+远端状态      : 已推送，发布提交 **64ddb9f**（父 cc10591，2026-11-10）。
+                回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
+                58/58 全等，missing/diff 均为空；docs 三件同 md5。
+                详见 04-QA/test-log-r41/r41-08-远端回读.txt
