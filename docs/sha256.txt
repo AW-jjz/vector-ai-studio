@@ -140,7 +140,72 @@ sha256        : 890be4fbce5ae42aa624560e549d54e74ccbd4ee4aece77922ff59b4def638c6
 
 
 ════════════════════════════════════════════════════════════════════
-r36（2026-11-10，版本 1.1.0，58 文件 / 186,379 B）— 当前候选
+r37（2026-11-10，版本 1.1.0，58 文件 / 190,683 B）— 当前候选
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 190,683 B
+sha256        : 329e236ff4ee233b6626b5132a7ef6579cdf18feda878f818a5f0789d2e297a3
+对应冻结基线  : 04-QA/test-log-r37/r37-00-freeze.txt（58 文件，逐文件 sha256）
+
+本版包含      : 第 27 轮 QA 的 6 项 P3 整改（P3-1/2/3/4/5 + P3-C），另修第 28 轮 QA 的 P2-2
+                · P3-1 _strip_strings 跳过内联图像 BI…ID…EI 区段：
+                  位图样本里的 k/K/G 字节不再被计成颜色算子
+                · P3-2 新增 _decode_stream：无 /Filter 的内容流按未压缩直取，
+                  只对声明 Flate 的流 inflate，未实现的滤镜返回 None 并记未解码
+                · P3-3 _pdf_objects 展开 /Type /ObjStm：页面字典被压进对象流时不再整份漏测
+                · P3-4 A29 detail 改为短值前置（k=/K=/objects=/fonts= …），
+                  220 字符截断不再吃掉判定字段
+                · P3-5 schema 补声明 h1_pass / save_options 的 pdf_standard · color_mode ·
+                  output_intent · output_intent_requested · printers_marks / observed 的
+                  paths · artboard_matches_viewBox · print_pdf.* / source_probe.*；
+                  A46 对真实 craft 清单做未声明键 diff，A31 的 diff 扩到嵌套路径
+                · P3-C 文档对齐：SKILL 与 pipeline-contract 改「三条引擎」，
+                  写明 save_options.output_intent 是读回值、请求值另存
+                · P2-2（第 28 轮 QA）craft 在「一条流都没解开」时不再填 0，
+                  与 land_ai 一致写 null = 未测，并进 unverified
+                · land_craft 不再自带第二份 PDF 解析器，改为复用 land_ai 的
+                  _pdf_objects / _page_streams / _count_ops
+
+相对 r36 变更 : 新增 0、删除 0、修改 6、未变 52
+                SKILL.md / references/pipeline-contract.md /
+                references/schemas/deliverable.schema.json /
+                scripts/land_ai.py / scripts/land_craft.py / scripts/selftest.py
+
+实测证据      : r36 真机 X-1a print.pdf（落盘留着的那份）用新解析器重跑，
+                content_ops 与 r36 记录逐键相同（k=20 / K=1 / scn=1 / SCN=32，
+                objects=1 / decoded=1），land_vc 的 final.pdf 同样不变（k=4 / K=1）——
+                改的是边界情形，常规产物零漂移。原始对比与输入文件 sha256 见
+                04-QA/test-log-r37/r37-07-真机零漂移.txt
+
+四道闸        : selftest --fixtures 46/46（A29 k=0/0 K=1/1 objects=1/1 objstm=1/1
+                plain=1/1 inline=1,0,dec1 fonts=1/1 craft=True undec=None/None keys=True；
+                A31 两半边 extra/missing/typebad/nested 全空；A46 undeclared=-）·
+                run_fixtures 24/24 · validate 0 error 0 warning ·
+                重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异自测      : 8 项全部打红（各 45/1，M3 43/3）：
+                M1 统计全部对象流 / M2 数 /BaseFont / M3 schema 把 SCN 改名 /
+                M4 保留内联图像字节 / M5 所有流都要求 Flate / M6 不展开 ObjStm /
+                M7 把 schema 的 observed.paths 改名 / M8 craft 未解码时填 0。
+                每项都只打红对应子句，还原后 46/0。
+
+独立 QA       : 第 28 轮：四闸自跑全绿、6 条主张逐条成立、
+                回归 6 改 / 52 同无夹带 → 有条件签收，记 P2×2
+                （发布留痕缺失 = 本节与发布说明第十一节；craft 未解码填 0 = P2-2），
+                另有 Q1–Q5 记 backlog（样本内假 EI 边界、/BI 名误判、
+                /N 偏小静默漏测、schema 描述「三引擎都写」对 craft 不成立、
+                A29 的 craft 对比在可解码时是同一函数自证）。
+
+已知限制      : 同 r36；另 _strip_strings 的 EI 边界是启发式：
+                位图样本里若出现「空白 + EI + 空白」会被当成结束符（Q1），
+                名为 /BI 的资源被当内联图像起点的概率未测（Q2）。
+
+远端状态      : 待推送（本包尚未推送；r36 仍是远端 HEAD 01bda42）
+
+
+════════════════════════════════════════════════════════════════════
+r36（2026-11-10，版本 1.1.0，58 文件 / 186,379 B）— 已由 r37 取代
 ════════════════════════════════════════════════════════════════════
 
 文件数        : 58
