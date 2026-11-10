@@ -1850,3 +1850,45 @@ sha256        : c505ac1a7d149f3bf64f7f93ee5276631f07631d3ba328e43641a6d298b57e73
 校验方式      : python scripts/selftest.py 期望 63/63；带 --fixtures 期望 64/64
                 get-filehash 发布包应为 c505ac1a…7e73（267,250 B）
 已推送发布提交 `c1afe77`（父 `f9bfb57`）；回读 95/95 见 04-QA/test-log-r65/r65-06-readback.txt。
+
+────────────────────────────────────────────────────────────
+r66（2026-11-10）　只量会画出来的东西，量不出的判红
+────────────────────────────────────────────────────────────
+版本          : r66
+文件数        : 95
+字节数        : 270229
+sha256        : beee52d0145eee98931f8b16706639005c5d1cdd1e113e83bc8ef61a4451c662
+冻结时刻      : 2026-11-10（04-QA/test-log-r66/00-freeze-r66-manifest.txt，95 文件逐件 md5）
+
+相对 r65 变更 : 3 个文件
+                SKILL.md                 57e6dfaad91efeed4a292e53d2e6dee9aa0f80697d0b13fc093cdf7150dddeec
+                scripts/conformance.py   3a2874d5b8d9041a050efcffe59447e2d19407ee5950eebec6278bb5f53df23a
+                scripts/selftest.py      26117a85cfc30417260a55c3e8ece9304551348200f23d95a55bbbdda1099ea1
+
+内容          : 1) 面积上限遇到 path → AREA-* 失败，measured.area_unmeasured 记 path
+                2) 留白遇到 transform / path → MARGIN 失败，measured.bbox_unmeasured 记原因
+                3) defs / symbol / display:none / visibility:hidden / opacity:0 /
+                   fill-opacity:0 不计入颜色、面积、图元数（elements 只数可见图元）
+                4) currentColor 按 color 解析，未声明 color 时保留字面量
+                5) A65 / A66 / A67 三条断言，共 12 个用例
+                6) EXPECTED_ASSERTIONS 63 → 66
+
+实测证据      : selftest 66/0/66（--fixtures 67/67）
+                七个反例复跑：5 例按预期翻转，描边墨量仍 0.6944（已知，只会假红）
+                变异 <defs> 重新计入 → A65 单红
+                变异 AREA 忽略 area_unmeasured → A66 单红（path_rc=0）
+                变异 停止解析 currentColor → A67 单红
+                run_fixtures 24/24；validate 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 270229 B / beee52d0…c662）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、196665 B、output_intent=1、
+                intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
+                证据目录 04-QA/test-log-r66/（含 r66-* 修复前、r66b-* 修复后）
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) 描边墨量仍按填充面积计（只会假红，不会假绿）
+                3) 全透明文件在 conformance 侧全绿（由 legibility / score 兜底）
+
+校验方式      : python scripts/selftest.py 期望 66/66；带 --fixtures 期望 67/67
+                get-filehash 发布包应为 beee52d0…c662（270,229 B）
+已推送发布提交 `b495aa9`（父 `6349c8a`）；回读 95/95 见 04-QA/test-log-r66/r66-06-readback.txt。
