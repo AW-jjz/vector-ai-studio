@@ -67,6 +67,8 @@ python vector-ai-studio/scripts/aggregate_log.py --run-dir <RUN> --run-id <ID>
 
 `deal.py` 在动笔前发三个方向并排除最近两轮用过的原型，避免每轮都回到同一张居中徽章；`legibility.py` 在画完后读预览 PNG，卡三件 240px 看不出的失效：16px 时墨没了（`COLLAPSED`）、糊成实心（`MUD`）、灰度对比不足（`LOW-CONTRAST`）。
 
+盲评回收用 `review.py`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`，只有「≥2 名外部评审 + 零空格」时 `evidence.usable_for_claim` 才为真。可直接转发给评审人的请求件在 `templates/review-request.md`，生成的包不含映射文件 `key.json`。
+
 印刷母版还有 `land_craft.py`（PDF/X-1a/X-3/X-4、出血、裁切标记），与 `land_vc.py` 写同一套 `deliverable.json` / `structure_readback.json` / `landing.json`。
 
 ### 交付档位

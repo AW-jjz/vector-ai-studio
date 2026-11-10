@@ -35,6 +35,8 @@
 | `E-OUTPUT-STALE` | 调用引擎前清不掉上一轮的产物（`output/<run-id>/final.ai`、`output/<run-id>/print.pdf`、`output/<run-id>/preview.png`），拒绝继续：旧文件会让「文件存在」被误当成本轮产出 | land_vc, land_craft |
 | `E-QUICK-UNVERIFIED` | quick 模式（F 未验证）宣称达标 | aggregate_log |
 | `E-RENDERER-MISSING` | 渲染器全部缺失且内置兜底也产不出真实 PNG；或 Pillow 缺失导致 PNG 无法读取，小尺寸三检保持未测量 | render_png, legibility |
+| `E-REVIEW-EMPTY` | 盲评表每一个分数格都是空的：空表不是证据，退出 1，不出汇总 | review |
+| `E-REVIEW-INVALID` | 盲评表不可用：缺格、非 0–2 整数、case 缺失或重复、表头缺维；逐条列出后退出 1 | review |
 | `E-SCHEMA` | 输入结构不符合 schema；含 deal 历史文件损坏或 schema 不符（此时代码拒绝继续且不覆盖原文件，不做静默重置） | aggregate_log, deal, lib_common, run_fixtures, score |
 | `E-STUDIO-STAGE` | studio.py 的某阶段以非零码结束但未带更具体的码（如 score.py 因零分维返回 1）；消息里列出停链的阶段 | studio.py |
 | `E-SELFTEST` | 自检断言失败（附失败断言 id 列表） | selftest |

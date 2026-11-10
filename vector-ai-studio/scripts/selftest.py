@@ -2009,6 +2009,79 @@ def main():
         add("A54-failed-dimension-names-its-action", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+    # ---- A55: an empty review sheet must not pass as evidence -----------------
+    # r48 and r49 shipped a review sheet whose score cells were all blank, and
+    # "the file exists" was the only thing anyone could check. A blank cell is
+    # not a zero, and one reviewer is not a panel, so the script must refuse
+    # both and name which one it refused.
+    try:
+        _pack55 = tmp / "a55"
+        _pack55.mkdir()
+        _keyp55 = _pack55 / "key.json"
+        _keyp55.write_text(json.dumps({
+            "schema": "vector-ai-studio/review-key-v1", "seed": 7,
+            "cases": [{"case": "case-01", "source": "run-a"},
+                      {"case": "case-02", "source": "run-b"},
+                      {"case": "case-03", "source": "run-c"}]}), encoding="utf-8")
+        _head55 = "case,concept,hierarchy,proportion,detail,durability,notes"
+        _empty55 = _pack55 / "empty.csv"
+        _empty55.write_text("\n".join([_head55, "case-01,,,,,,", "case-02,,,,,,",
+                                       "case-03,,,,,,"]) + "\n", encoding="utf-8")
+        _rows55 = {
+            "a": ["case-01,2,2,1,2,2,ok", "case-02,1,2,1,1,2,ok",
+                  "case-03,2,1,1,2,1,ok"],
+            "b": ["case-01,2,1,1,2,1,x", "case-02,1,2,1,1,2,y",
+                  "case-03,2,1,1,2,2,z"],
+            "hole": ["case-01,2,1,1,2,1,x", "case-02,1,2,,1,2,y",
+                     "case-03,2,1,1,2,2,z"],
+        }
+        _paths55 = {}
+        for _k, _rows in _rows55.items():
+            _p55 = _pack55 / ("rev-" + _k + ".csv")
+            _p55.write_text("\n".join([_head55] + _rows) + "\n", encoding="utf-8")
+            _paths55[_k] = str(_p55)
+
+        _rc55e, _env55e, _ = _call("review.py", ["--sheet", str(_empty55),
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "external",
+                                                 "--json"], tmp)
+        _rc55h, _env55h, _ = _call("review.py", ["--sheet", _paths55["hole"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "external",
+                                                 "--json"], tmp)
+        _rc55g, _env55g, _ = _call("review.py", ["--sheet", _paths55["a"],
+                                                 "--sheet", _paths55["b"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "external",
+                                                 "--json"], tmp)
+        _rc55i, _env55i, _ = _call("review.py", ["--sheet", _paths55["a"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "internal",
+                                                 "--json"], tmp)
+        _rc55m, _env55m, _ = _call("review.py", ["--sheet", _paths55["a"],
+                                                 "--sheet", _paths55["b"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "machine",
+                                                 "--json"], tmp)
+        _g55 = _env55g.get("data") or {}
+        _u55i = ((_env55i.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
+        _u55m = ((_env55m.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
+        add("A55-review-sheet-empty-is-not-evidence",
+            bool(_rc55e == 1 and "E-REVIEW-EMPTY" in _codes(_env55e)
+                 and _rc55h == 1 and "E-REVIEW-INVALID" in _codes(_env55h)
+                 and _rc55g == 0
+                 and (_g55.get("evidence") or {}).get("usable_for_claim") is True
+                 and (_g55.get("agreement") or {}).get("rate") == 0.8
+                 and [c["verdict"] for c in _g55.get("cases") or []] == ["pass"] * 3
+                 and _u55i is False and _u55m is False),
+            "empty_rc=" + str(_rc55e) + " hole_rc=" + str(_rc55h)
+            + " good_rc=" + str(_rc55g) + " agreement="
+            + str((_g55.get("agreement") or {}).get("rate"))
+            + " internal=" + str(_u55i) + " machine=" + str(_u55m))
+    except Exception as e:                      # noqa: BLE001
+        add("A55-review-sheet-empty-is-not-evidence", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
     # lighting, a vector has no physical size, and the tracer hides its settings

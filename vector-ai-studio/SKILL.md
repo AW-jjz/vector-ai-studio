@@ -232,6 +232,22 @@ python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptan
 
 两条证据轨，不得混用：默认是**完整链**（`mode=full`、`grading_entered=true`，H1–H4 全判并进入评级）；`--landing-only` 是**只取 H1 证据的窄轨**（`mode=landing-only`，h2、tier、grade、h3、h4 全为 `null`，`h2_status=not_evaluated`，不进入评级），仅用于「机器上只跑得动落地、跑不动完整链」时留存原生 `.ai` 结构证据。伪造 `mode=full` 却带 `grading_entered=false`，或 `landing-only` 却带档位词，一律 `E-EXEMPTION-ABUSE`。
 
+### 步 10.5 盲评回收与证据分级（C1 质量后验）
+
+```
+python scripts/review.py --sheet path/to/reviewer-1.csv --sheet path/to/reviewer-2.csv \
+  --key path/to/review/key.json --reviewer-kind external --out path/to/review/review-summary.json
+```
+
+盲评包发出去、表收回来之后，先过这一关。它只做两件事：算人不该手算的，以及拒绝不该被算的。
+
+- 空白格不是 0 分，也不是通过：整表全空 → `E-REVIEW-EMPTY`；缺一格或越界 → `E-REVIEW-INVALID`，都退出 1。
+- 每个 case 按 `templates/design-review.md` 的结论写法判 `pass / conditional / fail`，阈值在 `config/thresholds.json` 的 `R` 块，与那张表同源。
+- 评审人之间的完全一致率会被算出来并列出分歧格；一致率低只报警告，不参与判定——两把尺子不同时均值没有解释力，但也不能因此判图不合格。
+- `evidence.usable_for_claim` 只在「评审人 ≥2 且 `--reviewer-kind external` 且零空格」时为真。`internal`（自己人）与 `machine`（模型评审）都能归档成记录，但永远不会被提升为对外证据。
+
+AI 不写分数，也不代替评审。这个脚本读的是人写下的格子，空着就判空。
+
 ### 步 11 装好即用自检（C5）
 
 ```
@@ -273,7 +289,9 @@ python scripts/studio.py --review-pack output/review --seed 7 \
   --candidate output/run-1 --candidate output/run-2
 ```
 
-生成匿名 case 与空评分表，映射单独放在 `output/<run-id>/review/key.json`。分数由真人回填，脚本不写审美分。
+生成匿名 case 与空评分表，映射单独放在 `output/<run-id>/review/key.json`。分数由真人回填，脚本不写审美分。回填后用 `scripts/review.py` 校验并汇总，空表与缺格会被判红。
+
+可发给评审人的请求件在 `templates/review-request.md`：两人、各 15 分钟、独立不看对方，五维锚点已附。
 
 ### 结果契约校验
 

@@ -1021,7 +1021,7 @@ sha256        : c4b5cba91c25c84e7d62e292713aa397fea8447d8083e616a5af05e7c254de1a
                 详见 04-QA/test-log-r48/r48-08-远端回读.txt
 
 ════════════════════════════════════════════════════════════════════
-r49（2026-11-10，版本 1.1.0，81 文件 / 224,568 B）— 当前版本
+r49（2026-11-10，版本 1.1.0，81 文件 / 224,568 B）— 历史版本
 ════════════════════════════════════════════════════════════════════
 
 文件数        : 81
@@ -1084,3 +1084,64 @@ sha256        : b832a0c460a43cfb5dfc06b795d6af936ae788bf1c79817089db5e4f841504c8
                 回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 —— 81/81 全等，
                 missing / extra / diff 均为空；docs 三件同 md5。
                 详见 04-QA/test-log-r49/r49-08-远端回读.txt
+
+════════════════════════════════════════════════════════════════════
+r50（2026-11-10，版本 1.1.0，83 文件 / 232,579 B）— 当前版本
+════════════════════════════════════════════════════════════════════
+
+文件数        : 83
+字节数        : 232,579 B
+sha256        : f9acb8ee62f35368d41ed77984931d655289d2d7ebceb7ec9fa5228af001769b
+对应冻结基线  : 04-QA/test-log-r50/00-freeze-r50-manifest.txt（83 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 17:50:01，605,026 B
+                清单 sha256 192701d9606ebfaa0c52630cf3b9a5ed05d44e5fec475a204cb352b8322ad5c5
+
+本版包含      : 盲评回收：把「空表」从状态问题变成判据问题
+                1) scripts/review.py —— 读回收的 review-sheet.csv 与 key.json：
+                   全空判 E-REVIEW-EMPTY、缺格/越界/缺 case 判 E-REVIEW-INVALID，
+                   均退出 1；合法表按 templates/design-review.md 的结论写法
+                   判 pass/conditional/fail，并算跨评审人完全一致率与逐格分歧
+                2) 证据分级 —— evidence.usable_for_claim 只在「>=2 名 external
+                   评审 + 零空格」时为真；internal 与 machine 可归档，不可对外
+                3) templates/review-request.md —— 可直接转发给评审人的请求件：
+                   两人、各 15 分钟、独立不看对方、五维锚点与否决项随附
+                4) 阈值 R 块（dims / min_dim_pass / total_pass / total_conditional /
+                   min_reviewers_for_claim / agreement_warn_below），与盲评表同源
+                断言 A55（空表红、缺格红、双人 external 绿且一致率 0.8、
+                internal 与 machine 的 usable 必为假）；54→55
+                随包交付可发送盲评包：05-发布/vector-ai-studio_盲评包-r50.zip
+
+相对 r49 变更 : 新增 2 / 删除 0 / 修改 7 / 其余 74 个 sha256 不变
+                scripts/selftest.py 130,025 → 134,467 B
+                SKILL.md 34,203 → 35,659 B
+                config/thresholds.json 8,139 → 9,084 B
+                references/design-language.md 10,117 → 10,547 B
+                references/error-codes.md 5,444 → 5,710 B
+                references/pipeline-contract.md 27,768 → 28,001 B
+                README.md 2,941 → 3,230 B
+                新增：scripts/review.py、templates/review-request.md
+
+实测证据      : selftest --fixtures 55/0/0（REAL_AI=1 复跑同为 55/0/0）
+                run_fixtures 24/24；validate_skill 0 error / 0 warning
+                双打包 ×2 字节一致；zip ↔ 基线 83/0/0/0
+                真机 smoke：status=ok / h1=true / acceptance.h2=true / grade=不达标
+                空表实测：exit 1 + E-REVIEW-EMPTY，usable_for_claim=false
+                三例改用无头 Chromium 真渲染后跑 legibility：三件均 OK
+                （对比度 17.90 / 18.00 / 15.51；16px 覆盖率 0.371 / 0.406 / 0.273）
+                变异：A55 两个回退（空格当 0 分、usable 恒真）同时注入 -> 53/1 转红
+                证据目录 04-QA/test-log-r50/
+
+已知限制      : 1) 外部评审仍需真人完成：包已备好、校验与汇总已可执行，
+                   但两名评审人尚未回收，故本轮仍不能声称设计质量已被外部验证
+                2) 三例 PNG 由无头 Edge（Chromium）栅格化后降采样，fidelity 记为
+                   full，但引擎不是 resvg；渲染器已写进包的 00-render-meta.json
+                3) 一致率门限 0.6 为工程值、未标定，只报警告、不参与判定
+                4) 其余同 r49：无 /OutputIntent、无 /ICCBased；Illustrator 中文字读成轮廓
+
+独立 QA       : 本轮无独立第三方复核；04-QA/test-log-r50/r50-09-自检复核.txt
+                记录自检结论与弱点，不冒充外部签收
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r50-manifest.txt 比对，应 83/83
+                2) python scripts/selftest.py --fixtures 期望 55/55；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 f9acb8ee…769b（232,579 B）

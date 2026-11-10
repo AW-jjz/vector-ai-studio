@@ -37,6 +37,7 @@
 | deal.json | vector-ai-studio/deal-v1 | `../scripts/deal.py` | seed / tones / excluded_from_previous_rounds / directions[]（archetype / palette / composition / why / risk） |
 | deal-history.json | vector-ai-studio/deal-history-v1 | `../scripts/deal.py` | rounds[]，只保留最近两轮；损坏或 schema 不符即 `E-SCHEMA` 退出 2，不覆盖原文件 |
 | legibility.json | vector-ai-studio/legibility-v1 | `../scripts/legibility.py` | measured（contrast / coverage / coverage_small / components / gray_bands）/ verdicts[] / gates |
+| review-summary.json | vector-ai-studio/review-summary-v1 | `../scripts/review.py` | reviewer_kind / reviewers[] / cases[]（per_dim / total_mean / verdict）/ agreement（rate / dissent[]）/ evidence（usable_for_claim / why） |
 | selftest.json | vector-ai-studio/selftest-v1 | `../scripts/selftest.py` | assertions[] / chain[] / passed / failed |
 
 `scores` 单项为 `{score, measured, threshold, degraded}`、字符串 N/A 或 L2 状态枚举 N/A (capability_missing)（非分数）。分档是 `../scripts/aggregate_log.py` 按 `../config/thresholds.json` 的数值比较，LLM 不得宣布；L2 下 A/B 非 ≥1，机械得出不达标。

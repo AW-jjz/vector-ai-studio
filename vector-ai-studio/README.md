@@ -49,6 +49,7 @@ python scripts/smoke_ai.py
 - 对外说明只承诺「达标」；未达标或降级时首行标注需人工终审。
 - 用户可见说明仅此一页；`references/design-language.md` 与 `references/archetypes/` 是设计与生成约束，其余 references 是施工契约，都不是使用手册。
 - 单稿链路可压成一条命令：`python scripts/studio.py --spec ... --svg ... --out output/<run-id>`；阶段状态见 `output/<run-id>/studio.json`。
+- 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；只有 ≥2 名外部评审且零空格时 `evidence.usable_for_claim` 才为真。评审请求件在 `templates/review-request.md`。
 
 ## 自检说明
 

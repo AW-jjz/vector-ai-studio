@@ -72,6 +72,17 @@
     "_src_mud": "coverage_small == 1.0 是精确值不是估计：整张 16x16 每像素都被掩膜判为前景，缩小后不再有背景，剪影为零。网格线、棋盘格、密集排线在 1/15 缩放下会落到这里。",
     "_src_small": "16px 取自 favicon 的常见最小尺寸；240px 画板缩到 16px 是 15:1，比浏览器标签更苛刻，属保守设定。"
   },
+  "R": {
+    "dims": ["concept", "hierarchy", "proportion", "detail", "durability"],
+    "min_dim_pass": 1,
+    "total_pass": 7,
+    "total_conditional": 6,
+    "min_reviewers_for_claim": 2,
+    "agreement_warn_below": 0.6,
+    "_src_rules": "五维 0-2、每维 >=1 且总分 >=7 判通过、总分 >=6 判有条件通过：直接取自 templates/design-review.md 的结论写法，与该表同源。改这里必须同步改那张表，否则表和脚本会各说一套。",
+    "_src_reviewers": "两个评审人是本项目取的最小值，非标准：单人盲评分不清「图好」与「这个人的口味」。低于两人时 review.py 仍出汇总，但 evidence.usable_for_claim 为假。",
+    "_src_agreement": "0.6 为工程值、未标定：只用来产生一条警告，不参与 usable_for_claim。一致率低说明两把尺子不同，此时均值没有解释力；但也不能因为评审人分歧就判图不合格。"
+  },
   "grade": {
     "pass_requires_dims": ["A", "B", "C", "D", "F"],
     "excellent_requires": { "A": 2, "B": 2, "min_twos": 3 },
