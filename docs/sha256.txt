@@ -951,3 +951,8 @@ sha256        : 64a1c4db65f77515032f5607a0bf2e175f23adae427ba4ffb8adbab92c18a2b9
                 2) python scripts/selftest.py --fixtures 期望 48/48；run_fixtures.py 期望 24/24
                 3) validate_skill.py 期望 0 error / 0 warning
                 4) get-filehash 发布包，sha256 应为 64a1c4db…a2b9（183,286 B）
+
+远端状态      : 已推送，发布提交 **a361273**（父 493a50a，2026-11-10）。
+                回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
+                55/55 全等，missing/diff 均为空；docs 三件同 md5。
+                详见 04-QA/test-log-r47/r47-08-远端回读.txt
