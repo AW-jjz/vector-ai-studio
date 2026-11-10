@@ -187,7 +187,7 @@ python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
 - `.ai` 本身不含输出意图与 ICC：是 CMYK、不是 PDF/X；需要印刷条件时走 `scripts/land_craft.py`
 - 这些差异只在带文字、渐变、剪切蒙版的复杂样本上暴露，换版本前必须压一遍
 
-`scripts/render_png.py` 的渲染器按 resvg → cairosvg → 内置兜底依次尝试（无头浏览器只记 MISSING，不实际调用）。`scripts/land_vc.py` 自己会先用 VectorCraft 导出预览；失败时才回落到 `scripts/render_png.py`。两个落地脚本在**任何失败出口**都会先删掉本轮目录里的旧 `output/<run-id>/preview.png` 与 `output/<run-id>/preview.meta.json`：`land_vc` 在回落渲染前删，`land_craft` 在失败收尾时删（它不做 render_png 回落）。两路都失败就**没有预览**（H2 记四件不齐），不会拿上一版设计的图顶替本轮。`land_vc` 产出的 `output/<run-id>/preview.meta.json` 如实标注 renderer 与 fidelity。
+`scripts/render_png.py` 的渲染器按 resvg → cairosvg → 内置兜底依次尝试（无头浏览器只记 MISSING，不实际调用）。`scripts/land_vc.py` 自己会先用 VectorCraft 导出预览；失败时才回落到 `scripts/render_png.py`。两个落地脚本在**调用引擎之前**先清掉本轮目标产物（`output/<run-id>/final.ai`、`output/<run-id>/print.pdf`、`output/<run-id>/preview.png` 与它的 meta），所以「文件存在」只代表**本轮**写的——CLI 退出 0 却没写文件这种静默失败不会被上一轮产物顶替。任何失败出口再清一次旧 `output/<run-id>/structure_readback.json` 与预览：`land_vc` 在回落渲染前清，`land_craft` 在失败收尾清（它不做 render_png 回落）。两路都失败就**没有预览**（H2 记四件不齐），不会拿上一版设计的图顶替本轮。`land_vc` 产出的 `output/<run-id>/preview.meta.json` 如实标注 renderer 与 fidelity。
 
 ### 步 10 验收日志聚合（H2 / H3 / H4）
 

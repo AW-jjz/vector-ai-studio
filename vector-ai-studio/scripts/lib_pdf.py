@@ -553,6 +553,27 @@ def _drop_stale_preview(run_dir):
     return True
 
 
+def _drop_outputs(run_dir, names):
+    """Delete this run's target artifacts before the engine is invoked.
+
+    Existence checks are the only evidence that the engine wrote something this
+    run. Leaving an older final.ai / preview.png in place makes "the file is
+    there" true for a run that produced nothing -- and a CLI that exits 0
+    without writing (a silent failure, not a crash) then passes every check.
+    Clearing first makes "it exists" mean "this run wrote it". Returns True when
+    every named file is gone.
+    """
+    ok = True
+    for name in names:
+        p = run_dir / name
+        try:
+            if p.is_file():
+                p.unlink()
+        except OSError:
+            ok = False
+    return ok
+
+
 def _ensure_preview(run_dir, svg):
     """Render preview.png with render_png.py and never reuse an older one.
 

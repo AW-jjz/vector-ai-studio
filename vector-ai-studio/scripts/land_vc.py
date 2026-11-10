@@ -266,6 +266,28 @@ def _run(args, run_dir):
     svg_out = run_dir / "final.svg"
     preview = run_dir / "preview.png"
 
+    # Existence is the only evidence that this run produced anything, so the
+    # targets are cleared before the engine runs. A CLI that exits 0 without
+    # writing (silent failure, not a crash) would otherwise inherit the previous
+    # run's final.ai / preview.png and pass every downstream check. An unlink
+    # that fails (file locked by another app) is a refusal, not a warning: the
+    # old file would be read as this run's.
+    if not LP._drop_outputs(run_dir, ("final.ai", "final.pdf", "preview.png",
+                                      "preview.meta.json")):
+        cleared = LP._drop_stale_readback(run_dir)
+        preview_cleared = LP._drop_stale_preview(run_dir)
+        L.write_json_atomic(run_dir / "landing.json",
+                            LP._landing("none", "fail",
+                                        "previous outputs could not be cleared",
+                                        False, False,
+                                        {"stale_readback_removed": cleared,
+                                         "stale_preview_removed": preview_cleared}))
+        return L.emit(SCRIPT, status="fail", code=L.EXIT_ERROR, run_id=args.run_id,
+                      data={"outputs_cleared": False},
+                      errors=[L.err("E-OUTPUT-STALE",
+                                    "previous run's outputs are locked; refusing to "
+                                    "run with stale files in place")])
+
     cmd = ["run", "--in", str(svg.resolve())]
     if prof["cmyk"]:
         cmd += ["--cmd", "file.documentColorMode",

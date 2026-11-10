@@ -199,6 +199,16 @@ def _land(args, out):
     svg_out = out / "final.svg"
     shutil.copyfile(src, svg_out)
 
+    # Same rule as land_vc: clear the targets before the engine runs, so a CLI
+    # that exits 0 without writing cannot leave the previous run's .ai / PDF /
+    # preview standing in as this run's output. A locked old file is refused,
+    # not ignored.
+    if not LP._drop_outputs(out, ("final.ai", "print.pdf", "preview.png",
+                                  "preview.meta.json")):
+        raise L.ToolError("E-OUTPUT-STALE",
+                          "previous outputs are locked; refusing to run with stale "
+                          "files in place", L.EXIT_ERROR)
+
     bleed_pt = round(args.bleed_mm / 25.4 * 72.0, 3)
     cmd = [str(cli), "run", "--in", str(src)]
     if args.profile == "print":

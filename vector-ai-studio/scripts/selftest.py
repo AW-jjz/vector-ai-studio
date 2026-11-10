@@ -1555,6 +1555,72 @@ def main():
         add("A47-failed-preview-clears-stale-png", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+    # ---- A48: a CLI that exits 0 without writing must not inherit outputs ----
+    # "the file is there" was the only evidence that the engine produced
+    # anything, and a previous run's final.ai / preview.png satisfied it. A CLI
+    # that reports success and writes nothing is a silent failure, not a crash,
+    # so the check has to be "was it written now", which the landers enforce by
+    # clearing their targets before invoking the engine. This drives land_vc's
+    # real _run with a patched runner that claims success and writes nothing.
+    try:
+        import contextlib
+        import io
+
+        _spec48 = importlib.util.spec_from_file_location("land_vc_a48",
+                                                         SCRIPTS / "land_vc.py")
+        _lv48 = importlib.util.module_from_spec(_spec48)
+        _spec48.loader.exec_module(_lv48)
+        _d48 = tmp / "a48"
+        _d48.mkdir()
+        (_d48 / "final.ai").write_bytes(b"%PDF-1.4 previous-run")
+        (_d48 / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\nprevious-run")
+        (_d48 / "preview.meta.json").write_text('{"renderer": "previous"}', encoding="utf-8")
+        _lv48.find_cli = lambda explicit: Path(sys.executable)
+        _lv48.run_cli = lambda *a, **k: (0, "", "")   # claims success, writes nothing
+        _a48 = argparse.Namespace(svg=str(GOOD / "rect-only.svg"), out=str(_d48),
+                                  profile="screen", vc="", run_id="a48", json=True)
+        _buf48 = io.StringIO()
+        with contextlib.redirect_stdout(_buf48):
+            _rc48 = _lv48._run(_a48, _d48)
+        _l48 = _landing40(_d48)
+        _gone48 = (not (_d48 / "final.ai").exists()
+                   and not (_d48 / "preview.png").exists())
+
+        # Second half: the cleanup itself fails (a locked file). Continuing would
+        # read the old file as this run's, so the run must refuse with a code --
+        # not warn and carry on.
+        _d48b = tmp / "a48b"
+        _d48b.mkdir()
+        (_d48b / "final.ai").write_bytes(b"%PDF-1.4 locked-previous-run")
+        _orig48 = _lv48.LP._drop_outputs
+        _buf48b = io.StringIO()
+        try:
+            _lv48.LP._drop_outputs = lambda d, n: False
+            _a48b = argparse.Namespace(svg=str(GOOD / "rect-only.svg"), out=str(_d48b),
+                                       profile="screen", vc="", run_id="a48b", json=True)
+            with contextlib.redirect_stdout(_buf48b):
+                _rc48b = _lv48._run(_a48b, _d48b)
+        finally:
+            _lv48.LP._drop_outputs = _orig48
+        _env48b = {}
+        try:
+            _env48b = json.loads(_buf48b.getvalue() or "{}")
+        except json.JSONDecodeError:
+            _env48b = {}
+        _codes48b = [e.get("code") for e in (_env48b.get("errors") or []) if isinstance(e, dict)]
+        _l48b = _landing40(_d48b)
+        _locked48 = (_rc48b == L.EXIT_ERROR and "E-OUTPUT-STALE" in _codes48b
+                     and _l48b.get("status") == "fail")
+        add("A48-silent-cli-cannot-inherit-outputs",
+            bool(_rc48 != 0 and _gone48 and _l48.get("status") == "fail"
+                 and _locked48),
+            "rc=" + str(_rc48) + " old_gone=" + str(_gone48)
+            + " landing=" + str(_l48.get("status"))
+            + " locked_rc=" + str(_rc48b) + " locked_codes=" + str(_codes48b))
+    except Exception as e:                      # noqa: BLE001
+        add("A48-silent-cli-cannot-inherit-outputs", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
     # lighting, a vector has no physical size, and the tracer hides its settings
