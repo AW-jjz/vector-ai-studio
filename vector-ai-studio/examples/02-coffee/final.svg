@@ -4,12 +4,12 @@
     <circle cx="120" cy="120" r="82" fill="none" stroke="#111111" stroke-width="10"/>
   </g>
   <g id="divider">
-    <rect x="52" y="92" width="136" height="10" fill="#111111"/>
+    <rect x="54" y="110" width="132" height="10" fill="#111111"/>
   </g>
-  <g id="red-disc">
-    <circle cx="120" cy="68" r="16" fill="#c8362c"/>
+  <g id="heat-disc">
+    <circle cx="120" cy="95" r="15" fill="#c8362c"/>
   </g>
-  <g id="base-block">
-    <rect x="110" y="146" width="20" height="20" fill="#111111"/>
+  <g id="bean-store">
+    <rect x="105" y="130" width="30" height="30" fill="#111111"/>
   </g>
 </svg>
