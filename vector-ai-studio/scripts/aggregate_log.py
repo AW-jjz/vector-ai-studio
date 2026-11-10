@@ -318,7 +318,14 @@ def main():
         h1_ok = (raster == 0 and placed == 0 and isinstance(paths, int)
                  and paths > 0 and dims_ok and sr.get("ok") is True)
         h1_status = "pass" if h1_ok else "fail"
-        h1_reason = "saveAs readback: raster/placed=0, paths>0, artboard==viewBox"
+        # The reason must follow the verdict: a fixed "raster/placed=0..." line
+        # reads like a pass even when the readback failed.
+        if h1_ok:
+            h1_reason = "saveAs readback: raster/placed=0, paths>0, artboard==viewBox"
+        elif sr.get("stale") is True:
+            h1_reason = "stale readback from an earlier run; this run has no readback"
+        else:
+            h1_reason = "saveAs readback did not satisfy H1: raster/placed/paths/artboard"
 
     # ---- H2: four artifacts, strict real-PNG rule ----
     final_svg = run_dir / "final.svg"

@@ -690,3 +690,83 @@ sha256        : d4d45228d72cf2df6ee52ece9f13d4ef5c0b92c4eb3fb40086a3235984408c41
                 回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
                 58/58 全等，missing/diff 均为空；docs 三件同 md5。
                 详见 04-QA/test-log-r43/r43-08-远端回读.txt
+
+
+════════════════════════════════════════════════════════════════════
+r44（2026-11-10，版本 1.1.0，58 文件 / 197,701 B）— 当前候选（第二版）
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 197,701 B
+sha256        : caba99c8f1ffc718b49e0e35bf0824eedcc33744ee5c304efe19003d9b96fe0e
+对应冻结基线  : 04-QA/test-log-r44/00-freeze-r44-manifest.txt（58 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 14:52:33，541,557 B
+                清单 sha256 a6add822065965f378ad4f834fe92a2d4cd0da2f72c174c98464b4499b0b35a4
+
+本版包含      : 清第 36 轮 QA 的 5 条 P3
+                · 五个「本次未产出」出口收口：源 SVG 缺失、未确认 COM 不可用却
+                  要求半自动、COM 缺失转半自动、COM 缺失的 L4 降级、自动路径
+                  try 块内未预期异常——都先删旧 readback，并按 fail / degraded
+                  写 landing、记 stale_readback_removed
+                · _mark_auto_failure 吞 landing 写入的 OSError：不再把原始
+                  E-H1-STRUCTURE / stderr 换成 E-INTERNAL；PowerShell 缺失处
+                  仍照常抛 ToolError
+                · aggregate_log 的 H1 理由按 h1_ok / stale / 不合格三分支，
+                  不再对失败回读照写「raster/placed=0 …」的合格描述
+                · ai_bridge.jsx 写 manual-result.txt 前显式 rf.encoding = "UTF-8"
+                · error-codes 的「首行不是 OK|」补「（含 0 字节）」
+                同轮再清第 37 轮的 3 条 P3：
+                · 自动路径加 readback_written：异常发生在本次 readback 已写入之后，
+                  保留这份证据、只把 landing 写成 fail（h1_pass 取真实值）；
+                  尚未写入时才当 stale 清理——旧写法会删掉本轮真实读数
+                · collect 模式下源 SVG 缺失，landing 的 automation 保持 semi-manual
+                · 读 manual-result.txt 先 lstrip("\ufeff")，JSX 写 BOM 不误判
+
+相对 r43 变更 : 新增 0 / 删除 0 / 修改 5 / 其余 53 个 sha256 不变
+                references/error-codes.md 4,763 → 4,781 B
+                references/pipeline-contract.md 27,279 → 27,492 B
+                scripts/aggregate_log.py 35,617 → 36,015 B
+                scripts/ai_bridge.jsx 12,494 → 12,698 B
+                scripts/land_ai.py 48,207 → 50,120 B
+
+实测证据      : 五个出口（每例预置上一轮 ok readback + ok landing）：
+                svg-missing / semi-not-allowed exit 2 / error / landing=fail；
+                com-missing-l4 / com-missing-semi exit 3 / degraded；
+                internal-before 抛 RuntimeError。五例 stale_removed=True。
+                读写时序：internal-after 在真机写入 readback 后让 _ensure_preview
+                抛错 → landing=fail / h1_pass=True / readback 保留且 ok=true。
+                BOM 前缀的 OK 行仍 exit 0 / degraded；collect 缺 SVG 时
+                landing=fail 且 automation=semi-manual。
+                H1 理由三分支：ok 改 false → "did not satisfy H1"；
+                {ok:false, stale:true} → "stale readback from an earlier run"。
+                JSX 结果文件显式 UTF-8。暂存目录运行前后均 8 个，最新 13:29:22。
+                真机 r44-real：exit=0 / status=ok / final.ai 53,933 B（14:56:19）；
+                run.log 06:53:49Z rc=4 失败 → 06:56:39Z ok；REAL_AI=1 复跑 46/0/0；
+                两次历史 PDF 读数与 r38–r43 相同。
+
+四道闸        : selftest --fixtures 46/0/0 · run_fixtures 24/24 ·
+                validate 0 error 0 warning · zip ↔ 基线 58/0/0/0 ·
+                重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异与反例    : 五个出口与 H1 理由的 stale 分支都是真实负向反例；
+                selftest 46 条与 run_fixtures 24 例都不覆盖这些出口，计数不变。
+
+已知限制      : 自动路径失败时不删上一轮 final.ai：readback 已删、H1 必 fail，
+                但 H2 仍可能把它算作四件齐；不删是刻意的。
+                shutil.which / mkdtemp 在 try 之外；_mark_auto_failure 只吞 OSError。
+                其余同 r39–r43；半自动来源标注只到「路径由人工 JSX 断言」。
+
+独立 QA       : 第 37 轮签收首版（197,496 B / ffee34ac…1b85，P3×5），三条已修；
+                第 38 轮复核本版：签收，P1/P2 = 0，P3×5 记入
+                04-QA/test-log-r44/r44-09-QA第38轮.txt
+
+失存记录      : 首版包在同名重打包时被覆盖，已失存、不可复现；superseded/ 下
+                vector-ai-studio_r44-first_197496B_ffee34ac_TOMBSTONE.txt 为台账。
+                反推重建 197,463 B / 7cdd99a7…5842，sha256 不符，未冒充。
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r44-manifest.txt 比对，应 58/58
+                2) python scripts/selftest.py --fixtures 期望 46/46；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 caba99c8…fe0e（197,701 B）
+
+远端状态      : 未推送

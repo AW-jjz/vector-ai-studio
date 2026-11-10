@@ -34,6 +34,9 @@
         if (RESULT_PATH.indexOf("__RESULT_") !== 0) {
             try {
                 var rf = new File(RESULT_PATH);
+                // Pin the encoding: this side reads the line back as UTF-8, and
+                // ExtendScript's default encoding varies by version and locale.
+                rf.encoding = "UTF-8";
                 rf.open("w");
                 rf.write(line);
                 rf.close();

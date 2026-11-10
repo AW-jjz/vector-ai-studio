@@ -669,17 +669,22 @@ def _drop_stale_readback(run_dir):
         return False
 
 
-def _mark_auto_failure(run_dir, note):
+def _mark_auto_failure(run_dir, note, automation="auto"):
     """Leave a fail landing and no stale readback before an early return.
 
     The automatic path used to return on error while the previous run's
     landing/readback stayed in the same directory, so aggregate_log could
-    still read a pass that this run never produced.
+    still read a pass that this run never produced. A landing that cannot be
+    written must not replace the original error, hence the swallowed OSError.
     """
     cleared = _drop_stale_readback(run_dir)
-    L.write_json_atomic(run_dir / "landing.json",
-                        _landing("auto", "fail", note, False, False,
-                                 {"stale_readback_removed": cleared}))
+    try:
+        L.write_json_atomic(run_dir / "landing.json",
+                            _landing(automation, "fail", note, False, False,
+                                     {"stale_readback_removed": cleared}))
+    except OSError:
+        pass
+    return cleared
 
 
 def _ensure_preview(run_dir, svg):
@@ -744,6 +749,11 @@ def main():
 
     svg = Path(args.svg) if args.svg else (run_dir / "final.svg")
     if not svg.is_file():
+        # This run produced nothing; the previous run's readback and landing
+        # must not stay behind to be graded as if they were this one's. In
+        # collect mode the automation label stays semi-manual.
+        _mark_auto_failure(run_dir, "source SVG not found",
+                           "semi-manual" if args.collect else "none")
         raise L.ToolError("E-H1-STRUCTURE", "source SVG not found: " + svg.name, L.EXIT_USAGE)
     text = svg.read_text(encoding="utf-8")
     sig = L.analyze_svg(text)
@@ -770,7 +780,8 @@ def main():
                                        "substitute": msg["semi_manual_note"]})
         # A truncated result file (the JSX opens it before writing) must fail
         # like any other bad result, not raise IndexError on an empty list.
-        raw = result_file.read_text(encoding="utf-8").strip()
+        # A UTF-8 BOM would otherwise hide the leading OK| from the parser.
+        raw = result_file.read_text(encoding="utf-8").lstrip("\ufeff").strip()
         line = raw.splitlines()[0] if raw else ""
         kv = _parse_ok(line)
         if kv is None:
@@ -860,11 +871,13 @@ def main():
             L.write_text_atomic(run_dir / "manual-bridge.jsx", jsx)
             L.write_text_atomic(run_dir / "MANUAL-STEPS.md", MANUAL_STEPS)
             _ensure_preview(run_dir, final_svg)
+            cleared = _drop_stale_readback(run_dir)
             L.write_json_atomic(run_dir / "landing.json",
                                 _landing("semi-manual", "degraded",
                                          msg["semi_manual_note"], False, False,
                                          {"manual_jsx": "manual-bridge.jsx",
-                                          "manual_steps": "MANUAL-STEPS.md"}))
+                                          "manual_steps": "MANUAL-STEPS.md",
+                                          "stale_readback_removed": cleared}))
             return L.emit(SCRIPT, status="degraded", code=L.EXIT_MISSING,
                           run_id=args.run_id,
                           data={"automation": "semi-manual", "status": "degraded",
@@ -878,8 +891,10 @@ def main():
                                      "final_svg": "final.svg"})
         # automatic L4 degradation: SVG + PNG only, no fake .ai
         _ensure_preview(run_dir, final_svg)
+        cleared = _drop_stale_readback(run_dir)
         L.write_json_atomic(run_dir / "landing.json",
-                            _landing("none", "degraded", msg["l4_note"], False, False))
+                            _landing("none", "degraded", msg["l4_note"], False, False,
+                                     {"stale_readback_removed": cleared}))
         return L.emit(SCRIPT, status="degraded", code=L.EXIT_MISSING,
                       run_id=args.run_id,
                       data={"automation": "none", "status": "degraded",
@@ -891,6 +906,7 @@ def main():
                                  "preview_png": "preview.png" if (run_dir / "preview.png").is_file() else ""})
 
     if args.semi_manual:
+        _mark_auto_failure(run_dir, "semi-manual requires COM not drivable", "none")
         raise L.ToolError("E-SEMI-MANUAL-NOT-ALLOWED",
                           "semi-manual is only allowed after detect_deps confirms COM is not drivable",
                           L.EXIT_USAGE)
@@ -910,6 +926,7 @@ def main():
     tmp_jsx = workspace / "_bridge_runtime.jsx"
     # Every exit below, including the error ones, still has to delete the
     # staging directory; a bare return used to leak it.
+    readback_written = False
     try:
         shutil.copyfile(final_svg, ws_svg)
         jsx = _make_jsx(ws_svg, ws_ai, args.outline_text == "1", result_file, save_opts)
@@ -956,6 +973,7 @@ def main():
         shutil.copyfile(ws_ai, run_dir / "final.ai")
         sd = _structure_doc(kv, sig, "auto")
         L.write_json_atomic(run_dir / "structure_readback.json", sd)
+        readback_written = True
 
         # Delivery manifest: measured facts + explicit warnings, so the client can
         # verify the artefact instead of taking our word for it.
@@ -989,6 +1007,23 @@ def main():
                       artifacts={"final_ai": "final.ai", "final_svg": "final.svg",
                                  "preview_png": "preview.png" if (run_dir / "preview.png").is_file() else "",
                                  "deliverable": "deliverable.json" if deliverable else ""})
+    except Exception:
+        if readback_written:
+            # The readback on disk was produced by THIS run, so it is evidence,
+            # not a stale file. Keep it and record the failure around it.
+            try:
+                L.write_json_atomic(run_dir / "landing.json",
+                                    _landing("auto", "fail",
+                                             "internal error after readback",
+                                             True, sd.get("ok") is True,
+                                             {"stale_readback_removed": False}))
+            except OSError:
+                pass
+        else:
+            # Nothing was produced; the previous run's files must not be graded
+            # as if they were this one's.
+            _mark_auto_failure(run_dir, "internal error during landing")
+        raise
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
 
