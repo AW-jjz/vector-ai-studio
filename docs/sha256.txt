@@ -1680,3 +1680,45 @@ sha256        : 7cae05c1000261287bdb1a115d1b2f033c549e9920822e154010c6662563511b
 校验方式      : python scripts/selftest.py 期望 58/58；带 --fixtures 期望 59/59
                 get-filehash 发布包应为 7cae05c1…511b（261,044 B）
 已推送发布提交 `e9cf14c`（父 `20a9834`）；回读 95/95 见 04-QA/test-log-r61/r61-06-readback.txt。
+
+────────────────────────────────────────────────────────────
+r62（2026-11-10）　断言数自证 + conformance 读 style=""
+────────────────────────────────────────────────────────────
+版本          : r62
+文件数        : 95
+字节数        : 262462
+sha256        : 04eba6cb16b35ba122fb496062ba9b8cc3768b9511510980e93a7bfe1e4eeaed
+冻结时刻      : 2026-11-10（04-QA/test-log-r62/00-freeze-r62-manifest.txt，95 文件逐件 md5）
+
+相对 r61 变更 : 3 个文件
+                SKILL.md                 2c2c2689ff0575edf5039da8eb80ef843844225a4b8a963ecaa5a4e0488a21a9
+                scripts/conformance.py   c2c796b850c7ba2d98c4543da6bd026cecc4ff3664a7d548201a4e896362be04
+                scripts/selftest.py      b28ccec06e3f66a5e76810eb692cd7a4eb287b1a11118cfaba1cbca98807143b
+
+内容          : 1) selftest：模块级 EXPECTED_ASSERTIONS = 60 + A60 守卫自计数
+                   （_ran = len(a) + 1；--fixtures 时 +1 计 A13），
+                   丢一条断言即 declared/ran 不等而变红
+                2) conformance._measure：解析行内 style=""，与 presentation
+                   attribute 一起按 CSS 级联取值（style 压属性、none 终止继承），
+                   新增 measured.style_sheets 计数（不解析选择器）
+                3) A61 三例：元素 style / 根 style 继承 + fill=none / style 压属性
+                4) SKILL.md：写明上述取值规则与「样式表只计数、不应用」
+
+实测证据      : selftest 60/0/60（--fixtures 61/61）
+                变异 A60：注释 A49 的一条 add → 58/1/59，唯一红项 A60 declared=60 ran=59
+                变异 A61：去掉 inline 读取 → 59/1/60，唯一红项 A61
+                Tabler coffee.svg 三形态（raw / sanitized / style 化）均 exit=0 widths=[2.0]
+                run_fixtures 24/24；validate 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 262462 B / 04eba6cb…eaed）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、196673 B、output_intent=1、
+                intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
+                证据目录 04-QA/test-log-r62/
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) <style> 样式表不做选择器匹配，仅计数
+                3) measured.style_sheets 尚无断言覆盖
+
+校验方式      : python scripts/selftest.py 期望 60/60；带 --fixtures 期望 61/61
+                get-filehash 发布包应为 04eba6cb…eaed（262,462 B）
+已推送发布提交 `f85432b`（父 `5ecd825`）；回读 95/95 见 04-QA/test-log-r62/r62-06-readback.txt。
