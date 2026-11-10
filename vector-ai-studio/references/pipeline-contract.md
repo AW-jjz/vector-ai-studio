@@ -148,10 +148,11 @@ land_ai.py 的保存选项全部显式写入 `IllustratorSaveOptions`，不依�
 | `structure` | 结构回读：`open_paths` / `reopen_paths` / `layers` / `reopen_layers` / `artboard` / `viewBox` |
 | `jsx_notes` | JSX 每步实际做了什么（如 `cmyk:objects=5:naive_no_icc`、`cropmarks:8`） |
 | `warnings` | 必须让客户知道的风险（第三方重存剥离 AIPrivateData、CMYK 未做色彩管理、无出血等） |
+| `tool_warnings` | 工具链自己看到的提示，保留写入方的写法：`land_vc` 收导出引擎各步的告警（同一条只留一次，按首次出现顺序），`land_ai` 收 PDF 读取器的条目（每条带 `pdf reader: ` 前缀，如对象流 `/N` 不符）。与 `warnings` 分工不同——这栏是"工具看到了什么"，`warnings` 是"客户需要知道什么"；`land_vc` 目前不转发读取器那一条（见下） |
 | `unverified` | **要求了但没兑现**的项。例如要求转 CMYK 而 PDF 兼容层仍以 `rg` 算子写 RGB，此条会出现在这里，不会被静默略过 |
 | `verify_yourself` | 客户可自行执行的校验命令与 sha256 |
 
-流记「未测」的已知情形——**只有一条会留下提示**：对象流 `/N` 与实际配对数不符时写一条 `pdf reader: …` 到 `deliverable.tool_warnings`（不是顶层 `warnings`）；`land_vc` 调 `_observe_ai` 时不传收集列表，该提示在 vectorcraft 引擎下落不下来。其余情形只能从 `decoded < objects` 与 `content_ops: null` 看出来：
+流记「未测」的已知情形——**只有一条会留下提示**：对象流 `/N` 与实际配对数不符时写一条 `pdf reader: …` 到 `deliverable.tool_warnings`（不是顶层 `warnings`）；`land_vc` 调 `_observe_ai` 时不传收集列表，该提示在 vectorcraft 引擎下落不下来。其余情形只能从 `decoded < objects`（有的流没测）或 `content_ops: null`（整页都没测）看出来：部分未测只看前者，整页未测只看后者；`decoded` 为 0 且 `objects ≥ 1` 时两个条件同时成立。
 
 | 情形 | 表现 |
 |---|---|

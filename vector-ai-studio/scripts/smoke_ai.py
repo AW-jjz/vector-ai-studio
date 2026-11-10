@@ -119,13 +119,16 @@ def main():
         except (OSError, json.JSONDecodeError):
             sr = {}
     ai_ok = (run_dir / "final.ai").is_file() and (run_dir / "final.ai").stat().st_size > 0
-    h1 = bool(sr.get("ok")) and ai_ok
+    # A stale run dir keeps the previous final.ai and readback, so artifact
+    # presence alone is not evidence: the landing command must have exited 0.
+    h1 = rc2 == 0 and bool(sr.get("ok")) and ai_ok
 
     if not h1:
         smoke["degradation"] = {"level": "L4",
-                               "reason": "landing ran but H1 readback assertion failed",
+                               "reason": "landing ran but H1 readback assertion failed "
+                                         "(land_ai exit=%d)" % rc2,
                                "missing": [], "substitute": ["inspect structure_readback.json"]}
-        smoke["ai_produced"] = ai_ok
+        smoke["ai_produced"] = ai_ok and rc2 == 0
         smoke["note"] = "H1 未通过，未宣称达标"
         L.write_json_atomic(log_dir / "smoke.json", smoke)
         L.append_run_log(log_dir, SCRIPT + " H1 failed")

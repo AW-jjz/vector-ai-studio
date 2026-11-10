@@ -584,7 +584,7 @@
       "items": {
         "type": "string"
       },
-      "description": "warnings emitted by the engine during export, verbatim"
+      "description": "warnings the toolchain saw, kept as each producer wrote them. Two writers: land_vc records export-engine warnings, one entry per distinct string in first-seen order; land_ai records the PDF reader's entries, each prefixed with 'pdf reader: '. land_vc does not forward the reader's entry, so a vectorcraft manifest has no reader line"
     },
     "h1_pass": {
       "type": "boolean",

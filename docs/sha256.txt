@@ -426,4 +426,65 @@ sha256        : 4e59f47f8b8df6b364982c49822d98fa288496e109c7a193c6fa2e036dc170f7
                 （193,956 B；第 29 轮增补复核签收并推送，发布提交 4a3c81d；只降级不删除）
 
 
+════════════════════════════════════════════════════════════════════
+r40（2026-11-10，版本 1.1.0，58 文件 / 194,927 B）— 当前候选
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 194,927 B
+sha256        : e54efe4dc058d43a834c617359c486cb8e3368be11ca1311af761b5c1333bb13
+对应冻结基线  : 04-QA/test-log-r40/00-freeze-r40-manifest.txt（58 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 13:08:44，530,789 B
+                清单 sha256 7fb04ed252b30b649e76db9ed6e929694b1e584cfca9bd548c6788058dd4a3ab
+
+本版包含      : 清掉第 31 轮复核的 2 条 P3，并修掉自己发现的一处取信缺陷
+                · deliverable 字段表补 `tool_warnings`：r39 正文引用了它，表里却没有；
+                  写明与 `warnings` 的分工，以及两个写入方的差别（land_vc 收导出告警、
+                  同一条只留一次；land_ai 收读取器条目、带 `pdf reader: ` 前缀；
+                  land_vc 不转发读取器那一条）
+                · 「decoded < objects 与 content_ops: null」→「或」，并写明不是二选一：
+                  部分未测看前者，整页未测看后者，decoded=0 且 objects≥1 时两者同时成立
+                · schema 里 tool_warnings 的描述去掉「verbatim」与「原样」类措辞——
+                  land_ai 每条带前缀，land_vc 会去重，都不是逐字照录
+                · smoke_ai.py 的 H1 判定加入 land_ai 退出码：复用同一 --run-id 目录时，
+                  旧产物会让落地失败（rc=4）仍被判 ok
+
+相对 r39 变更 : 新增 0 / 删除 0 / 修改 3 / 其余 55 个 sha256 不变
+                references/pipeline-contract.md 25,310 → 25,916 B
+                references/schemas/deliverable.schema.json 16,731 → 17,009 B
+                scripts/smoke_ai.py 8,531 → 8,779 B
+
+实测证据      : land_ai / land_craft / land_vc 与 r39 逐字节相同，两份历史 PDF 复算与
+                r39 逐键相同（k=20/K=1/scn=1/SCN=32；k=4/K=1）。
+                新冒烟 smoke_ai.py --run-id r40-real：exit=0 / status=ok /
+                final.ai 53,881 B；REAL_AI=1 复跑 selftest 46/0/0，
+                A31 = ai(real:run-r40-real)。
+                中间两次 rc=4 DOJAVASCRIPT_FAILED：12:51:26 修前记 ok、12:57:57 修后记 fail，
+                其后两次重试 exit=0；失败当次的 land-raw 已被覆盖，只剩 run.log 可证，
+                这一点已如实写进证据文件，不复现、不补造。
+                见 04-QA/test-log-r40/r40-07-真机零漂移.txt 与 r40-00-gates.txt
+
+四道闸        : selftest --fixtures 46/0/0（A29 detail 与 r39 逐字相同）·
+                run_fixtures 24/24 · validate 0 error 0 warning ·
+                zip ↔ 基线 58/0/0/0 · 重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异自测      : 0 项新增（46+24 条断言都不覆盖 smoke 的失败判定）；
+                r38 的 9 红 + 1 对照绿沿用，smoke 的修复用真机 rc=4/rc=0 两态作正向反例。
+
+已知限制      : 同 r39；另 smoke 的 H1 依赖 Illustrator 进程状态，
+                COM 瞬时失败会如实判 fail，需人工重试；
+                land_ai 的 preview 失败会以 rc=4 退出（smoke 判 fail，偏安全），
+                rc=0 分支未单独断言本次新写的 .ai——均留 backlog
+
+独立 QA       : 第 31 轮增量复核，两轮结论连起来看是**最终签收 · 可推送**。
+                首轮「有条件签收」（P0/P1=0，P2×3 + P3×4）→ 条件三项已处置：
+                P2-1/P2-2 的「原文/原样」措辞已改；时间笔误已改；
+                P2-3 负向快照被覆盖已如实留档。
+                复核轮对改动后的三处与重打包逐项 PASS，并自算 58/58/0/0/0。
+                P3-2/P3-3（land_ai 的 preview 兜底与新写 .ai 断言）留 backlog。
+
+远端状态      : 未推送
+
+
+
 
