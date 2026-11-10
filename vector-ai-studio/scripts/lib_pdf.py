@@ -311,6 +311,27 @@ def _layer_count(text):
     return len(re.findall(r"\d+\s+\d+\s+R", oc.group(1))) if oc else 0
 
 
+_OBJECT_COUNTERS = (
+    ("device_rgb", rb"/DeviceRGB"),
+    ("device_cmyk", rb"/DeviceCMYK"),
+    # /OutputIntents is the catalog array that points at the intent objects, so
+    # counting it as an intent reports two for a file that declares one. It also
+    # made the same PDF read differently here and in land_craft, which already
+    # excluded the array.
+    ("output_intent", rb"/OutputIntent(?![s])"),
+    ("iccbased", rb"/ICCBased"),
+)
+
+
+def _object_counts(raw):
+    """Declared colour resources, counted once and the same way for both landers.
+
+    These numbers describe one file; two readers must not publish two values for
+    the same byte sequence.
+    """
+    return {key: len(re.findall(pat, raw)) for key, pat in _OBJECT_COUNTERS}
+
+
 def _color_mode(ops, device_cmyk, device_rgb, iccbased):
     """What the file actually paints, not what its resource dictionary declares.
 
@@ -350,6 +371,7 @@ def _observe_ai(path, warnings=None):
     """
     raw = Path(path).read_bytes()
     t = raw.decode("latin-1")
+    counts = _object_counts(raw)
     mb = re.search(r"/MediaBox\s*\[\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)", t)
     w = h = None
     if mb:
@@ -362,10 +384,10 @@ def _observe_ai(path, warnings=None):
         "pdf_compatible": t.startswith("%PDF"),
         "pdf_header": t[:8].strip() if t.startswith("%PDF") else "",
         "has_ai_private": "AIPrivateData" in t,
-        "device_rgb": len(re.findall(r"/DeviceRGB", t)),
-        "device_cmyk": len(re.findall(r"/DeviceCMYK", t)),
-        "output_intent": len(re.findall(r"/OutputIntent", t)),
-        "iccbased": len(re.findall(r"/ICCBased", t)),
+        "device_rgb": counts["device_rgb"],
+        "device_cmyk": counts["device_cmyk"],
+        "output_intent": counts["output_intent"],
+        "iccbased": counts["iccbased"],
         # FontFile counts embedded font *programs*. Counting /BaseFont counted
         # one Type0 font twice (the type plus its descendant CIDFont) and
         # disagreed with both vectorcraft's `info` and land_craft.
@@ -380,10 +402,8 @@ def _observe_ai(path, warnings=None):
         "content_ops": ops,
         "content_streams": op_stats,
         # Derived verdict: operators first, declarations only as fallback.
-        "color_mode": _color_mode(ops,
-                                  len(re.findall(r"/DeviceCMYK", t)),
-                                  len(re.findall(r"/DeviceRGB", t)),
-                                  len(re.findall(r"/ICCBased", t))),
+        "color_mode": _color_mode(ops, counts["device_cmyk"],
+                                  counts["device_rgb"], counts["iccbased"]),
     }
 
 

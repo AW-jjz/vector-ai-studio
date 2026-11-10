@@ -77,13 +77,11 @@ def _pdf_text(blob):
 def _pdf_facts(path, warnings=None):
     raw = path.read_bytes()
     facts = {"bytes": len(raw), "pdf_header": raw[:8].decode("latin1")}
-    for key in (b"/GTS_PDFXVersion", b"/OutputIntent", b"/OutputCondition",
-                b"/Trapped", b"/TrimBox", b"/BleedBox", b"/MediaBox",
-                b"/DeviceCMYK", b"/DeviceRGB", b"/ICCBased"):
-        # /OutputIntents is the catalog array; counting it as an intent object
-        # double-counts the file's single intent.
-        pat = re.escape(key) + (rb"(?![s])" if key == b"/OutputIntent" else b"")
-        facts[key.decode().lstrip("/")] = len(re.findall(pat, raw))
+    # Declared colour resources come from lib_pdf's counter: one file, one number.
+    facts.update(LP._object_counts(raw))
+    for key in (b"/GTS_PDFXVersion", b"/OutputCondition",
+                b"/Trapped", b"/TrimBox", b"/BleedBox", b"/MediaBox"):
+        facts[key.decode().lstrip("/")] = len(re.findall(re.escape(key), raw))
     for box in (b"TrimBox", b"BleedBox", b"MediaBox"):
         m = re.findall(rb"/" + box + rb"\s*\[([^\]]+)\]", raw)
         facts[box.decode().lower() + "_rect"] = m[0].decode("latin1").strip() if m else None
@@ -286,7 +284,7 @@ def _land(args, out):
 
     unverified = []
     if args.pdf_standard != "none" and pdf_facts:
-        if pdf_facts.get("GTS_PDFXVersion", 0) == 0 or pdf_facts.get("OutputIntent", 0) == 0:
+        if pdf_facts.get("GTS_PDFXVersion", 0) == 0 or pdf_facts.get("output_intent", 0) == 0:
             unverified.append("requested " + args.pdf_standard +
                               " but /GTS_PDFXVersion or /OutputIntent is absent")
         if not pdf_facts.get("trimbox_rect") or not pdf_facts.get("bleedbox_rect"):
@@ -300,7 +298,7 @@ def _land(args, out):
                 unverified.append("print PDF has no CMYK content operators")
         elif not sum(_ops.values()):
             unverified.append("print PDF has no colour operators in its page content")
-        if args.pdf_standard == "pdfX1a" and pdf_facts.get("DeviceRGB", 0) > 0:
+        if args.pdf_standard == "pdfX1a" and pdf_facts.get("device_rgb", 0) > 0:
             unverified.append("PDF/X-1a still declares DeviceRGB")
     if args.profile == "handoff":
         warnings.append("handoff: the .ai keeps SVG groups (engine has no group-to-layer command); "
@@ -357,7 +355,7 @@ def _land(args, out):
         "pdf_x": {"standard": args.pdf_standard,
                   "gts_pdfx": (pdf_facts or {}).get("GTS_PDFXVersion", 0),
                   "gts_pdfx_value": (pdf_facts or {}).get("gts_pdfx_value"),
-                  "output_intents": (pdf_facts or {}).get("OutputIntent", 0),
+                  "output_intents": (pdf_facts or {}).get("output_intent", 0),
                   "output_intent_objects": (pdf_facts or {}).get("output_intent_objects", 0),
                   "output_condition": (pdf_facts or {}).get("output_condition"),
                   "trimbox": (pdf_facts or {}).get("trimbox_rect"),

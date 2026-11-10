@@ -280,9 +280,10 @@
               "type": "integer",
               "minimum": 0
             },
-            "OutputIntent": {
+            "output_intent": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "同 observed.output_intent 的计数口径：/OutputIntents 目录数组不计入"
             },
             "OutputCondition": {
               "type": "integer",
@@ -304,15 +305,15 @@
               "type": "integer",
               "minimum": 0
             },
-            "DeviceCMYK": {
+            "device_cmyk": {
               "type": "integer",
               "minimum": 0
             },
-            "DeviceRGB": {
+            "device_rgb": {
               "type": "integer",
               "minimum": 0
             },
-            "ICCBased": {
+            "iccbased": {
               "type": "integer",
               "minimum": 0
             },

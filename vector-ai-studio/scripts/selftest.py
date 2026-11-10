@@ -862,6 +862,19 @@ def main():
         ai_undec, ai_undec_stats = _mod._content_ops(undec)
         craft_undec = _lc._pdf_facts(a29_undec)
 
+        # One intent object, one catalog array. /OutputIntents is the array that
+        # points at the intent, so counting it as an intent published 2 for a
+        # file that declares 1 -- and only lib_pdf counted it, so the two
+        # landers reported different numbers for the same bytes.
+        intent_pdf = (b"%PDF-1.6\n"
+                      b"1 0 obj\n<< /Type /Catalog /OutputIntents [ 2 0 R ] >>\nendobj\n"
+                      b"2 0 obj\n<< /Type /OutputIntent /S /GTS_PDFX >>\nendobj\n")
+        a29_intent = tmp / "a29-intent.pdf"
+        a29_intent.write_bytes(intent_pdf)
+        intent_shared = _mod._object_counts(intent_pdf)["output_intent"]
+        intent_ai = _mod._observe_ai(a29_intent)["output_intent"]
+        intent_craft = _lc._pdf_facts(a29_intent)
+
         # The schema is the single source of truth for the operator key set.
         # r36 widened the code from 4 keys to 10 while the schema still declared
         # 4, and every gate stayed green because additionalProperties is open --
@@ -903,6 +916,9 @@ def main():
                   ai_undec is None and ai_undec_stats.get("decoded") == 0 and
                   craft_undec["content_ops"] is None and
                   craft_undec["content_streams"]["decoded"] == 0 and
+                  intent_shared == 1 and intent_ai == 1 and
+                  intent_craft.get("output_intent") == 1 and
+                  intent_craft.get("output_intent_objects") == 1 and
                   scoped.get("k") == 0 and scoped.get("K") == 1 and scoped.get("rg") == 1 and
                   scoped_stats.get("objects") == 1 and
                   scoped_stats.get("refs") == 1 and
@@ -932,6 +948,8 @@ def main():
                       " fonts=" + str(fonts) + "/1" +
                       " craft=" + str(craft_facts["content_ops"] == scoped) +
                       " undec=" + str(ai_undec) + "/" + str(craft_undec["content_ops"]) +
+                      " intent=" + str(intent_ai) + "/" +
+                      str(intent_craft.get("output_intent")) + "/1" +
                       " keys=" + str(set(scoped) == _decl_keys) +
                       " ops=" + str(scoped))
     except Exception as e:                      # noqa: BLE001 - report, do not crash
