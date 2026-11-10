@@ -845,3 +845,54 @@ sha256        : ef3c5ed0465807261c6080e2e7f9faa57773668a67900673105a157ac6c435a2
                 回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
                 55/55 全等，missing/diff 均为空；docs 三件同 md5。
                 详见 04-QA/test-log-r45/r45-08-远端回读.txt
+
+════════════════════════════════════════════════════════════════════
+r46（2026-11-10，版本 1.1.0，55 文件 / 181,333 B）— 当前版本
+════════════════════════════════════════════════════════════════════
+
+文件数        : 55
+字节数        : 181,333 B
+sha256        : a0d3cd703a06815b7289036b1dbd8c0ce7ca64680916e9009c0f5964d7d87565
+对应冻结基线  : 04-QA/test-log-r46/00-freeze-r46-manifest.txt（55 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 16:16:45，490,051 B
+                清单 sha256 b793f579f02e9be7c1c7330d2ce9d15b6073ce48361c8029694ff914e12574ed
+
+本版包含      : 清 r45 唯一遗留项（预览旧图），并补上打印链的同一缺口
+                · lib_pdf 新增 _drop_stale_preview：删 preview.png 与 preview.meta.json，
+                  删不掉返回 False；_ensure_preview 改为复用这个函数后才渲染
+                · land_vc 五个失败出口（源 SVG 缺失、CLI 缺失、CLI 无法执行、
+                  导出失败/无 .ai、异常兜底）全部清旧预览，landing 记
+                  stale_preview_removed
+                · land_craft 的失败收尾同样清旧预览（它不做 render_png 回落）
+                · A40 三段都预置旧 preview.png + meta，断言三段清空且 landing
+                  标记为 True；新增 A47 断言 _ensure_preview「失败清空、成功替换」
+                · SKILL 更正渲染器链（无头浏览器只记 MISSING 不调用）与两个
+                  lander 的预览语义；pipeline-contract 补 stale_preview_removed
+
+相对 r45 变更 : 新增 0 / 删除 0 / 修改 6 / 其余 49 个 sha256 不变
+                scripts/selftest.py 103,438 → 106,167 B
+                scripts/lib_pdf.py 23,722 → 24,647 B
+                scripts/land_vc.py 22,448 → 23,953 B
+                scripts/land_craft.py 18,844 → 19,009 B
+                SKILL.md 29,103 → 29,520 B
+                references/pipeline-contract.md 26,278 → 26,552 B
+
+实测证据      : selftest --fixtures 47/0/0（VECTOR_AI_STUDIO_REAL_AI=1 复跑同为 47/0/0）
+                run_fixtures 24/24；validate_skill 0 error / 0 warning
+                双打包 ×2 字节一致，zip ↔ 基线 55/0/0/0
+                真机 smoke：status=ok / h1_pass=true / h2=true / grade=不达标
+                证据目录 04-QA/test-log-r46/
+
+已知限制      : CLI 若退出 0 却没有写出新 PNG，而目录里恰有旧图，当前的
+                is_file 检查会把它当作本次产物（需 CLI 自身撒谎才会触发，
+                A40/A47 不覆盖）。其余同 r45：无 /OutputIntent、无 /ICCBased；
+                Illustrator 打开时文字读成轮廓；本机 resvg / cairosvg / svgo 与
+                host LLM MISSING，预览走内置兜底
+
+独立 QA       : 第 40 轮首检「需修」（land_craft 打印链仍留旧图、SKILL 归因过宽），
+                修复后复核「可签收」；变异验证 A40 的预览子句非恒真
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r46-manifest.txt 比对，应 55/55
+                2) python scripts/selftest.py --fixtures 期望 47/47；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 a0d3cd70…7565（181,333 B）

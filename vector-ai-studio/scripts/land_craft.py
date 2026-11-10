@@ -141,9 +141,10 @@ def _structure(ai_path):
 
 
 def _record_failure(run_dir, note):
-    """Fail landing + no stale readback, so a failed print run cannot inherit
-    the previous run's H1 pass. Mirrors land_vc.py."""
+    """Fail landing + no stale readback or preview, so a failed print run cannot
+    inherit the previous run's H1 pass or its picture. Mirrors land_vc.py."""
     cleared = LP._drop_stale_readback(run_dir)
+    preview_cleared = LP._drop_stale_preview(run_dir)
     try:
         cur = json.loads((run_dir / "landing.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -153,7 +154,8 @@ def _record_failure(run_dir, note):
     try:
         L.write_json_atomic(run_dir / "landing.json",
                             LP._landing("none", "fail", note, False, False,
-                                        {"stale_readback_removed": cleared}))
+                                        {"stale_readback_removed": cleared,
+                                         "stale_preview_removed": preview_cleared}))
     except OSError:
         pass
 

@@ -188,6 +188,7 @@ def _record_failure(run_dir, note):
     already have written a more precise landing; it is not overwritten.
     """
     cleared = LP._drop_stale_readback(run_dir)
+    preview_cleared = LP._drop_stale_preview(run_dir)
     try:
         cur = json.loads((run_dir / "landing.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -197,7 +198,8 @@ def _record_failure(run_dir, note):
     try:
         L.write_json_atomic(run_dir / "landing.json",
                             LP._landing("none", "fail", note, False, False,
-                                        {"stale_readback_removed": cleared}))
+                                        {"stale_readback_removed": cleared,
+                                         "stale_preview_removed": preview_cleared}))
     except OSError:
         pass
 
@@ -230,10 +232,12 @@ def _run(args, run_dir):
     svg = Path(args.svg) if args.svg else (run_dir / "final.svg")
     if not svg.is_file():
         cleared = LP._drop_stale_readback(run_dir)
+        preview_cleared = LP._drop_stale_preview(run_dir)
         L.write_json_atomic(run_dir / "landing.json",
                             LP._landing("none", "fail", "source SVG not found",
                                         False, False,
-                                        {"stale_readback_removed": cleared}))
+                                        {"stale_readback_removed": cleared,
+                                         "stale_preview_removed": preview_cleared}))
         raise L.ToolError("E-H1-STRUCTURE", "source SVG not found: " + svg.name,
                           L.EXIT_USAGE)
 
@@ -242,14 +246,17 @@ def _run(args, run_dir):
         # Never pretend. Without the CLI there is no native .ai from this engine.
         # A previous run's readback must not survive to be graded as this run's.
         cleared = LP._drop_stale_readback(run_dir)
+        preview_cleared = LP._drop_stale_preview(run_dir)
         L.write_json_atomic(run_dir / "landing.json",
                             LP._landing("none", "degraded",
                                         "VectorCraft CLI not found", False, False,
-                                        {"stale_readback_removed": cleared}))
+                                        {"stale_readback_removed": cleared,
+                                         "stale_preview_removed": preview_cleared}))
         return L.emit(SCRIPT, status="degraded", code=L.EXIT_MISSING,
                       run_id=args.run_id,
                       data={"engine": "vectorcraft", "found": False,
-                            "stale_readback_removed": cleared},
+                            "stale_readback_removed": cleared,
+                            "stale_preview_removed": preview_cleared},
                       degradation={"level": "L4",
                                    "reason": "vectorcraft-cli not found",
                                    "substitute": "install vectorcraft-cli (or set VECTORCRAFT_CLI) and rerun"})
@@ -270,7 +277,19 @@ def _run(args, run_dir):
     try:
         rc, out, err = run_cli(cli, cmd)
     except (OSError, subprocess.SubprocessError) as e:
+        # A crash here is still a failed run: the previous readback and preview
+        # must not survive it, or aggregate_log grades the last pass again.
+        cleared = LP._drop_stale_readback(run_dir)
+        preview_cleared = LP._drop_stale_preview(run_dir)
+        L.write_json_atomic(run_dir / "landing.json",
+                            LP._landing("none", "fail",
+                                        "vectorcraft-cli could not be executed",
+                                        False, False,
+                                        {"stale_readback_removed": cleared,
+                                         "stale_preview_removed": preview_cleared}))
         return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR, run_id=args.run_id,
+                      data={"stale_readback_removed": cleared,
+                            "stale_preview_removed": preview_cleared},
                       errors=[L.err("E-H1-STRUCTURE",
                                     "vectorcraft-cli failed: " + type(e).__name__)])
     steps = parse_jsonl(out)
@@ -279,15 +298,18 @@ def _run(args, run_dir):
 
     if rc != 0 or not ai_path.is_file() or ai_path.stat().st_size == 0:
         cleared = LP._drop_stale_readback(run_dir)
+        preview_cleared = LP._drop_stale_preview(run_dir)
         L.write_json_atomic(run_dir / "landing.json",
                             LP._landing("vectorcraft", "fail",
                                         "no .ai produced (rc=" + str(rc) + ")",
                                         False, False,
-                                        {"stale_readback_removed": cleared}))
+                                        {"stale_readback_removed": cleared,
+                                         "stale_preview_removed": preview_cleared}))
         return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL, run_id=args.run_id,
                       data={"engine": "vectorcraft", "steps": steps,
                             "stderr": (err or "")[:300],
-                            "stale_readback_removed": cleared},
+                            "stale_readback_removed": cleared,
+                            "stale_preview_removed": preview_cleared},
                       errors=[L.err("E-H1-STRUCTURE",
                                     "no .ai produced (rc=" + str(rc) + ")")])
 

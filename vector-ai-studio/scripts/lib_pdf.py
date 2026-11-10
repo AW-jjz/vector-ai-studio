@@ -536,14 +536,37 @@ def _drop_stale_readback(run_dir):
         return False
 
 
+def _drop_stale_preview(run_dir):
+    """Delete the run's preview picture and its meta; True when both are gone.
+
+    H2 only asks whether preview.png parses, so a picture left by an earlier
+    design passes H2 for a run that rendered nothing. Both landers call this on
+    every failure exit, and _ensure_preview calls it before rendering.
+    """
+    for name in ("preview.png", "preview.meta.json"):
+        p = run_dir / name
+        try:
+            if p.is_file():
+                p.unlink()
+        except OSError:
+            return False
+    return True
+
+
 def _ensure_preview(run_dir, svg):
     """Render preview.png with render_png.py and never reuse an older one.
 
     Reusing an existing valid PNG meant a re-run whose own preview export failed
     shipped the previous design's picture (H2 only checks that the PNG parses),
     and the stale preview.meta.json from that older run survived beside it.
+    Deleting first is what makes that impossible: a failed render now leaves no
+    preview at all, which H2 reports as incomplete instead of grading the last
+    design. If the old file cannot be removed, the run fails rather than letting
+    an unlinkable stale picture stand in for this run's.
     """
     png = run_dir / "preview.png"
+    if not _drop_stale_preview(run_dir):
+        return False
     try:
         r = subprocess.run([sys.executable, str(SCRIPTS / "render_png.py"),
                             "--in", str(svg), "--out", str(png)],

@@ -1381,6 +1381,15 @@ def main():
                 "artboard_matches_viewBox": True,
                 "source": "vectorcraft-info"}), encoding="utf-8")
             (d / "final.ai").write_bytes(b"%PDF-1.4 stale-from-previous-run")
+            # H2 only asks whether preview.png parses, so a failed run that keeps
+            # the previous design's picture still looks complete. The seed makes
+            # that observable: every failure exit below must clear it.
+            (d / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\nstale-picture")
+            (d / "preview.meta.json").write_text('{"renderer": "stale"}', encoding="utf-8")
+
+        def _prev40_gone(where):
+            d = where or _hyg
+            return not (d / "preview.png").exists() and not (d / "preview.meta.json").exists()
 
         def _sr40_gone(where):
             p = (where or _hyg) / "structure_readback.json"
@@ -1403,9 +1412,10 @@ def main():
                              ["--svg", str(GOOD / "sample.svg"), "--out", str(_hyg),
                               "--vc", str(tmp / "definitely-no-cli.exe"), "--json"], tmp)
         _l40a = _landing40(_hyg)
-        _ok40a = (_rc40a == 3 and _sr40_gone(_hyg)
+        _ok40a = (_rc40a == 3 and _sr40_gone(_hyg) and _prev40_gone(_hyg)
                   and _l40a.get("status") == "degraded"
-                  and _l40a.get("stale_readback_removed") is True)
+                  and _l40a.get("stale_readback_removed") is True
+                  and _l40a.get("stale_preview_removed") is True)
 
         # (b) source SVG missing: fail landing, stale evidence removed
         _stale40(_hyg)
@@ -1413,7 +1423,8 @@ def main():
                              ["--svg", str(tmp / "missing.svg"),
                               "--out", str(_hyg), "--json"], tmp)
         _l40b = _landing40(_hyg)
-        _ok40b = (_rc40b == 2 and _sr40_gone(_hyg) and _l40b.get("status") == "fail")
+        _ok40b = (_rc40b == 2 and _sr40_gone(_hyg) and _prev40_gone(_hyg)
+                  and _l40b.get("status") == "fail")
 
         # (c) the print sibling has the same hygiene on its failure exit.
         # Its own directory on purpose: sharing (b)'s would let (b)'s fail
@@ -1425,9 +1436,10 @@ def main():
                              ["--svg", str(tmp / "missing.svg"),
                               "--out", str(_hygc), "--json"], tmp)
         _l40c = _landing40(_hygc)
-        _ok40c = (_rc40c in (2, 3) and _sr40_gone(_hygc)
+        _ok40c = (_rc40c in (2, 3) and _sr40_gone(_hygc) and _prev40_gone(_hygc)
                   and _l40c.get("status") == "fail"
-                  and _l40c.get("stale_readback_removed") is True)
+                  and _l40c.get("stale_readback_removed") is True
+                  and _l40c.get("stale_preview_removed") is True)
         add("A40-failed-landing-clears-stale-evidence",
             bool(_ok40a and _ok40b and _ok40c),
             "vc_no_cli=" + str(_ok40a) + " vc_no_svg=" + str(_ok40b)
@@ -1510,6 +1522,38 @@ def main():
                     "A41-brand-reference-jaccard"):
             if not any(x["id"] == _id for x in a):
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A47: a failed preview render must not leave the previous picture ----
+    # H2 only asks whether preview.png parses, so a stale PNG from an earlier
+    # design passed H2 for a run whose own render failed -- and the stale
+    # preview.meta.json described a renderer that never ran this time.
+    # _ensure_preview deletes both before rendering. Both halves are asserted:
+    # failure clears them, success replaces the picture instead of returning
+    # True beside the old one.
+    try:
+        _spec47 = importlib.util.spec_from_file_location("lib_pdf_a47",
+                                                         SCRIPTS / "lib_pdf.py")
+        _lp47 = importlib.util.module_from_spec(_spec47)
+        _spec47.loader.exec_module(_lp47)
+        _p47 = tmp / "a47-preview"
+        _p47.mkdir()
+        _junk47 = b"\x89PNG\r\n\x1a\nstale-from-previous-run"
+        (_p47 / "preview.png").write_bytes(_junk47)
+        (_p47 / "preview.meta.json").write_text('{"renderer": "stale"}', encoding="utf-8")
+        _fail47 = _lp47._ensure_preview(_p47, tmp / "no-such.svg")
+        _cleared47 = (not (_p47 / "preview.png").exists()
+                      and not (_p47 / "preview.meta.json").exists())
+        _ok47 = _lp47._ensure_preview(_p47, RECT)
+        _fresh47 = bool(_ok47 and (_p47 / "preview.png").is_file()
+                        and (_p47 / "preview.png").read_bytes() != _junk47
+                        and (_p47 / "preview.meta.json").is_file())
+        add("A47-failed-preview-clears-stale-png",
+            bool(_fail47 is False and _cleared47 and _fresh47),
+            "fail_returns=" + str(_fail47) + " cleared=" + str(_cleared47)
+            + " rerender=" + str(_ok47) + " replaced=" + str(_fresh47))
+    except Exception as e:                      # noqa: BLE001
+        add("A47-failed-preview-clears-stale-png", False,
+            type(e).__name__ + ": " + str(e)[:140])
 
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
