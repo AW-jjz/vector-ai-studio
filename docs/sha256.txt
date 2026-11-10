@@ -1892,3 +1892,42 @@ sha256        : beee52d0145eee98931f8b16706639005c5d1cdd1e113e83bc8ef61a4451c662
 校验方式      : python scripts/selftest.py 期望 66/66；带 --fixtures 期望 67/67
                 get-filehash 发布包应为 beee52d0…c662（270,229 B）
 已推送发布提交 `b495aa9`（父 `6349c8a`）；回读 95/95 见 04-QA/test-log-r66/r66-06-readback.txt。
+
+────────────────────────────────────────────────────────────
+r67（2026-11-10）　描边按墨量计，全透明判红，示例进自检
+────────────────────────────────────────────────────────────
+版本          : r67
+文件数        : 95
+字节数        : 272213
+sha256        : a0d04e825b95ab466382cd47a179ad42045f92e523e76f94f94ed909f3d73952
+冻结时刻      : 2026-11-10（04-QA/test-log-r67/00-freeze-r67-manifest.txt，95 文件逐件 md5）
+
+相对 r66 变更 : 3 个文件
+                SKILL.md                 ac714958d8259574ec3dd62a8b6e752c34f79fabb4cc4453072801cee1dd91c0
+                scripts/conformance.py   22ab3b6be884ee6324850865f3ab4734da32510ed823f2aa162478856df5455d
+                scripts/selftest.py      dfd1e15fe932f21e7b5919434c72f3390dfba94131361c51849ed9374585bb95
+
+内容          : 1) 描边墨量 = 周长 × stroke-width（旧值误用填充面积：报 0.6944，真实 0.1389）
+                2) 填充与描边并存时，填充色扣 perimeter×width/2；接缝、端帽不计；
+                   椭圆周长用 Ramanujan 近似；path 仍判 unmeasurable，不拿 0 冒充
+                3) measured.painted；painted=0 判 PAINTED 失败（全透明文件此前全绿）
+                4) A68 / A69 / A70；A70 把 examples/01-bookshop、02-coffee、03-devtool 纳入自检
+                5) EXPECTED_ASSERTIONS 66 → 69
+
+实测证据      : selftest 69/0/69（--fixtures 70/70）
+                变异 描边退回填充面积 → A68 单红
+                变异 关掉 PAINTED → A69 + A63 红（A63 连带属预期）
+                变异 path 几何返回 0 → 无红，bbox 冗余守卫仍判 path（非缺口，见 r67-04-mutation.txt）
+                run_fixtures 24/24；validate 0 error / 0 warning
+                双打包 ×2 字节一致（95 文件 / 272213 B / a0d04e82…3952）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、196120 B、output_intent=1、
+                intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
+                证据目录 04-QA/test-log-r67/
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) path 的描边墨量不可测，判 unmeasurable 而不是 0
+                3) 接缝、端帽、曲线段按直线 / 近似计，误差已写明
+
+校验方式      : python scripts/selftest.py 期望 69/69；带 --fixtures 期望 70/70
+                get-filehash 发布包应为 a0d04e82…3952（272,213 B）
