@@ -25,7 +25,7 @@
 | spec.json | vector-ai-studio/spec-v1 | `../scripts/freeze_spec.py` | elements / attributes / palette / rounds |
 | deps.json | vector-ai-studio/deps-v1 | `../scripts/detect_deps.py` | dependencies[] / missing[] / credential_audit / summary |
 | judge.json | vector-ai-studio/judge-v1 | `../scripts/llm_judge.py` | items / stats / degraded / readable |
-| score.json | vector-ai-studio/score-v1 | `../scripts/score.py` | scores{A..F} / failed_dims / passed_dims / signals |
+| score.json | vector-ai-studio/score-v1 | `../scripts/score.py` | scores{A..F} / failed_dims / passed_dims / signals / verdicts[]（id / dim / msg / action） |
 | revision.json | vector-ai-studio/revision-v1 | `../scripts/iterate.py` | change_only / must_keep / decision / K_max |
 | batch.json | vector-ai-studio/batch-v1 | `../scripts/batch_check.py` | F / f_verified / per_run[] / aggregate |
 | preview.meta.json | vector-ai-studio/preview-meta-v1 | `../scripts/render_png.py` | renderer / degraded / note / width / height / fidelity（full 或 faithful 或 limited；缺字段按 limited 处理） |
@@ -34,6 +34,9 @@
 | studio.json | vector-ai-studio/studio-v1 | `../scripts/studio.py` | status / stages[]（stage / status / code / errors / detail）；单稿编排的阶段流水，不参与评级 |
 | key.json | vector-ai-studio/review-key-v1 | `../scripts/studio.py --review-pack` | seed / cases[]（case → source）；盲评映射，只给归档、不给评审人 |
 | acceptance.json | vector-ai-studio/acceptance-v1 | `../scripts/aggregate_log.py` | headline(首行) / grade / scores / rounds / hard_gates / degradation |
+| deal.json | vector-ai-studio/deal-v1 | `../scripts/deal.py` | seed / tones / excluded_from_previous_rounds / directions[]（archetype / palette / composition / why / risk） |
+| deal-history.json | vector-ai-studio/deal-history-v1 | `../scripts/deal.py` | rounds[]，只保留最近两轮；损坏或 schema 不符即 `E-SCHEMA` 退出 2，不覆盖原文件 |
+| legibility.json | vector-ai-studio/legibility-v1 | `../scripts/legibility.py` | measured（contrast / coverage / coverage_small / components / gray_bands）/ verdicts[] / gates |
 | selftest.json | vector-ai-studio/selftest-v1 | `../scripts/selftest.py` | assertions[] / chain[] / passed / failed |
 
 `scores` 单项为 `{score, measured, threshold, degraded}`、字符串 N/A 或 L2 状态枚举 N/A (capability_missing)（非分数）。分档是 `../scripts/aggregate_log.py` 按 `../config/thresholds.json` 的数值比较，LLM 不得宣布；L2 下 A/B 非 ≥1，机械得出不达标。

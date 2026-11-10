@@ -34,8 +34,8 @@
 | `E-NO-SCORE` | 受评日志缺少必需维 `{A,B,C,D,F}`；达标日志还须带 `E` | aggregate_log |
 | `E-OUTPUT-STALE` | 调用引擎前清不掉上一轮的产物（`output/<run-id>/final.ai`、`output/<run-id>/print.pdf`、`output/<run-id>/preview.png`），拒绝继续：旧文件会让「文件存在」被误当成本轮产出 | land_vc, land_craft |
 | `E-QUICK-UNVERIFIED` | quick 模式（F 未验证）宣称达标 | aggregate_log |
-| `E-RENDERER-MISSING` | 渲染器全部缺失且内置兜底也产不出真实 PNG | render_png |
-| `E-SCHEMA` | 输入结构不符合 schema | aggregate_log, lib_common, run_fixtures, score |
+| `E-RENDERER-MISSING` | 渲染器全部缺失且内置兜底也产不出真实 PNG；或 Pillow 缺失导致 PNG 无法读取，小尺寸三检保持未测量 | render_png, legibility |
+| `E-SCHEMA` | 输入结构不符合 schema；含 deal 历史文件损坏或 schema 不符（此时代码拒绝继续且不覆盖原文件，不做静默重置） | aggregate_log, deal, lib_common, run_fixtures, score |
 | `E-STUDIO-STAGE` | studio.py 的某阶段以非零码结束但未带更具体的码（如 score.py 因零分维返回 1）；消息里列出停链的阶段 | studio.py |
 | `E-SELFTEST` | 自检断言失败（附失败断言 id 列表） | selftest |
 | `E-SEMI-MANUAL-NOT-ALLOWED` | 未确认 COM 不可用却要求半自动路径（已废弃：r45 移除 Adobe/COM 链路，半自动路径不复存在；保留供下游按码分流） | （已废弃） |

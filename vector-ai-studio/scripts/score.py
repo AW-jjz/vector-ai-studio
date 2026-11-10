@@ -189,6 +189,68 @@ def _perceptual_block(colors, spec, th):
     return measured, warns
 
 
+# Named verdicts turn a failed dimension into one sentence a human can act on.
+# They are a mapping over existing thresholds, not a second scoring system: no
+# new numbers live here, and a verdict never upgrades or downgrades a score.
+VERDICT_ACTIONS = {
+    "MISSING-ELEMENTS": "回到冻结清单，逐条补齐未命中的必备元素后重画",
+    "TOO-SPARSE": "缩小画板或放大一级形，让主体占画面更多",
+    "TOO-DENSE": "删掉三级元素或加大外边距，先恢复呼吸位",
+    "OFF-BALANCE": "把主形移向光学中心，别再用几何中心",
+    "OVER-COLOURED": "合并最接近的两色，把色数压回预算内",
+    "STROKE-CHAOS": "线宽收敛到两档，按层级而不是按元素大小分配",
+    "COLOUR-COLLISION": "两色在 CIELAB 里太近，拉开明度或色相",
+    "FLAT-STRUCTURE": "按语义重新分组，别把所有图元塞进一层",
+    "BROKEN-PATH": "修退化路径、短段或折返点，闭合形优先",
+    "STYLE-DRIFT": "回到参考的 token 集合（色板 / 线宽 / 圆角）",
+    "UNSTABLE-ACROSS-RUNS": "对比各 run 的差异源，先消掉不稳定的生成步骤",
+    "PASS": "",
+}
+
+
+def _verdicts(failed_dims, scores, sig, color_count, stroke_count, th):
+    """One named verdict per failed dimension, with the measured value quoted."""
+    if not failed_dims:
+        return [{"id": "PASS", "dim": "", "msg": "no dimension failed", "action": ""}]
+    out = []
+    for dim in failed_dims:
+        if dim == "A":
+            v = "MISSING-ELEMENTS"
+            msg = "hit-rate below the frozen list"
+        elif dim == "B":
+            ws = sig.get("whitespace")
+            lo, hi = th["B"]["whitespace_pass"]
+            if ws is not None and ws > hi:
+                v, msg = "TOO-SPARSE", "whitespace %.2f > %.2f" % (ws, hi)
+            elif ws is not None and ws < lo:
+                v, msg = "TOO-DENSE", "whitespace %.2f < %.2f" % (ws, lo)
+            else:
+                v, msg = "OFF-BALANCE", "centroid offset %.2f" % (
+                    sig.get("centroid_offset_ratio") or 0.0)
+        elif dim == "C":
+            if color_count > th["C"]["max_colors_pass"]:
+                v, msg = "OVER-COLOURED", "%d colours > %d" % (
+                    color_count, th["C"]["max_colors_pass"])
+            elif stroke_count > th["C"]["max_stroke_widths_pass"]:
+                v, msg = "STROKE-CHAOS", "%d stroke widths > %d" % (
+                    stroke_count, th["C"]["max_stroke_widths_pass"])
+            else:
+                v, msg = "COLOUR-COLLISION", "perceptual colour check failed"
+        elif dim == "D":
+            broken = (sig.get("degenerate_paths", 0) > 0
+                      or sig.get("tangent_reversal_count", 0) > 0
+                      or sig.get("short_segment_ratio", 0) > th["D"]["short_segment_ratio_max"])
+            v = "BROKEN-PATH" if broken else "FLAT-STRUCTURE"
+            msg = "structure check failed (groups=%d)" % len(sig.get("g_ids") or [])
+        elif dim == "E":
+            v, msg = "STYLE-DRIFT", "token overlap below the E threshold"
+        else:
+            v, msg = "UNSTABLE-ACROSS-RUNS", "F statistics failed"
+        out.append({"id": v, "dim": dim, "msg": msg,
+                    "action": VERDICT_ACTIONS[v]})
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description="deterministic A-F scoring")
     ap.add_argument("--svg", required=True)
@@ -411,6 +473,7 @@ def main():
         "passed_dims": passed_dims,
         "signals": signals,
         "perceptual_warnings": perc_warn,
+        "verdicts": _verdicts(failed_dims, scores, sig, len(colors), len(strokes), th),
         "measured_summary": {
             "whitespace": sig["whitespace"],
             "centroid_offset_ratio": sig["centroid_offset_ratio"],
@@ -441,7 +504,8 @@ def main():
                   run_id=args.run_id,
                   data={"scores": scores, "failed_dims": failed_dims,
                         "passed_dims": passed_dims, "degraded_dims": degraded_dims,
-                        "signals": signals, "l2_degraded": l2, "round": args.round},
+                        "signals": signals, "l2_degraded": l2, "round": args.round,
+                        "verdicts": score_doc["verdicts"]},
                   errors=errors, artifacts=artifacts)
 
 

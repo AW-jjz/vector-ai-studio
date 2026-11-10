@@ -16,6 +16,11 @@ Stage order and stop policy:
   clean   sanitize_svg                  stop on failure (forbidden constructs)
   render  render_png                    continue, degraded (preview is evidence,
                                         not a gate)
+  legible legibility                    stop on failure (a mark that vanishes at
+                                        16px is not landable); skipped when the
+                                        preview came from the builtin fallback,
+                                        because measuring a low-fidelity PNG
+                                        would mislead
   score   llm_judge + score             stop on failure (do not land a failing
                                         design by accident)
   land    land_vc                       stop on failure / degraded without CLI
@@ -45,6 +50,7 @@ STAGE_SCRIPTS = {
     "spec": "freeze_spec.py",
     "clean": "sanitize_svg.py",
     "render": "render_png.py",
+    "legible": "legibility.py",
     "judge": "llm_judge.py",
     "score": "score.py",
     "land": "land_vc.py",
@@ -105,6 +111,23 @@ def _run_chain(args, out):
     # A built-in fallback preview still exits 0; the degradation lives in the
     # envelope's status, so the flag must read that, not the process code.
     degraded = env_preview.get("status") != "ok"
+
+    # 3b. legibility: only on a real preview. The builtin fallback is a
+    # low-fidelity stand-in, so a 16px measurement of it would report on the
+    # fallback rather than on the design.
+    if not degraded and (rd / "preview.png").is_file():
+        rc, env = _call("legible", ["--png", str(rd / "preview.png"),
+                                    "--out", str(rd / "legibility.json")])
+        stages.append(_stage_row("legible", rc, env))
+        if rc == 1:
+            return _finish(out, stages, rc, env)
+        degraded = degraded or rc == 3
+    else:
+        stages.append({"stage": "legible", "status": "skipped", "code": 0,
+                       "errors": [],
+                       "detail": "preview is not from a real renderer: the 16px "
+                                 "check would measure the fallback, not the design"})
+
     if args.judge:
         rc, env = _call("judge", ["--judge", args.judge, "--validate",
                                   "--spec", str(out / "spec.json")])

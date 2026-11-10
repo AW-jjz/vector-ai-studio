@@ -38,7 +38,7 @@ python vector-ai-studio/scripts/run_fixtures.py
 
 | 环境 | `selftest --fixtures` | `run_fixtures` |
 |---|---|---|
-| 装了 VectorCraft CLI | **51/51**，`status=ok`，**exit 0** | **24/24**，exit 0 |
+| 装了 VectorCraft CLI | **54/54**，`status=ok`，**exit 0** | **24/24**，exit 0 |
 | 没装 | A30/A31 两条转 skipped，`status=partial`，**exit 3** | 24/24，exit 0 |
 
 **`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。
@@ -56,12 +56,16 @@ python vector-ai-studio/scripts/detect_deps.py --json
 
 ```
 python vector-ai-studio/scripts/freeze_spec.py --spec spec.json --validate --out <RUN>/spec.json
+python vector-ai-studio/scripts/deal.py --spec <RUN>/spec.json --out <RUN>/deal.json --history <RUN>/deal-history.json
 python vector-ai-studio/scripts/sanitize_svg.py --in draft.svg --out <RUN>/final.svg
 python vector-ai-studio/scripts/render_png.py --in <RUN>/final.svg --out <RUN>/preview.png
+python vector-ai-studio/scripts/legibility.py --png <RUN>/preview.png --out <RUN>/legibility.json
 python vector-ai-studio/scripts/land_vc.py --svg <RUN>/final.svg --out <RUN> --profile print
 python vector-ai-studio/scripts/score.py --svg <RUN>/final.svg --judge judge.json --spec spec.json --out <RUN>/score.json
 python vector-ai-studio/scripts/aggregate_log.py --run-dir <RUN> --run-id <ID>
 ```
+
+`deal.py` 在动笔前发三个方向并排除最近两轮用过的原型，避免每轮都回到同一张居中徽章；`legibility.py` 在画完后读预览 PNG，卡三件 240px 看不出的失效：16px 时墨没了（`COLLAPSED`）、糊成实心（`MUD`）、灰度对比不足（`LOW-CONTRAST`）。
 
 印刷母版还有 `land_craft.py`（PDF/X-1a/X-3/X-4、出血、裁切标记），与 `land_vc.py` 写同一套 `deliverable.json` / `structure_readback.json` / `landing.json`。
 

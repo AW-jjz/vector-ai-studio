@@ -74,6 +74,19 @@ python scripts/freeze_spec.py --spec path/to/spec.json --validate --out path/to/
 
 这一步决定成品上限。跳过它，后面的净化与打分只能保证「不出错」，不能保证「好看」。人评口径见该文件第 10 节，盲评表模板是 `templates/design-review.md`。
 
+### 步 1.6 发牌：让三轮不撞原型（C1 质量前置）
+
+直接问模型「给三个方向」，得到的是同一张居中徽章换三种颜色。改法是发牌：
+
+```
+python scripts/deal.py --spec path/to/run/spec.json --out path/to/run/deal.json \
+  --history path/to/run/deal-history.json --seed 7
+```
+
+从 `references/archetypes/` 的十个原型、十二套色板、五种构图里各发三张，并按历史排除**最近两轮**用过的原型——窗口是轮次，不是「原则上尽量不重复」。同一 seed 加同一历史必得同一份 `output/<run-id>/deal.json`，重跑可复现；历史文件损坏或 schema 不符时以 `E-SCHEMA` 退出 2，**拒绝静默重置**（重置会重新造出它本来要防的重复）。
+
+每个方向留了 `why` / `risk` 两个空槽，必须由人按当次 brief 填满再动笔。空 `why` 意味着方向是骰子选的，不是 brief 选的。
+
 ### 步 2 生成结构化纯矢量 SVG（C1）
 
 宿主 LLM 按 `references/svg-dsl.md` 的冻结清单逐条覆盖、色板内取值、语义分组命名、纯矢量子集约束，直接写出一轮草稿。默认链路零凭据、零联网。
@@ -96,6 +109,18 @@ python scripts/render_png.py --in path/to/round/sanitized.svg --out path/to/roun
 
 渲染器按优先级探测；全部 MISSING 时用内置最小 SVG→PNG 兜底，产物必须是真实可解析 PNG（非零字节、PNG 魔数、可读宽高、IEND 完整），并标 `renderer: builtin-fallback` 与「预览保真度受限」。零字节或占位文件一律判 PNG 缺失。兜底图不足以支撑 A/B 读图时自动转 L2，不伪造分数。
 
+### 步 4.5 小尺寸、灰度、剪影三检（C1 质量前置）
+
+```
+python scripts/legibility.py --png path/to/round/preview.png --out path/to/round/legibility.json
+```
+
+240px 预览看不出的三种失效：16px 时墨没了、16px 时整块糊成实心、前景与背景灰度太近。三种都在 favicon、烫印、单色印刷上现形。读 PNG 而不是读 SVG，所以与渲染器无关。
+
+硬门只有三条，且每条都有外部依据或定义即失效：对比度低于 `C.contrast_graphic_ratio`（WCAG 2.1 SC 1.4.11）判 `LOW-CONTRAST`；16px 覆盖率为 0 判 `COLLAPSED`；16px 覆盖率满格判 `MUD`（与前者互为镜像，两种都没有剪影）。`FRAGMENTED` 与 `COVERAGE-DRIFT` 只报告、不判失败——那两个门限是工程值，未标定。
+
+Pillow 未装时显式降级（exit 3 + `E-RENDERER-MISSING`），不从 SVG 猜。
+
 ### 步 5 二值判读的校验与统计（A / B）
 
 宿主 LLM 读预览图，按冻结清单逐条给命中 / 未命中、主体是否相悖、主体完整 / 无明显失衡 / 对齐一致，写成逐条二值的判读文件；脚本只校验 schema、统计命中率，绝不自行判读语义。
@@ -113,6 +138,8 @@ python scripts/score.py --svg path/to/round/sanitized.svg --judge path/to/round/
 ```
 
 B 几何、C 色值线宽集合、D 路径结构、E 四类 token 的 Jaccard、F 统计全部由脚本计算；A 消费步 5 的命中率统计。所有阈值只从 `config/thresholds.json` 读取，脚本零硬编码。LLM 不得自行写分数。E 无参考时记 N/A，不计入总分。
+
+**每个失败维必须带一句具名判决和一个动作。** `output/<run-id>/round-1/score.json` 与信封的 `verdicts` 字段由 `VERDICT_ACTIONS` 映射产出：`OVER-COLOURED` 会附上「9 colours > 8」和「合并最接近的两色」。判决表是既有阈值的一层映射，不新增任何数字，也不改分数；没有失败维时只输出一条 `PASS`，不输出空数组——「没有判决」和「没有失败」必须能区分。
 
 **C 维的感知测量（`scripts/perceptual.py`）**
 
@@ -237,7 +264,7 @@ python scripts/studio.py --spec path/to/spec.json --svg path/to/draft.svg \
   --out output/<run-id> --profile screen [--judge path/to/judge.json] [--reference path/to/reference.svg]
 ```
 
-依次执行冻结校验、净化、预览、判读与打分（只有给了 `--judge` 才做）、落地。任一阶段失败即停，每阶段状态写进 `output/<run-id>/studio.json`。它不替代步 7–10 的 F 汇总与验收聚合，只是把「单稿能不能干净落地」压成一条命令，少一次漏跑 `--validate` 的机会。
+依次执行冻结校验、净化、预览、方寸三检、判读与打分（只有给了 `--judge` 才做）、落地。任一阶段失败即停，每阶段状态写进 `output/<run-id>/studio.json`。方寸三检只在预览来自真渲染器时执行：内置兜底图保真度不够，量它等于量兜底图而不是量稿子，此时记 `skipped` 而不是假装测过。它不替代步 7–10 的 F 汇总与验收聚合，只是把「单稿能不能干净落地」压成一条命令，少一次漏跑 `--validate` 的机会。
 
 盲评包：
 
@@ -264,6 +291,16 @@ python scripts/freeze_spec.py --spec path/to/spec.json --validate --out path/to/
 python scripts/sanitize_svg.py --in path/to/draft.svg --out path/to/round/sanitized.svg
 python scripts/render_png.py --in path/to/round/sanitized.svg --out path/to/round/preview.png
 ```
+
+### 发牌与三检
+
+```
+python scripts/deal.py --spec path/to/run/spec.json --out path/to/run/deal.json \
+  --history path/to/run/deal-history.json --seed 7
+python scripts/legibility.py --png path/to/round/preview.png --out path/to/round/legibility.json
+```
+
+`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。
 
 ### 判读、打分与收敛
 

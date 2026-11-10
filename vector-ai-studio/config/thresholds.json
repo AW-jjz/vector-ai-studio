@@ -61,6 +61,17 @@
     "ad_pass_rate_pass": 0.6667,
     "ad_pass_rate_excellent": 1.0
   },
+  "L": {
+    "downscale_px": 16,
+    "gap_luminance": 32,
+    "coverage_drift_warn": [0.5, 2.0],
+    "fragment_growth_warn": 2.0,
+    "coverage_small_mud": 1.0,
+    "_src_gap": "工程值，未标定：仅用于把前景与背景分开，不参与判失败。改它会改变 coverage 与 components 的读数，改前先存一组基准图。",
+    "_src_gates": "只卡三件有依据的事：对比度用 C.contrast_graphic_ratio（WCAG 2.1 SC 1.4.11，外部标准）；16px 覆盖率归零即 COLLAPSED；16px 覆盖率满格即 MUD。后两条互为镜像，定义即失效：零墨没有任何形，满格同样没有任何形。coverage_drift 与 fragment 只报告、不判失败。",
+    "_src_mud": "coverage_small == 1.0 是精确值不是估计：整张 16x16 每像素都被掩膜判为前景，缩小后不再有背景，剪影为零。网格线、棋盘格、密集排线在 1/15 缩放下会落到这里。",
+    "_src_small": "16px 取自 favicon 的常见最小尺寸；240px 画板缩到 16px 是 15:1，比浏览器标签更苛刻，属保守设定。"
+  },
   "grade": {
     "pass_requires_dims": ["A", "B", "C", "D", "F"],
     "excellent_requires": { "A": 2, "B": 2, "min_twos": 3 },

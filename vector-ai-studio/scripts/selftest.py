@@ -1676,7 +1676,8 @@ def main():
         _out50 = tmp / "a50"
         _out50.mkdir()
         _calls50 = []
-        _state50 = {"fail_spec": False, "land_missing": False}
+        _state50 = {"fail_spec": False, "land_missing": False,
+                    "real_preview": False, "legible_fail": False}
 
         def _fake50(stage, args, timeout=1800):
             _calls50.append((stage, list(args)))
@@ -1684,7 +1685,15 @@ def main():
                 return 1, {"status": "fail",
                            "errors": [{"code": "E-EMPTY-SPEC", "msg": "empty"}]}
             if stage == "render":
+                if _state50["real_preview"]:
+                    _o = list(args)[list(args).index("--out") + 1]
+                    Path(_o).write_bytes(b"\x89PNG\r\n\x1a\nstub-preview")
+                    return 0, {"status": "ok", "errors": []}
                 return 0, {"status": "degraded", "errors": []}
+            if stage == "legible" and _state50["legible_fail"]:
+                return 1, {"status": "ok",
+                           "errors": [{"code": "COLLAPSED",
+                                       "msg": "no ink left at 16px"}]}
             if stage == "land" and _state50["land_missing"]:
                 return 3, {"status": "degraded",
                            "errors": [{"code": "E-CAPABILITY-MISSING", "msg": "no cli"}]}
@@ -1736,18 +1745,37 @@ def main():
             except json.JSONDecodeError:
                 _env50c = {}
             _codes50c = [e.get("code") for e in (_env50c.get("errors") or [])]
+
+            # Fourth half: a real preview that fails the 16px check must stop
+            # before judge and land -- a mark nobody can read at 16px is not
+            # landable just because it is legal vector.
+            _state50["land_missing"] = False
+            _state50["real_preview"] = True
+            _state50["legible_fail"] = True
+            _calls50.clear()
+            _out50d = tmp / "a50d"
+            _out50d.mkdir()
+            _buf50d = io.StringIO()
+            with contextlib.redirect_stdout(_buf50d):
+                _rc50d = _st50._run_chain(argparse.Namespace(
+                    spec="s.json", svg="d.svg", out=str(_out50d),
+                    judge="j.json", reference="", profile="screen"), _out50d)
+            _order50d = [st for (st, a) in _calls50]
             add("A50-studio-chain-orders-and-stops",
                 bool(_rc50 == 3 and _order50 == ["spec", "clean", "render",
-                                                 "judge", "land"]
+                                                 "legible", "judge", "land"]
                      and _landed_sanitized and _goto_land
                      and _sj50["status"] == "degraded"
                      and _rc50b == 1 and _order50b == ["spec"]
-                     and _rc50c == 3 and "E-CAPABILITY-MISSING" in _codes50c),
+                     and _rc50c == 3 and "E-CAPABILITY-MISSING" in _codes50c
+                     and _rc50d == 1 and _order50d == ["spec", "clean", "render",
+                                                       "legible"]),
                 "rc=" + str(_rc50) + " order=" + str(_order50)
                 + " land_args_ok=" + str(_landed_sanitized)
                 + " clean_args_ok=" + str(_goto_land)
                 + " stop_rc=" + str(_rc50b) + " stop=" + str(_order50b)
-                + " missing_rc=" + str(_rc50c) + " codes=" + str(_codes50c))
+                + " missing_rc=" + str(_rc50c) + " codes=" + str(_codes50c)
+                + " legible_fail_rc=" + str(_rc50d) + " order=" + str(_order50d))
         finally:
             _st50._call = _orig50
     except Exception as e:                      # noqa: BLE001
@@ -1802,6 +1830,183 @@ def main():
             + " same_seed=" + str(_k51["cases"] == _k51b["cases"]))
     except Exception as e:                      # noqa: BLE001
         add("A51-review-pack-anonymous-and-deterministic", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A52: the deal must not repeat itself or reset its history silently --
+    # The point of deal.py is that the next round cannot look like the last two.
+    # A deck with no memory just reproduces the model's default look with extra
+    # steps, so the exclusion window is pinned against real rounds: three deals
+    # in a row, then the same seed replayed on the same history.
+    try:
+        _spec52 = ROOT / "examples" / "01-bookshop" / "spec.json"
+        _h52 = tmp / "a52-history.json"
+        _pre3 = tmp / "a52-pre3.json"
+        _rounds52, _rcs52 = [], []
+        for _i in range(3):
+            if _i == 2 and _h52.is_file():
+                _pre3.write_bytes(_h52.read_bytes())
+            _o52 = tmp / ("a52-round%d.json" % (_i + 1))
+            _rc52, _env52, _ = _call("deal.py", [
+                "--spec", str(_spec52), "--out", str(_o52),
+                "--history", str(_h52), "--seed", "7", "--json"], tmp)
+            _doc52 = json.loads(_o52.read_text(encoding="utf-8"))
+            _rcs52.append(_rc52)
+            _rounds52.append([d["archetype"] for d in _doc52["directions"]])
+        _distinct52 = all(len(r) == 3 and len(set(r)) == 3 for r in _rounds52)
+        _norep52 = (not (set(_rounds52[1]) & set(_rounds52[0]))
+                    and not (set(_rounds52[2])
+                             & (set(_rounds52[0]) | set(_rounds52[1]))))
+        _o52r = tmp / "a52-replay.json"
+        _h52r = tmp / "a52-history-replay.json"
+        _h52r.write_bytes(_pre3.read_bytes())
+        _call("deal.py", ["--spec", str(_spec52), "--out", str(_o52r),
+                          "--history", str(_h52r), "--seed", "7", "--json"], tmp)
+        _rep52 = [d["archetype"] for d in json.loads(
+            _o52r.read_text(encoding="utf-8"))["directions"]]
+        _same52 = _rep52 == _rounds52[2]
+        _hbad = tmp / "a52-bad-history.json"
+        _hbad.write_text('{"schema": "nope", "rounds": []}', encoding="utf-8")
+        _before52 = _hbad.read_bytes()
+        _rc52x, _env52x, _ = _call("deal.py", ["--spec", str(_spec52),
+                                               "--history", str(_hbad), "--json"], tmp)
+        _kept52 = _hbad.read_bytes() == _before52
+        add("A52-deal-no-repeat-and-no-silent-reset",
+            bool(_rcs52 == [0, 0, 0] and _distinct52 and _norep52 and _same52
+                 and _rc52x == L.EXIT_USAGE and "E-SCHEMA" in _codes(_env52x)
+                 and _kept52),
+            "rc=" + str(_rcs52) + " distinct=" + str(_distinct52)
+            + " no_repeat=" + str(_norep52) + " replay_same=" + str(_same52)
+            + " corrupt_rc=" + str(_rc52x) + " kept=" + str(_kept52))
+    except Exception as e:                      # noqa: BLE001
+        add("A52-deal-no-repeat-and-no-silent-reset", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A53: the 16px / grey / silhouette check must actually fail things ---
+    # Three failures are invisible at preview size: ink that vanishes at 16px,
+    # ink that fills the tile, and a foreground too close to its background.
+    # Each PNG below is generated with a known answer, so this tests the
+    # measurement, not the code path. When Pillow is absent the script must say
+    # so (exit 3 + E-RENDERER-MISSING) instead of guessing from the SVG.
+    try:
+        import contextlib
+        import io
+        import struct
+
+        def _png53(name, paint):
+            w = h = 240
+            raw = b"".join(b"\x00" + b"".join(bytes(paint(x, y))
+                                              for x in range(w))
+                           for y in range(h))
+
+            def _chunk(tag, data):
+                return (struct.pack(">I", len(data)) + tag + data
+                        + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff))
+            blob = (b"\x89PNG\r\n\x1a\n"
+                    + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                    + _chunk(b"IDAT", zlib.compress(raw, 6))
+                    + _chunk(b"IEND", b""))
+            p = tmp / (name + ".png")
+            p.write_bytes(blob)
+            return p
+
+        def _disk53(fill):
+            def paint(x, y):
+                d2 = (x - 120) ** 2 + (y - 120) ** 2
+                return fill if d2 <= 90 ** 2 else (255, 255, 255)
+            return paint
+
+        def _ring53(x, y):
+            d2 = (x - 120) ** 2 + (y - 120) ** 2
+            return (0, 0, 0) if 89 ** 2 <= d2 <= 90 ** 2 else (255, 255, 255)
+
+        def _grid53(x, y):
+            return (0, 0, 0) if x % 3 == 0 or y % 3 == 0 else (255, 255, 255)
+
+        _cases53 = [("a53-good", _disk53((17, 17, 17)), 0, "OK"),
+                    ("a53-low", _disk53((208, 208, 208)), 1, "LOW-CONTRAST"),
+                    ("a53-mud", _grid53, 1, "MUD"),
+                    ("a53-ring", _ring53, 1, "COLLAPSED")]
+        _bad53 = []
+        for _n53, _paint53, _want_rc53, _want53 in _cases53:
+            _p53 = _png53(_n53, _paint53)
+            _rc53, _env53, _ = _call("legibility.py", ["--png", str(_p53), "--json"], tmp)
+            _ids53 = {v.get("id") for v in
+                      ((_env53.get("data") or {}).get("verdicts") or [])}
+            if _rc53 != _want_rc53 or _want53 not in _ids53:
+                _bad53.append(_n53 + ":rc" + str(_rc53) + ":" + str(sorted(_ids53)))
+
+        _spec53 = importlib.util.spec_from_file_location("legibility_a53",
+                                                         SCRIPTS / "legibility.py")
+        _lg53 = importlib.util.module_from_spec(_spec53)
+        _spec53.loader.exec_module(_lg53)
+
+        class _BlockPIL:
+            def find_spec(self, name, path=None, target=None):
+                if name == "PIL" or name.startswith("PIL."):
+                    raise ImportError("blocked by A53")
+                return None
+
+        _blocker53 = _BlockPIL()
+        _saved53 = {k: sys.modules.pop(k) for k in list(sys.modules)
+                    if k == "PIL" or k.startswith("PIL.")}
+        _buf53 = io.StringIO()
+        _argv53 = sys.argv
+        sys.meta_path.insert(0, _blocker53)
+        sys.argv = ["legibility.py", "--png", str(tmp / "a53-good.png")]
+        try:
+            with contextlib.redirect_stdout(_buf53):
+                _rc53d = _lg53.main()
+        finally:
+            sys.argv = _argv53
+            sys.meta_path.remove(_blocker53)
+            sys.modules.update(_saved53)
+        try:
+            _env53d = json.loads(_buf53.getvalue() or "{}")
+        except json.JSONDecodeError:
+            _env53d = {}
+        _deg53 = (_rc53d == L.EXIT_MISSING and _env53d.get("status") == "degraded"
+                  and "E-RENDERER-MISSING" in _codes(_env53d))
+        add("A53-legibility-fails-what-the-eye-misses",
+            bool(not _bad53 and _deg53),
+            "cases=" + str([c[0] for c in _cases53]) + " bad=" + str(_bad53)
+            + " degraded=" + str(_deg53))
+    except Exception as e:                      # noqa: BLE001
+        add("A53-legibility-fails-what-the-eye-misses", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A54: every failed dimension must name itself and its next action ----
+    # A number tells a reader that something failed and nothing else. The
+    # verdict table turns each failure into one sentence with an action, so the
+    # assertion is a contract: one verdict per failed dimension, ids drawn from
+    # the registered table, and a clean run that says PASS rather than nothing.
+    try:
+        _common54 = ["--judge", str(GOOD / "judge.json"),
+                     "--spec", str(GOOD / "spec.json"), "--json"]
+        _rc54g, _env54g, _ = _call("score.py", ["--svg", str(GOOD / "sample.svg")]
+                                   + _common54, tmp)
+        _rc54b, _env54b, _ = _call("score.py", ["--svg", str(BAD / "palette_overflow.svg")]
+                                   + _common54, tmp)
+        _g54 = (_env54g.get("data") or {}).get("verdicts") or []
+        _b54 = (_env54b.get("data") or {}).get("verdicts") or []
+        _f54 = (_env54b.get("data") or {}).get("failed_dims") or []
+        _spec54 = importlib.util.spec_from_file_location("score_a54",
+                                                        SCRIPTS / "score.py")
+        _sc54 = importlib.util.module_from_spec(_spec54)
+        _spec54.loader.exec_module(_sc54)
+        _reg54 = set(_sc54.VERDICT_ACTIONS) - {"PASS"}
+        _clean54 = (len(_g54) == 1 and _g54[0].get("id") == "PASS"
+                    and not _g54[0].get("action"))
+        _named54 = (bool(_f54) and len(_b54) == len(_f54)
+                    and all(v.get("dim") in _f54 and v.get("id") in _reg54
+                            and v.get("msg") and v.get("action")
+                            for v in _b54))
+        add("A54-failed-dimension-names-its-action",
+            bool(_rc54g == 0 and _clean54 and _rc54b == 1 and _named54),
+            "good=" + str([v.get("id") for v in _g54])
+            + " bad=" + str([v.get("id") for v in _b54])
+            + " failed_dims=" + str(_f54))
+    except Exception as e:                      # noqa: BLE001
+        add("A54-failed-dimension-names-its-action", False,
             type(e).__name__ + ": " + str(e)[:140])
 
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
