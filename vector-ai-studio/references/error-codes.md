@@ -16,6 +16,7 @@
 | `E-CONFIG-KEYS` | 配置键缺失或存在多余键 | lib_common |
 | `E-CONFIG-MISSING` | 配置文件不存在 | lib_common |
 | `E-CONFIG-PARSE` | 配置文件无法解析 | lib_common |
+| `E-CONFORMANCE` | 需求符合度的机械检查未通过（颜色、色面积、描边宽度、图元种类/数量、留白、禁用构造）；逐条列出失败 id 与实测值，退出 1 | conformance |
 | `E-DEGENERATE` | 存在退化路径（零长度/零面积） | sanitize_svg |
 | `E-EMPTY-SPEC` | spec 为空或缺少必需项 | freeze_spec |
 | `E-EXEMPTION-ABUSE` | mode 与 grading_entered 组合非法（跨轨滥用豁免） | aggregate_log |

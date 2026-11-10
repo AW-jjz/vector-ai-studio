@@ -1,0 +1,11 @@
+{
+  "schema": "vector-ai-studio/conformance-v1",
+  "canvas": [240, 240],
+  "colors_allowed": ["#111111", "#c8362c"],
+  "colors_max": 2,
+  "stroke_widths_allowed": [10],
+  "types_allowed": ["circle", "rect"],
+  "elements": { "min": 4, "max": 4 },
+  "bbox_margin_min": 10,
+  "forbid": ["image", "gradient", "text", "filter", "clipPath", "mask", "use"]
+}

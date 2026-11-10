@@ -1,0 +1,12 @@
+{
+  "schema": "vector-ai-studio/conformance-v1",
+  "canvas": [240, 240],
+  "colors_allowed": ["#111111", "#c8362c"],
+  "colors_max": 2,
+  "area_ratio_max": { "#c8362c": 0.08 },
+  "stroke_widths_allowed": [],
+  "types_allowed": ["polygon", "rect"],
+  "elements": { "min": 3, "max": 6 },
+  "bbox_margin_min": 10,
+  "forbid": ["image", "gradient", "text", "filter", "clipPath", "mask", "use"]
+}

@@ -2082,6 +2082,71 @@ def main():
         add("A55-review-sheet-empty-is-not-evidence", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+    # ---- A56: brief conformance is checked, and unchecked rules stay visible --
+    # The review sheet cannot judge need-fit (no brief is shown to reviewers), so
+    # the mechanical half is settled by script. Two things must hold: a colour
+    # outside the allowed set turns the run red with E-CONFORMANCE, and a rule
+    # key that is absent is reported in `unchecked` instead of looking passed.
+    try:
+        _d56 = tmp / "a56"
+        _d56.mkdir()
+        _rules56 = _d56 / "rules.json"
+        _rules56.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1",
+            "canvas": [240, 240],
+            "colors_allowed": ["#111111"],
+            "colors_max": 1,
+            "stroke_widths_allowed": [10],
+            "types_allowed": ["circle", "rect"],
+            "elements": {"min": 2, "max": 2},
+            "bbox_margin_min": 10,
+            "forbid": ["image", "gradient", "text"]}), encoding="utf-8")
+        _rules56b = _d56 / "rules-partial.json"
+        _rules56b.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1",
+            "colors_allowed": ["#111111"]}), encoding="utf-8")
+        _rules56c = _d56 / "rules-bad.json"
+        _rules56c.write_text(json.dumps({"schema": "not-ours"}), encoding="utf-8")
+        _svg56 = _d56 / "good.svg"
+        _svg56.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<circle cx="120" cy="120" r="82" fill="none" stroke="#111111" stroke-width="10"/>'
+            '<rect x="105" y="130" width="30" height="30" fill="#111111"/></svg>',
+            encoding="utf-8")
+        _svg56b = _d56 / "extra-colour.svg"
+        _svg56b.write_text(
+            _svg56.read_text(encoding="utf-8").replace(
+                "</svg>", '<rect x="0" y="0" width="8" height="8" fill="#c8362c"/></svg>'),
+            encoding="utf-8")
+        _rc56g, _env56g, _ = _call("conformance.py", ["--svg", str(_svg56),
+                                                      "--rules", str(_rules56),
+                                                      "--json"], tmp)
+        _rc56b, _env56b, _ = _call("conformance.py", ["--svg", str(_svg56b),
+                                                      "--rules", str(_rules56),
+                                                      "--json"], tmp)
+        _rc56p, _env56p, _ = _call("conformance.py", ["--svg", str(_svg56),
+                                                      "--rules", str(_rules56b),
+                                                      "--json"], tmp)
+        _rc56s, _env56s, _ = _call("conformance.py", ["--svg", str(_svg56),
+                                                      "--rules", str(_rules56c),
+                                                      "--json"], tmp)
+        _chk56g = (_env56g.get("data") or {}).get("checks") or []
+        _unch56 = (_env56p.get("data") or {}).get("unchecked") or []
+        _ids56b = [c.get("id") for c in (_env56b.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+        add("A56-conformance-checks-brief-and-reports-unchecked",
+            bool(_rc56g == 0 and _chk56g and all(c.get("ok") for c in _chk56g)
+                 and _rc56b == 1 and "E-CONFORMANCE" in _codes(_env56b)
+                 and "COLOUR-ALLOWED" in _ids56b
+                 and _rc56p == 0 and "canvas" in _unch56
+                 and _rc56s == 2 and "E-SCHEMA" in _codes(_env56s)),
+            "good_rc=" + str(_rc56g) + " bad_rc=" + str(_rc56b)
+            + " bad_ids=" + str(_ids56b) + " unchecked=" + str(_unch56)
+            + " schema_rc=" + str(_rc56s))
+    except Exception as e:                      # noqa: BLE001
+        add("A56-conformance-checks-brief-and-reports-unchecked", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
     # lighting, a vector has no physical size, and the tracer hides its settings

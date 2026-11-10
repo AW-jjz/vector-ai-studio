@@ -121,6 +121,17 @@ python scripts/legibility.py --png path/to/round/preview.png --out path/to/round
 
 Pillow 未装时显式降级（exit 3 + `E-RENDERER-MISSING`），不从 SVG 猜。
 
+### 步 4.6 需求符合度（机械可判的那一半）
+
+```
+python scripts/conformance.py --svg path/to/round/sanitized.svg \
+  --rules path/to/brief/conformance.json --out path/to/round/conformance.json
+```
+
+盲评不给评审人 brief，所以「是否符合需求」不能在评分表里判。但它大部分不是审美问题：画板尺寸、允许的颜色集合、颜色面积上限、允许的描边宽度、允许的图元种类、图元数量区间、最小留白、禁用构造，都能从 SVG 直接读出来。规则文件是 brief 硬约束的结构化写法——人写一次数字，脚本每轮核对，后续改稿无法悄悄偏离需求。
+
+判定只看规则文件里写了的项，没写的不检查记 `not_applicable`，不把「没检查」显示成「通过」。有任一检查失败即 `E-CONFORMANCE` 退出 1，逐条列出 id 与实测值。语义层（「不要画咖啡豆」到底画没画）它判不了，仍归人。
+
 ### 步 5 二值判读的校验与统计（A / B）
 
 宿主 LLM 读预览图，按冻结清单逐条给命中 / 未命中、主体是否相悖、主体完整 / 无明显失衡 / 对齐一致，写成逐条二值的判读文件；脚本只校验 schema、统计命中率，绝不自行判读语义。
@@ -316,9 +327,11 @@ python scripts/render_png.py --in path/to/round/sanitized.svg --out path/to/roun
 python scripts/deal.py --spec path/to/run/spec.json --out path/to/run/deal.json \
   --history path/to/run/deal-history.json --seed 7
 python scripts/legibility.py --png path/to/round/preview.png --out path/to/round/legibility.json
+python scripts/conformance.py --svg path/to/round/sanitized.svg \
+  --rules path/to/brief/conformance.json --out path/to/round/conformance.json
 ```
 
-`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。
+`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过。
 
 ### 判读、打分与收敛
 
