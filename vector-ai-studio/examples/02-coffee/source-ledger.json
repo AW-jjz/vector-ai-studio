@@ -1,0 +1,15 @@
+{
+  "schema": "vector-ai-studio/source-ledger-v1",
+  "entries": [
+    {
+      "id": "own-01",
+      "channel": "output",
+      "url": "",
+      "license": "own",
+      "fetched": "2026-11-10",
+      "use": "全部构件自绘，无外部素材",
+      "in_output": true,
+      "element": null
+    }
+  ]
+}

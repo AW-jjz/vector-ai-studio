@@ -1305,7 +1305,7 @@ sha256        : db8c003574d911ae7bc7c3473cf0d9865fcc1b2492776b0b8c7dfa00a5ba085c
                 4) get-filehash 发布包，sha256 应为 db8c0035…085c（237,876 B）
 
 ════════════════════════════════════════════════════════════════════
-r54（2026-11-10，版本 1.1.0，90 文件 / 244,799 B）— 当前版本
+r54（2026-11-10，版本 1.1.0，90 文件 / 244,799 B）— 历史版本
 ════════════════════════════════════════════════════════════════════
 
 文件数        : 90
@@ -1364,3 +1364,66 @@ sha256        : 47b483a18ff3ca062643ed7cbd63b6b3cbee4201ba40564fd2b298dd5b26483b
                 3) validate_skill.py 期望 0 error / 0 warning
                 4) python scripts/conformance.py 对三例各跑一次，期望全部 exit 0
                 5) get-filehash 发布包，sha256 应为 47b483a1…483b（244,799 B）
+
+════════════════════════════════════════════════════════════════════
+r55（2026-11-10，版本 1.1.0，94 文件 / 248,925 B）— 当前版本
+════════════════════════════════════════════════════════════════════
+
+文件数        : 94
+字节数        : 248,925 B
+sha256        : 9193caf9a8ece3f5fafd240c5d622cca94f2975e17cbe1aebeee551abedfd91e
+对应冻结基线  : 04-QA/test-log-r55/00-freeze-r55-manifest.txt（94 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 18:38:14，641,713 B
+                清单 sha256 2ae5787adf8df784d54f65a7bfabb8dc674a4f4ecbe3684f14d350d0506f0946
+
+本版包含      : 素材两条通道，都不建库
+                1) conformance.py 新增 source_ledger 检查块：
+                   LEDGER-FIELDS（channel/license/fetched/use，产出条目必须 in_output）
+                   LEDGER-ELEMENT（账本写的元素 id 必须存在于 SVG）
+                   LEDGER-LICENSE（产出条目许可必须在 licenses_allowed 白名单）
+                   LEDGER-DATASOURCE（带 data-source 的元素必须有账本条目）
+                   账本缺失报 E-USAGE、schema 不符报 E-SCHEMA；unchecked 收录两个新键
+                2) templates/source-ledger.json —— 空账本模板
+                3) examples/*/source-ledger.json —— 各一条 own 记录，声明全部自绘
+                4) examples/*/conformance.json 增 source_ledger 与 licenses_allowed
+                5) SKILL.md 步 4.6 与 README 新增素材政策：参考只记账、入产物必须
+                   URL + 许可 + 元素 id，标识主体不用现成素材，不下载不建库
+                6) 断言 A57（own 绿 / cc0 绿 / 未登记红 / 许可越界红 / 幽灵元素红
+                   + 两次变异）；断言 56→57
+
+相对 r54 变更 : 新增 4 / 删除 0 / 修改 9 / 其余 81 个 sha256 不变
+                新增 templates/source-ledger.json                        69 B
+                新增 examples/01-bookshop/source-ledger.json            305 B
+                     examples/02-coffee/source-ledger.json              305 B
+                     examples/03-devtool/source-ledger.json             305 B
+                scripts/conformance.py   11,089 → 13,981 B
+                scripts/selftest.py     138,278 → 143,219 B
+                SKILL.md                 37,038 → 37,644 B
+                README.md                 4,151 → 4,920 B
+                examples/*/conformance.json 三份各增 110 B
+                examples/*/review-status.md 三份各增 83 B
+
+实测证据      : selftest --fixtures 57/0/0（REAL_AI=1 复跑同为 57/0/0）
+                run_fixtures 24/24；validate_skill exit 0 / 0 error / 0 warning
+                双打包 ×2 字节一致；zip ↔ 基线 94/0/0/0
+                真机 smoke：status=ok / h1=true / acceptance.h2=true / grade=不达标
+                三例 conformance：21 / 20 / 21 项全部通过；02 的 unchecked 只剩
+                area_ratio_max（该 brief 未设红面积上限）
+                变异：LEDGER-DATASOURCE 写死为真 -> 56/1；许可判断短路 -> 56/1；
+                还原后 57/0/0
+                证据目录 04-QA/test-log-r55/
+
+已知限制      : 1) 许可只查白名单，不校验条款文本；白名单写宽等于没管
+                2) data-source 是自定义属性，下游编辑器若剥离则 SVG 内查不到标记
+                3) 参考通道 URL 不做可达性检查，链接失效不会报错
+                4) 三例账本只有 own 记录，外部素材路径未实战
+                5) 外部评审两名真人未回收，usable_for_claim 恒为假
+
+独立 QA       : 本轮无独立第三方复核；04-QA/test-log-r55/r55-07-自检复核.txt
+                记录自检结论与弱点，不冒充外部签收
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r55-manifest.txt 比对，应 94/94
+                2) python scripts/selftest.py --fixtures 期望 57/57；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) conformance.py 对三例各跑一次，期望全 exit 0 且 unchecked 只剩应留项
+                5) get-filehash 发布包，sha256 应为 9193caf9…d91e（248,925 B）

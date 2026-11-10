@@ -7,5 +7,7 @@
   "types_allowed": ["circle", "rect"],
   "elements": { "min": 4, "max": 4 },
   "bbox_margin_min": 10,
-  "forbid": ["image", "gradient", "text", "filter", "clipPath", "mask", "use"]
+  "forbid": ["image", "gradient", "text", "filter", "clipPath", "mask", "use"],
+  "source_ledger": "source-ledger.json",
+  "licenses_allowed": ["own", "cc0", "public-domain", "commercial"]
 }

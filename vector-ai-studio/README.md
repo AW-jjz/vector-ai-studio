@@ -41,6 +41,13 @@ python scripts/smoke_ai.py
 - 需求符合度里机械可判的部分（尺寸、色数、色面积上限、线宽档数、16px 与单色可辨、禁用构造）由 `scripts/conformance.py` 按各例的 conformance.json 判定，逐条写进状态文件；规则文件里没写的项进 `unchecked`，不显示成通过。剩下的审美判断（主张是否成立、主次、气质）只能人判。
 - 两名真人回收后用 `scripts/review.py` 汇总，`usable_for_claim` 才会为真；在此之前恒为假。请求件在 `templates/review-request.md`。
 
+## 素材政策：两条通道，不建库
+
+- **参考通道**：风格、构图、质感参照可以来自任何素材站，但只进 `source-ledger`（URL、许可、获取日期、用途），**不进入** final.svg / .ai。
+- **产出通道**：纹理、笔刷、边框等非标志性构件若要用，必须许可明确允许商用、账本登记、SVG 元素带 `data-source`，并由 `scripts/conformance.py` 校验「有标记必有登记、有登记必有元素、许可在白名单」。
+- **标识主体不用现成素材**：撞标与「非原创」风险高，且与「可复制、可断言」的证据链冲突。
+- **不下载、不建库**：链接与许可会变，库存的是记录而不是资产；账本模板在 `templates/source-ledger.json`。
+
 ## 需要什么
 
 - 必需：Python 3.13 标准库；VectorCraft CLI（`vectorcraft-cli`，格式底线；可用 `VECTORCRAFT_CLI` 指定路径）。

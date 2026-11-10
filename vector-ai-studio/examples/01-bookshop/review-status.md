@@ -26,7 +26,7 @@
 | 不要写实书本、渐变、投影 | 无 image / gradient；纯几何 | 通过 |
 | 不含文字、不模拟衬线字形 | 无 text 元素 | 通过 |
 
-以上由 examples/01-bookshop/conformance.json 与 scripts/conformance.py 判定，17 项全部通过；复跑一条命令即可核对。
+以上由 examples/01-bookshop/conformance.json 与 scripts/conformance.py 判定，21 项全部通过；复跑一条命令即可核对。素材账本只有一条 own 记录：全部构件自绘，无外部素材入图。
 
 判不了的：气质是否「安静、克制」、主次是否成立、折角是否算「可爱」——这三条只能人判。
 

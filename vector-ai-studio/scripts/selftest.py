@@ -2147,6 +2147,92 @@ def main():
         add("A56-conformance-checks-brief-and-reports-unchecked", False,
             type(e).__name__ + ": " + str(e)[:140])
 
+    # ---- A57: a component that enters the artwork must be traceable -----------
+    # Reference material never enters the SVG; a component that does needs a URL,
+    # a licence and an element id. Three failures must be caught: a data-source
+    # with no ledger entry, a licence outside the allowed set, and an element id
+    # that is not in the file.
+    try:
+        _d57 = tmp / "a57"
+        _d57.mkdir()
+        _base57 = {"schema": "vector-ai-studio/conformance-v1",
+                   "colors_allowed": ["#111111"],
+                   "source_ledger": "ledger.json",
+                   "licenses_allowed": ["own", "cc0"]}
+        _rules57 = _d57 / "rules.json"
+        _rules57.write_text(json.dumps(_base57), encoding="utf-8")
+        _svg57 = _d57 / "good.svg"
+        _svg57.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<rect id="tile" x="40" y="40" width="60" height="60" fill="#111111"/></svg>',
+            encoding="utf-8")
+        _svg57b = _d57 / "marked.svg"
+        _svg57b.write_text(
+            _svg57.read_text(encoding="utf-8").replace(
+                'id="tile"', 'id="tile" data-source="https://example.com/tile"'),
+            encoding="utf-8")
+        _own57 = [{"id": "own-01", "channel": "output", "url": "", "license": "own",
+                   "fetched": "2026-11-10", "use": "self-drawn", "in_output": True,
+                   "element": None}]
+        _paths57 = {}
+        for _k, _entries in {
+            "own": _own57,
+            "licensed": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                          "license": "cc0", "fetched": "2026-11-10", "use": "tile",
+                          "in_output": True, "element": "tile"}],
+            "bad-licence": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                             "license": "all-rights-reserved", "fetched": "2026-11-10",
+                             "use": "tile", "in_output": True, "element": "tile"}],
+            "ghost": [{"id": "s1", "channel": "output", "url": "https://example.com/tile",
+                       "license": "cc0", "fetched": "2026-11-10", "use": "tile",
+                       "in_output": True, "element": "ghost"}],
+        }.items():
+            _p57 = _d57 / ("ledger-" + _k + ".json")
+            _p57.write_text(json.dumps({"schema": "vector-ai-studio/source-ledger-v1",
+                                        "entries": _entries}), encoding="utf-8")
+            _paths57[_k] = _p57
+
+        def _with_ledger(path):
+            r57 = dict(_base57)
+            r57["source_ledger"] = path.name
+            p57 = _d57 / ("rules-" + path.stem + ".json")
+            p57.write_text(json.dumps(r57), encoding="utf-8")
+            return str(p57)
+
+        _rc57g, _env57g, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57), "--rules",
+                                    _with_ledger(_paths57["own"]), "--json"], tmp)
+        _rc57m, _env57m, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57b), "--rules",
+                                    _with_ledger(_paths57["own"]), "--json"], tmp)
+        _rc57l, _env57l, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57b), "--rules",
+                                    _with_ledger(_paths57["bad-licence"]), "--json"], tmp)
+        _rc57e, _env57e, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57), "--rules",
+                                    _with_ledger(_paths57["ghost"]), "--json"], tmp)
+        _rc57o, _env57o, _ = _call("conformance.py",
+                                   ["--svg", str(_svg57b), "--rules",
+                                    _with_ledger(_paths57["licensed"]), "--json"], tmp)
+        _ids57m = [c["id"] for c in (_env57m.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+        _ids57l = [c["id"] for c in (_env57l.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+        _ids57e = [c["id"] for c in (_env57e.get("data") or {}).get("checks") or []
+                   if not c.get("ok")]
+        add("A57-source-ledger-tracks-what-enters-the-artwork",
+            bool(_rc57g == 0 and _rc57o == 0
+                 and _rc57m == 1 and "LEDGER-DATASOURCE" in _ids57m
+                 and "E-CONFORMANCE" in _codes(_env57m)
+                 and _rc57l == 1 and "LEDGER-LICENSE" in _ids57l
+                 and _rc57e == 1 and "LEDGER-ELEMENT" in _ids57e),
+            "own_rc=" + str(_rc57g) + " licensed_rc=" + str(_rc57o)
+            + " unmarked=" + str(_ids57m) + " licence=" + str(_ids57l)
+            + " ghost=" + str(_ids57e))
+    except Exception as e:                      # noqa: BLE001
+        add("A57-source-ledger-tracks-what-enters-the-artwork", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
     # ---- A42/A43/A44: the "supplied photo -> print file" route -------------
     # Codifies what one real job taught: a traced photo keeps the studio
     # lighting, a vector has no physical size, and the tracer hides its settings

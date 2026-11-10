@@ -217,10 +217,57 @@ def main():
         check("FORBID-" + key.upper(), m["forbidden"].get(key, 0) == 0,
               "no " + key, str(m["forbidden"].get(key, 0)))
 
+    # Source ledger: reference material never enters the artwork, but a component
+    # that does enter must be traceable to a URL and a licence. Anything carrying
+    # data-source in the SVG has to match an output entry, so a pasted-in shape
+    # cannot ride along unrecorded.
+    if rules.get("source_ledger"):
+        lp = Path(rules["source_ledger"])
+        if not lp.is_absolute():
+            lp = rules_path.parent / lp
+        if not lp.is_file():
+            raise L.ToolError("E-USAGE", "source ledger not found: " + lp.name, L.EXIT_USAGE)
+        try:
+            ledger = json.loads(lp.read_text(encoding="utf-8"))
+        except Exception as e:                  # noqa: BLE001
+            raise L.ToolError("E-SCHEMA", "ledger unreadable: " + str(e)[:120], L.EXIT_USAGE)
+        if ledger.get("schema") != "vector-ai-studio/source-ledger-v1":
+            raise L.ToolError("E-SCHEMA",
+                              "ledger schema must be vector-ai-studio/source-ledger-v1",
+                              L.EXIT_USAGE)
+        entries = ledger.get("entries") or []
+        bad = [str(i) for i, e in enumerate(entries)
+               if e.get("channel") not in ("reference", "output") or not e.get("license")
+               or not e.get("fetched") or not e.get("use")
+               or (e.get("channel") == "output" and e.get("in_output") is not True)]
+        check("LEDGER-FIELDS", not bad,
+              "each entry has channel/license/fetched/use; output entries set in_output",
+              "bad " + ",".join(bad) if bad else "none")
+        ids = {e.get("id") for e in root.iter() if e.get("id")}
+        out = [e for e in entries if e.get("channel") == "output"]
+        missing = [str(e.get("id")) for e in out
+                   if e.get("element") and e.get("element") not in ids]
+        check("LEDGER-ELEMENT", not missing, "output element id exists in the SVG",
+              "missing " + ",".join(missing) if missing else "none")
+        allowed_lic = {str(x).lower() for x in rules.get("licenses_allowed", [])}
+        if allowed_lic:
+            bad_lic = [str(e.get("id")) for e in out
+                       if str(e.get("license") or "").lower() not in allowed_lic]
+            check("LEDGER-LICENSE", not bad_lic,
+                  "output licence within " + ",".join(sorted(allowed_lic)),
+                  "bad " + ",".join(bad_lic) if bad_lic else "none")
+        marks = sorted({e.get("data-source") for e in root.iter() if e.get("data-source")})
+        known = {e.get("url") for e in out if e.get("url")}
+        unreg = [m for m in marks if m not in known]
+        check("LEDGER-DATASOURCE", not unreg,
+              "every data-source element has an output entry",
+              "unregistered " + ",".join(unreg) if unreg else "none")
+
     fails = [c["id"] for c in checks if not c["ok"]]
     unchecked = [k for k in ("canvas", "colors_allowed", "colors_max", "area_ratio_max",
                              "stroke_widths_allowed", "types_allowed", "elements",
-                             "bbox_margin_min", "forbid") if k not in rules]
+                             "bbox_margin_min", "forbid", "source_ledger",
+                             "licenses_allowed") if k not in rules]
     doc = {"schema": "vector-ai-studio/conformance-v1-result",
            "svg": svg_path.name, "rules": rules_path.name,
            "measured": m, "checks": checks, "unchecked": unchecked,
