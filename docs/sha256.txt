@@ -192,5 +192,7 @@ sha256        : b7e06a24e5b88a94d242658fbb154cf1a54e71571cf290ae5770e7bb04d0ddfe
                 不会被选中，content_ops 会归零（方向安全但失真，记 QA27 P3）；
                 A29 的键集断言要求 schema 与代码同步扩，schema 领先代码也会红
 
-远端状态      : 未推送（推送后补记提交号与 58/58 回读结果）
+远端状态      : 已推送，发布提交 **01bda42**（父 a0bfe0a，2026-11-10 08:4x，6 files changed）。
+                回读校验：从远端 clone --depth 1，与 r36 发布包逐文件比 md5 ——
+                pkg_files=58 / remote_files=58，missing=0 / extra=0 / diff=0。
 
