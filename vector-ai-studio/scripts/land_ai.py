@@ -642,6 +642,22 @@ def _landing(automation, status, note, ai_produced, h1_pass, extra=None):
     return doc
 
 
+def _drop_stale_readback(run_dir):
+    """Every failed collect must drop the previous run's structure readback.
+
+    aggregate_log reads structure_readback.json and would grade a stale pass
+    for a run that just failed. Unlink errors are swallowed on purpose: the
+    fail landing written next is what downstream checks first, and turning a
+    locked file into E-INTERNAL would hide the real cause.
+    """
+    stale = run_dir / "structure_readback.json"
+    try:
+        if stale.is_file():
+            stale.unlink()
+    except OSError:
+        pass
+
+
 def _ensure_preview(run_dir, svg):
     png = run_dir / "preview.png"
     # The header check is part of the same best-effort step: a locked or
@@ -715,6 +731,7 @@ def main():
     if args.collect:
         result_file = run_dir / "manual-result.txt"
         if not result_file.is_file():
+            _drop_stale_readback(run_dir)
             L.write_json_atomic(run_dir / "landing.json",
                                 _landing("semi-manual", "degraded",
                                          msg["semi_manual_note"], False, False,
@@ -729,17 +746,62 @@ def main():
         line = result_file.read_text(encoding="utf-8").strip().splitlines()[0]
         kv = _parse_ok(line)
         if kv is None:
+            # An ERROR: line from the JSX is the most likely failure, so it gets
+            # the same stale-proofing as the path mismatch below.
+            _drop_stale_readback(run_dir)
+            L.write_json_atomic(run_dir / "landing.json",
+                                _landing("semi-manual", "fail",
+                                         "manual JSX did not return an OK line",
+                                         False, False,
+                                         {"manual_jsx": "manual-bridge.jsx",
+                                          "manual_result": "manual-result.txt",
+                                          "manual_result_line": line[:160]}))
             return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
                           run_id=args.run_id,
+                          data={"automation": "semi-manual",
+                                "structure_readback": None,
+                                "manual_result_line": line[:160]},
                           errors=[L.err("E-H1-STRUCTURE", "manual JSX returned: " + line[:160])])
+        # The OK line names the file the JSX actually saved. Existence alone
+        # proved nothing: a leftover final.ai satisfied it just as well.
+        reported = line.split("|")[1] if line.count("|") >= 1 else ""
+        expected = (run_dir / "final.ai").resolve()
+        try:
+            same_file = bool(reported) and Path(reported).resolve() == expected
+        except OSError:
+            same_file = False
+        ai_ok = same_file and expected.is_file() and expected.stat().st_size > 0
+        if not ai_ok:
+            # A failed collect must not leave last run's landing/readback in
+            # place: aggregate_log reads them and would grade a stale pass.
+            _drop_stale_readback(run_dir)
+            L.write_json_atomic(run_dir / "landing.json",
+                                _landing("semi-manual", "fail",
+                                         "manual JSX did not point at this run's final.ai",
+                                         False, False,
+                                         {"manual_jsx": "manual-bridge.jsx",
+                                          "manual_result": "manual-result.txt",
+                                          "reported_ai": reported,
+                                          "expected_ai": str(expected)}))
+            return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
+                          run_id=args.run_id,
+                          data={"automation": "semi-manual",
+                                "structure_readback": None,
+                                "reported_ai": reported,
+                                "expected_ai": str(expected)},
+                          errors=[L.err("E-H1-STRUCTURE",
+                                        "manual JSX reported " + (reported or "<no path>") +
+                                        "; expected this run's " + expected.name +
+                                        " to exist and be non-empty")])
         sd = _structure_doc(kv, sig, "semi-manual")
         L.write_json_atomic(run_dir / "structure_readback.json", sd)
         L.write_json_atomic(run_dir / "landing.json",
                             _landing("semi-manual", "degraded",
                                      msg["semi_manual_note"],
-                                     (run_dir / "final.ai").is_file(), sd["ok"],
+                                     ai_ok, sd["ok"],
                                      {"manual_jsx": "manual-bridge.jsx",
-                                      "manual_result": "manual-result.txt"}))
+                                      "manual_result": "manual-result.txt",
+                                      "ai_provenance": "path-asserted-by-manual-jsx"}))
         _ensure_preview(run_dir, final_svg)
         return L.emit(SCRIPT, status="degraded", code=L.EXIT_OK if sd["ok"] else L.EXIT_FAIL,
                       run_id=args.run_id,
@@ -748,7 +810,7 @@ def main():
                             "note": msg["semi_manual_note"]},
                       degradation={"level": "L4", "reason": "semi-manual path",
                                    "substitute": msg["semi_manual_note"]},
-                      artifacts={"final_ai": "final.ai" if (run_dir / "final.ai").is_file() else "",
+                      artifacts={"final_ai": "final.ai",
                                  "final_svg": "final.svg",
                                  "preview_png": "preview.png" if (run_dir / "preview.png").is_file() else ""})
 
@@ -814,84 +876,85 @@ def main():
     ws_ai = workspace / "final.ai"
     result_file = workspace / "bridge-result.txt"
     tmp_jsx = workspace / "_bridge_runtime.jsx"
-    shutil.copyfile(final_svg, ws_svg)
-    jsx = _make_jsx(ws_svg, ws_ai, args.outline_text == "1", result_file, save_opts)
-    L.write_text_atomic(tmp_jsx, jsx)
+    # Every exit below, including the error ones, still has to delete the
+    # staging directory; a bare return used to leak it.
     try:
-        r = subprocess.run([pw, "-NoProfile", "-ExecutionPolicy", "Bypass",
-                            "-File", str(SCRIPTS / "ai_bridge.ps1"),
-                            "-JsxPath", str(tmp_jsx)],
-                           timeout=180, capture_output=True, text=True, check=False)
-    except (OSError, subprocess.SubprocessError) as e:
-        return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
-                      run_id=args.run_id,
-                      errors=[L.err("E-H1-STRUCTURE", "COM bridge exception: " + type(e).__name__)])
-    line = (r.stdout or "").strip().splitlines()
-    line = line[-1] if line else ""
-    if result_file.is_file():
-        rl = result_file.read_text(encoding="utf-8").strip().splitlines()
-        if rl:
-            line = rl[0]
-    if r.returncode != 0 and not line.startswith("OK|"):
-        return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
-                      run_id=args.run_id,
-                      errors=[L.err("E-H1-STRUCTURE",
-                                    "COM bridge failed rc=" + str(r.returncode) +
-                                    " stderr=" + (r.stderr or "")[:160])])
-    kv = _parse_ok(line)
-    if kv is None:
-        return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
-                      run_id=args.run_id,
-                      errors=[L.err("E-H1-STRUCTURE", "JSX did not return OK: " + line[:160])])
-    # Copy the real native .ai produced by saveAs() back into the run dir.
-    # OK from the JSX is not enough: without this run's file, a leftover
-    # final.ai from an earlier run would be measured and shipped as new.
-    if not (ws_ai.is_file() and ws_ai.stat().st_size > 0):
-        return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
-                      run_id=args.run_id,
-                      errors=[L.err("E-H1-STRUCTURE",
-                                    "JSX returned OK but wrote no .ai; refusing to reuse "
-                                    "an older final.ai in the run dir")])
-    shutil.copyfile(ws_ai, run_dir / "final.ai")
-    sd = _structure_doc(kv, sig, "auto")
-    L.write_json_atomic(run_dir / "structure_readback.json", sd)
+        shutil.copyfile(final_svg, ws_svg)
+        jsx = _make_jsx(ws_svg, ws_ai, args.outline_text == "1", result_file, save_opts)
+        L.write_text_atomic(tmp_jsx, jsx)
+        try:
+            r = subprocess.run([pw, "-NoProfile", "-ExecutionPolicy", "Bypass",
+                                "-File", str(SCRIPTS / "ai_bridge.ps1"),
+                                "-JsxPath", str(tmp_jsx)],
+                               timeout=180, capture_output=True, text=True, check=False)
+        except (OSError, subprocess.SubprocessError) as e:
+            return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
+                          run_id=args.run_id,
+                          errors=[L.err("E-H1-STRUCTURE", "COM bridge exception: " + type(e).__name__)])
+        line = (r.stdout or "").strip().splitlines()
+        line = line[-1] if line else ""
+        if result_file.is_file():
+            rl = result_file.read_text(encoding="utf-8").strip().splitlines()
+            if rl:
+                line = rl[0]
+        if r.returncode != 0 and not line.startswith("OK|"):
+            return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
+                          run_id=args.run_id,
+                          errors=[L.err("E-H1-STRUCTURE",
+                                        "COM bridge failed rc=" + str(r.returncode) +
+                                        " stderr=" + (r.stderr or "")[:160])])
+        kv = _parse_ok(line)
+        if kv is None:
+            return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
+                          run_id=args.run_id,
+                          errors=[L.err("E-H1-STRUCTURE", "JSX did not return OK: " + line[:160])])
+        # Copy the real native .ai produced by saveAs() back into the run dir.
+        # OK from the JSX is not enough: without this run's file, a leftover
+        # final.ai from an earlier run would be measured and shipped as new.
+        if not (ws_ai.is_file() and ws_ai.stat().st_size > 0):
+            return L.emit(SCRIPT, status="error", code=L.EXIT_ERROR,
+                          run_id=args.run_id,
+                          errors=[L.err("E-H1-STRUCTURE",
+                                        "JSX returned OK but wrote no .ai; refusing to reuse "
+                                        "an older final.ai in the run dir")])
+        shutil.copyfile(ws_ai, run_dir / "final.ai")
+        sd = _structure_doc(kv, sig, "auto")
+        L.write_json_atomic(run_dir / "structure_readback.json", sd)
 
-    # Delivery manifest: measured facts + explicit warnings, so the client can
-    # verify the artefact instead of taking our word for it.
-    deliverable = None
-    ai_path = run_dir / "final.ai"
-    if ai_path.is_file() and ai_path.stat().st_size > 0:
-        # A malformed object stream is reported, never smoothed over: the
-        # manifest says how many page streams were referenced vs found.
-        read_warnings = []
-        obs = _observe_ai(ai_path, read_warnings)
-        deliverable = _deliverable(ai_path, save_opts, obs, kv,
-                                   engine="illustrator",
-                                   engine_version=str(kv.get("app_version") or "unknown"),
-                                   tool_warnings=["pdf reader: " + w for w in read_warnings])
-        L.write_json_atomic(run_dir / "deliverable.json", deliverable)
+        # Delivery manifest: measured facts + explicit warnings, so the client can
+        # verify the artefact instead of taking our word for it.
+        deliverable = None
+        ai_path = run_dir / "final.ai"
+        if ai_path.is_file() and ai_path.stat().st_size > 0:
+            # A malformed object stream is reported, never smoothed over: the
+            # manifest says how many page streams were referenced vs found.
+            read_warnings = []
+            obs = _observe_ai(ai_path, read_warnings)
+            deliverable = _deliverable(ai_path, save_opts, obs, kv,
+                                       engine="illustrator",
+                                       engine_version=str(kv.get("app_version") or "unknown"),
+                                       tool_warnings=["pdf reader: " + w for w in read_warnings])
+            L.write_json_atomic(run_dir / "deliverable.json", deliverable)
 
-    _ensure_preview(run_dir, final_svg)
-    L.write_json_atomic(run_dir / "landing.json",
-                        _landing("auto", "ok" if sd["ok"] else "degraded",
-                                 "" if sd["ok"] else "H1 structure assertion failed",
-                                 (run_dir / "final.ai").is_file(), sd["ok"]))
-    try:
+        _ensure_preview(run_dir, final_svg)
+        L.write_json_atomic(run_dir / "landing.json",
+                            _landing("auto", "ok" if sd["ok"] else "degraded",
+                                     "" if sd["ok"] else "H1 structure assertion failed",
+                                     (run_dir / "final.ai").is_file(), sd["ok"]))
+        if not sd["ok"]:
+            return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
+                          run_id=args.run_id,
+                          data={"structure_readback": sd},
+                          errors=[L.err("E-H1-STRUCTURE", "artboard/viewBox or object-count assertion failed")])
+        return L.emit(SCRIPT, status="ok", code=L.EXIT_OK, run_id=args.run_id,
+                      data={"automation": "auto", "structure_readback": sd,
+                            "h1_pass": True, "com_status": com,
+                            "deliverable": deliverable},
+                      artifacts={"final_ai": "final.ai", "final_svg": "final.svg",
+                                 "preview_png": "preview.png" if (run_dir / "preview.png").is_file() else "",
+                                 "deliverable": "deliverable.json" if deliverable else ""})
+    finally:
         shutil.rmtree(workspace, ignore_errors=True)
-    except OSError:
-        pass
-    if not sd["ok"]:
-        return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
-                      run_id=args.run_id,
-                      data={"structure_readback": sd},
-                      errors=[L.err("E-H1-STRUCTURE", "artboard/viewBox or object-count assertion failed")])
-    return L.emit(SCRIPT, status="ok", code=L.EXIT_OK, run_id=args.run_id,
-                  data={"automation": "auto", "structure_readback": sd,
-                        "h1_pass": True, "com_status": com,
-                        "deliverable": deliverable},
-                  artifacts={"final_ai": "final.ai", "final_svg": "final.svg",
-                             "preview_png": "preview.png" if (run_dir / "preview.png").is_file() else "",
-                             "deliverable": "deliverable.json" if deliverable else ""})
 
 
 if __name__ == "__main__":

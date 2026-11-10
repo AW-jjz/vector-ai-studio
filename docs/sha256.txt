@@ -1,6 +1,6 @@
 vector-ai-studio 发布校验留痕
 
-【本段为 r29 历史读数，最新版本见文件末尾 r41 段】
+【本段为 r29 历史读数，最新版本见文件末尾 r42 段】
 文件数        : 54
 字节数        : 161934
 sha256        : 30855c2b58d8e05366b59811cdc7d0f6d0c2b4e520cda2e898e54100e99f0e79
@@ -551,3 +551,74 @@ sha256        : c5817a02e4b3e0af571be9bcac0d4973cee1b0c01e0814ce231bff07ccacca6b
                 回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
                 58/58 全等，missing/diff 均为空；docs 三件同 md5。
                 详见 04-QA/test-log-r41/r41-08-远端回读.txt
+
+
+════════════════════════════════════════════════════════════════════
+r42（2026-11-10，版本 1.1.0，58 文件 / 196,372 B）— 当前候选（第三版）
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 196,372 B
+sha256        : 0cd1e1ebe444cac526afff8a3ef429b657c635d44f15abdb2df3e49717b57b89
+对应冻结基线  : 04-QA/test-log-r42/00-freeze-r42-manifest.txt（58 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 14:14:24，536,498 B
+                清单 sha256 587f76a2b3064d3cc6f51046f0e0e0a1f99fefa315b56ec72827be6309a5da9e
+
+本版包含      : 内容 A：清掉第 32 轮复核留下的三条 P3
+                · 自动路径整段包进 try/finally：暂存目录在任何出口都删除。
+                  旧版四个 error 分支直接 return，会在 %TEMP% 留下 vector-ai-bridge-*
+                · 半自动 --collect：读 OK 行第二个字段（JSX 实际保存路径），
+                  必须等于本次 run 的 final.ai 且非空，否则 E-H1-STRUCTURE、退出 1。
+                  旧版只看 final.ai 是否存在——OK 行指向别的路径时仍记 ai_produced True。
+                  landing.json 增记 ai_provenance: path-asserted-by-manual-jsx
+                · r4x-04 zip 比对证据起记发布包名，不再记默认的 vector-ai-studio.zip
+                · pipeline-contract / error-codes：OK 行格式补 <out path>，写明两条路径
+                  都不把「文件存在」当「本次产出」
+                内容 B：同轮修掉第 33/34 轮复核的 P2
+                · 半自动三个失败出口（manual-result.txt 缺失、首行非 OK|、OK 行
+                  路径不符）统一先删旧 structure_readback.json 再写 landing.json：
+                  旧版失败后 aggregate_log 仍能读到上一轮的 pass
+                · 非 OK 行与路径不符写 status: fail；manual-result.txt 缺失仍是
+                  degraded（脚本还没跑，不算失败）
+                · 失败信封 data 带 reported_ai / expected_ai，非 OK 行带
+                  manual_result_line；unlink 失败不升级为 E-INTERNAL
+
+相对 r41 变更 : 新增 0 / 删除 0 / 修改 3 / 其余 55 个 sha256 不变
+                references/error-codes.md 4,535 → 4,696 B
+                references/pipeline-contract.md 25,916 → 26,906 B
+                scripts/land_ai.py 42,461 → 46,334 B
+
+实测证据      : 半自动五态（自造 run 目录，前四态各预置上一轮 readback + ok landing）：
+                error-line exit 1 / fail / E-H1-STRUCTURE / 旧读数已删；
+                no-result exit 3 / degraded / 旧读数已删；
+                wrong-path（OK 行指别处 + 目录里有旧 .ai）exit 1 / fail / 旧读数已删；
+                missing-ai exit 1 / fail / 旧读数已删；good exit 0 / degraded。
+                r41 旧版在 wrong-path 上 exit 0 / ai_produced True，missing-ai 也 exit 0。
+                暂存目录：改动前 %TEMP% 有 8 个 vector-ai-bridge-*，最新 13:29:22；
+                r42 四次运行（13:48 失败、13:51 成功、14:06 成功、14:16 成功）后无新增。
+                真机 r42-real：exit=0 / status=ok / final.ai 53,880 B（14:15:45）；
+                REAL_AI=1 复跑 46/0/0；两次历史 PDF 读数与 r38–r41 相同。
+                中间一次 rc=4 DOJAVASCRIPT_FAILED 被 smoke 判 fail，约 4 分钟后重试 ok。
+
+四道闸        : selftest --fixtures 46/0/0 · run_fixtures 24/24 ·
+                validate 0 error 0 warning · zip ↔ 基线 58/0/0/0 ·
+                重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异与反例    : 半自动三态与「失败后旧读数残留」都是真实负向反例；
+                暂存目录用同一 %TEMP% 的前后存量作对照；
+                selftest 46 条与 run_fixtures 24 例都不覆盖这两条路径，计数不变。
+
+已知限制      : 同 r39–r41；半自动的来源标注只到「路径由人工执行的 JSX 断言」，
+                工具没有独立时间证据；smoke 的 H1 依赖 Illustrator 进程状态，
+                COM 瞬时失败如实判 fail，需人工重试
+
+独立 QA       : 第 33 轮对首版签收；第 34 轮指出失败留痕只覆盖一个出口（P2），
+                修完后第 35 轮复核本版：签收，P1/P2 = 0，P3×6 记入
+                04-QA/test-log-r42/r42-09-QA第35轮.txt
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r42-manifest.txt 比对，应 58/58
+                2) python scripts/selftest.py --fixtures 期望 46/46；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 0cd1e1eb…7b89（196,372 B）
+
+远端状态      : 未推送

@@ -54,7 +54,9 @@ run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言
 
 ## JSX / COM 落地与结构回读
 
-`../scripts/land_ai.py` 运行时替换 `../scripts/ai_bridge.jsx` 的四个占位符：`__SVG_PATH__` / `__OUT_PATH__` / `__OUTLINE_TEXT__` / `__RESULT_PATH__`（第四个供半自动回读收集）。经 `../scripts/ai_bridge.ps1` 的 COM 通道执行固定序列：打开 → 结构断言 → `saveAs()` 原生 `.ai` → 关闭 → 重开重读计数。返回 `OK|...|raster=0|placed=0|artboard=WxH|viewBox=...` 或显式 `ERROR:`。第四个占位符是为半自动路径兑现 H1 而加的实现扩展，不改判据。保存选项与自动路径同源——两条分支都传 `_resolve_options()` 的结果，因此 `--profile` / `--embed-icc` 等对半自动同样生效（r28 修正：此前半自动分支漏传，固定落回 screen 默认值）。
+`../scripts/land_ai.py` 运行时替换 `../scripts/ai_bridge.jsx` 的四个占位符：`__SVG_PATH__` / `__OUT_PATH__` / `__OUTLINE_TEXT__` / `__RESULT_PATH__`（第四个供半自动回读收集）。经 `../scripts/ai_bridge.ps1` 的 COM 通道执行固定序列：打开 → 结构断言 → `saveAs()` 原生 `.ai` → 关闭 → 重开重读计数。返回 `OK|<out path>|...|raster=0|placed=0|artboard=WxH|viewBox=...` 或显式 `ERROR:`。第四个占位符是为半自动路径兑现 H1 而加的实现扩展，不改判据。保存选项与自动路径同源——两条分支都传 `_resolve_options()` 的结果，因此 `--profile` / `--embed-icc` 等对半自动同样生效（r28 修正：此前半自动分支漏传，固定落回 screen 默认值）。
+
+两条路径都不把「文件存在」当成「本次产出」：自动路径在暂存区没有 `.ai` 时直接报 `E-H1-STRUCTURE`；半自动 `--collect` 读 `OK` 行第二个字段（JSX 实际保存的路径），必须指向本次 run 的 `output/<run-id>/final.ai` 且非空，否则同样报错，并把 `output/<run-id>/landing.json` 改写成 `status: fail`、删掉上一轮留下的 `output/<run-id>/structure_readback.json`（否则 `../scripts/aggregate_log.py` 会把旧读数当成这一轮的成绩）。`output/<run-id>/manual-result.txt` 缺失或首行不是 `OK|` 时同样先删旧读数再写 `status: fail`。失败信封的 `data` 带 `reported_ai`（`OK` 行报的路径）与 `expected_ai`（本次 run 应有的路径），非 `OK` 行时带 `manual_result_line`。半自动的 `output/<run-id>/landing.json` 另记 `ai_provenance: path-asserted-by-manual-jsx`——文件身份由人工执行的脚本断言，工具没有独立的时间证据。
 
 ## L0–L5 → 脚本行为映射
 
