@@ -113,9 +113,70 @@ def _colour(val):
 # and child combinators, comma groups, and the declarations below. A sheet that
 # uses anything outside the subset fails the run instead of being half applied
 # -- a half-applied sheet reports numbers that were never rendered.
-CSS_PROPS = ("fill", "stroke", "stroke-width")
+CSS_PROPS = ("fill", "stroke", "stroke-width", "color", "visibility",
+             "fill-opacity", "stroke-opacity")
 CSS_DECLS_ALLOWED = {"fill", "stroke", "stroke-width", "stroke-linecap",
                      "stroke-linejoin", "stroke-miterlimit", "fill-rule"}
+# Definitions are declared but never painted, and a display:none subtree is
+# equally absent from the picture. Counting either one inflates colours,
+# element count and colour area, so both are excluded from measurement.
+NON_RENDERED = {"defs", "symbol", "clippath", "mask", "pattern", "marker"}
+
+
+def _own(el, key):
+    """Own declared value: inline style first, then the presentation attribute."""
+    val = _inline(el).get(key)
+    if val is not None:
+        return val[0]
+    return el.get(key)
+
+
+def _is_zero(val):
+    try:
+        return float(str(val).strip()) == 0.0
+    except (TypeError, ValueError):
+        return False
+
+
+def _chain(el, parents, pred):
+    cur = el
+    while cur is not None:
+        if pred(cur):
+            return True
+        cur = parents.get(cur)
+    return False
+
+
+def _renders(el, parents):
+    """False for definitions, display:none subtrees and opacity:0 subtrees."""
+    if _chain(el, parents, lambda e: _tag(e).lower() in NON_RENDERED):
+        return False
+    if _chain(el, parents, lambda e: (_own(e, "display") or "").strip().lower() == "none"):
+        return False
+    return not _chain(el, parents, lambda e: _is_zero(_own(e, "opacity")))
+
+
+def _transformed(el, parents):
+    def has(e):
+        v = (_own(e, "transform") or "").strip().lower()
+        return bool(v) and v != "none"
+    return _chain(el, parents, has)
+
+
+def _resolve(colour, vals):
+    """currentColor takes the computed color; without one it stays a literal."""
+    if colour == "currentcolor":
+        c = _colour(vals.get("color"))
+        if c:
+            return c
+    return colour
+
+
+def _area_state(el, width):
+    """Painted area, or the reason it cannot be measured."""
+    if _tag(el) == "path":
+        return 0.0, "path"
+    return _area(el, width), ""
 
 
 def _inline(el):
@@ -306,11 +367,23 @@ def _measure(svg, canvas):
             style_error = str(e)[:120]
     comp = _computed(svg, rules, parents)
 
-    els = [e for e in svg.iter() if _tag(e) in SHAPES]
+    def _visible(e):
+        if not _renders(e, parents):
+            return False
+        return (comp.get(e, {}).get("visibility") or "").strip().lower() not in (
+            "hidden", "collapse")
+
+    els = [e for e in svg.iter() if _tag(e) in SHAPES and _visible(e)]
     colours, widths, per_colour, boxes = set(), set(), {}, []
+    area_unknown, bbox_unknown = {}, ""
     for e in els:
         vals = comp.get(e, {})
         fill, stroke = _colour(vals.get("fill")), _colour(vals.get("stroke"))
+        fill, stroke = _resolve(fill, vals), _resolve(stroke, vals)
+        if fill and _is_zero(vals.get("fill-opacity")):
+            fill = None
+        if stroke and _is_zero(vals.get("stroke-opacity")):
+            stroke = None
         for c in (fill, stroke):
             if c:
                 colours.add(c)
@@ -318,11 +391,23 @@ def _measure(svg, canvas):
         if stroke:
             widths.add(width)
         owner = fill or stroke
+        moved = _transformed(e, parents)
         if owner:
-            per_colour[owner] = per_colour.get(owner, 0.0) + _area(e, width)
+            amount, why = _area_state(e, width)
+            per_colour[owner] = per_colour.get(owner, 0.0) + amount
+            if why:
+                area_unknown[owner] = why
+            if moved:
+                area_unknown[owner] = "transform"
+        if moved:
+            bbox_unknown = "transform"
+            continue
         box = _bbox(e, width, bool(stroke))
         if box:
             boxes.append(box)
+        elif owner:
+            area_unknown[owner] = "path"
+            bbox_unknown = bbox_unknown or "path"
     bbox = ([min(b[0] for b in boxes), min(b[1] for b in boxes),
              max(b[2] for b in boxes), max(b[3] for b in boxes)] if boxes else None)
     total = float(canvas[0] * canvas[1])
@@ -346,6 +431,8 @@ def _measure(svg, canvas):
         "style_error": style_error,
         "stroke_widths": sorted(widths),
         "area_ratio": {k: round(v / total, 4) for k, v in sorted(per_colour.items())},
+        "area_unmeasured": area_unknown,
+        "bbox_unmeasured": bbox_unknown,
         "bbox": [round(v, 2) for v in bbox] if bbox else None,
         "margins": ([round(bbox[0], 2), round(bbox[1], 2),
                      round(canvas[0] - bbox[2], 2), round(canvas[1] - bbox[3], 2)]
@@ -441,8 +528,17 @@ def main():
               "<= %d colours" % int(rules["colors_max"]), str(len(m["colours"])))
     for colour, cap in (rules.get("area_ratio_max") or {}).items():
         got = m["area_ratio"].get(colour.lower(), 0.0)
-        check("AREA-" + colour.lower().replace("#", ""), got <= float(cap),
-              "%s area <= %.4f" % (colour.lower(), float(cap)), "%.4f" % got)
+        why = m["area_unmeasured"].get(colour.lower(), "")
+        if why:
+            # A cap on a colour whose coverage this script cannot compute is
+            # not a pass. Reporting 0.0 here was the worst false green found in
+            # r66: a path covering the whole canvas passed a 1% cap.
+            check("AREA-" + colour.lower().replace("#", ""), False,
+                  "%s area <= %.4f" % (colour.lower(), float(cap)),
+                  "unmeasurable: " + why)
+        else:
+            check("AREA-" + colour.lower().replace("#", ""), got <= float(cap),
+                  "%s area <= %.4f" % (colour.lower(), float(cap)), "%.4f" % got)
     if rules.get("stroke_widths_allowed") is not None:
         want = sorted({float(v) for v in rules["stroke_widths_allowed"]})
         check("STROKE-WIDTHS", m["stroke_widths"] == want,
@@ -456,7 +552,12 @@ def main():
         check("ELEMENT-COUNT", lo <= m["elements"] <= hi,
               "%d..%d elements" % (lo, hi), str(m["elements"]))
     if rules.get("bbox_margin_min") is not None:
-        if m["margins"]:
+        if m["bbox_unmeasured"]:
+            # A transformed or path-only drawing has no trustworthy bounding
+            # box here, and the old code quietly measured the untransformed one.
+            check("MARGIN", False, "margin >= %s" % rules["bbox_margin_min"],
+                  "unmeasurable: " + m["bbox_unmeasured"])
+        elif m["margins"]:
             worst = min(m["margins"])
             check("MARGIN", worst >= float(rules["bbox_margin_min"]),
                   "margin >= %s" % rules["bbox_margin_min"],

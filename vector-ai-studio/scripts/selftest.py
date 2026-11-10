@@ -43,7 +43,7 @@ CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 # --fixtures. Declared rather than asserted-in-prose because two rounds lost
 # ten assertions to a bad block extraction and the only thing that noticed was
 # a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 63
+EXPECTED_ASSERTIONS = 66
 
 
 def _call(name, args, cwd, flags=()):
@@ -216,7 +216,7 @@ def _schema_diff(doc, schema, check_missing=True, optional=()):
 
 
 def _check_conformance(tmp, add):
-    """A56, A59: the mechanical half of brief conformance.
+    """A56, A59, A61-A67: the mechanical half of brief conformance.
 
     Extracted from main() so this block can be read and changed without
     scrolling past two thousand lines of unrelated assertions. It owns no
@@ -566,6 +566,156 @@ def _check_conformance(tmp, add):
             + " child=" + str(_w64c) + " descendant=" + str(_w64d))
     except Exception as e:                      # noqa: BLE001
         add("A64-style-cascade-follows-specificity", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A65: what does not render is not measured ---------------------------
+    # Definitions, display:none subtrees, visibility:hidden, opacity:0 and
+    # fill-opacity:0 were all counted as painted content, inflating the colour
+    # set, the element count and the colour area. Each is excluded now, and a
+    # control run proves the exclusion is per-construct rather than a blanket.
+    try:
+        _d65 = tmp / "a65"
+        _d65.mkdir()
+        _rules65 = _d65 / "rules.json"
+        _rules65.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1",
+            "canvas": [240, 240],
+            "colors_allowed": ["#111111"],
+            "area_ratio_max": {"#111111": 0.1},
+            "elements": {"min": 1, "max": 2}}), encoding="utf-8")
+        _head65 = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+        _hidden65 = (
+            '<defs><rect width="10" height="10" fill="#c8362c"/></defs>'
+            '<g display="none"><rect x="0" y="0" width="20" height="20" fill="#c8362c"/></g>'
+            '<g visibility="hidden"><rect x="20" y="0" width="20" height="20" fill="#c8362c"/></g>'
+            '<g opacity="0"><rect x="40" y="0" width="20" height="20" fill="#c8362c"/></g>'
+            '<rect x="0" y="0" width="240" height="240" fill="#111111" fill-opacity="0"/>')
+        _shown65 = ('<rect x="100" y="100" width="40" height="40" fill="#111111"/>')
+
+        def _run65(name, body):
+            p = _d65 / (name + ".svg")
+            p.write_text(_head65 + body + "</svg>", encoding="utf-8")
+            rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
+                                                  str(_rules65), "--json"], tmp)
+            dat = env.get("data") or {}
+            m = dat.get("measured") or {}
+            bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
+            return rc, m, bad
+
+        _rc65a, _m65a, _bad65a = _run65("hidden", _hidden65 + _shown65)
+        _rc65b, _m65b, _bad65b = _run65(
+            "shown", _hidden65.replace('<g display="none">', '<g>') + _shown65)
+        add("A65-unrendered-content-is-not-measured",
+            bool(_rc65a == 0 and not _bad65a and _m65a.get("colours") == ["#111111"]
+                 and _m65a.get("elements") == 2
+                 and _rc65b == 1 and "COLOUR-ALLOWED" in _bad65b),
+            "hidden_rc=" + str(_rc65a) + " colours=" + str(_m65a.get("colours"))
+            + " elements=" + str(_m65a.get("elements"))
+            + " shown_rc=" + str(_rc65b) + " shown_bad=" + str(_bad65b))
+    except Exception as e:                      # noqa: BLE001
+        add("A65-unrendered-content-is-not-measured", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A66: geometry the script cannot compute fails the rule --------------
+    # A path contributed 0.0 to area_ratio, so a full-canvas path passed a 1%
+    # cap; a translate() was ignored, so a rectangle moved off the canvas kept
+    # a healthy margin. Both now fail with "unmeasurable", while a path or a
+    # plain rectangle with no such rule stays green (no blanket ban).
+    try:
+        _d66 = tmp / "a66"
+        _d66.mkdir()
+        _head66 = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+
+        def _rules66(name, extra):
+            p = _d66 / (name + ".json")
+            doc = {"schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240]}
+            doc.update(extra)
+            p.write_text(json.dumps(doc), encoding="utf-8")
+            return p
+
+        def _run66(name, body, rules):
+            p = _d66 / (name + ".svg")
+            p.write_text(_head66 + body + "</svg>", encoding="utf-8")
+            rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
+                                                  str(rules), "--json"], tmp)
+            dat = env.get("data") or {}
+            m = dat.get("measured") or {}
+            bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
+            return rc, m, bad
+
+        _path66 = '<path d="M0 0H240V240H0Z" fill="#111111"/>'
+        _moved66 = ('<rect x="10" y="10" width="20" height="20" fill="#111111"'
+                    ' transform="translate(-30,-30)"/>')
+        _still66 = '<rect x="10" y="10" width="20" height="20" fill="#111111"/>'
+        _r66a = _rules66("area", {"area_ratio_max": {"#111111": 0.01}})
+        _r66b = _rules66("margin", {"bbox_margin_min": 5})
+        _r66c = _rules66("plain", {})
+        _rc66a, _m66a, _bad66a = _run66("path-area", _path66, _r66a)
+        _rc66b, _m66b, _bad66b = _run66("path-plain", _path66, _r66c)
+        _rc66c, _m66c, _bad66c = _run66("moved", _moved66, _r66b)
+        _rc66d, _m66d, _bad66d = _run66("still", _still66, _r66b)
+        add("A66-unmeasurable-geometry-fails-the-rule",
+            bool(_rc66a == 1 and _bad66a == ["AREA-111111"]
+                 and _m66a.get("area_unmeasured", {}).get("#111111") == "path"
+                 and _rc66b == 0 and not _bad66b
+                 and _rc66c == 1 and _bad66c == ["MARGIN"]
+                 and _m66c.get("bbox_unmeasured") == "transform"
+                 and _rc66d == 0 and not _bad66d),
+            "path_rc=" + str(_rc66a) + " path_bad=" + str(_bad66a)
+            + " why=" + str(_m66a.get("area_unmeasured"))
+            + " plain_path_rc=" + str(_rc66b)
+            + " moved_rc=" + str(_rc66c) + " moved_bad=" + str(_bad66c)
+            + " why_bbox=" + str(_m66c.get("bbox_unmeasured"))
+            + " still_rc=" + str(_rc66d))
+    except Exception as e:                      # noqa: BLE001
+        add("A66-unmeasurable-geometry-fails-the-rule", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A67: currentColor resolves through color ----------------------------
+    # Comparing the literal "currentcolor" made a correct file red (color
+    # #111111) and let a wrong one pass (color #c8362c against a palette that
+    # only names the keyword). With no color declared the literal stays, since
+    # the used value is then genuinely unknown here.
+    try:
+        _d67 = tmp / "a67"
+        _d67.mkdir()
+
+        def _rules67(name, colours):
+            p = _d67 / (name + ".json")
+            p.write_text(json.dumps({
+                "schema": "vector-ai-studio/conformance-v1",
+                "canvas": [240, 240],
+                "colors_allowed": colours}), encoding="utf-8")
+            return p
+
+        def _run67(name, colour_attr, colours):
+            p = _d67 / (name + ".svg")
+            p.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"%s>'
+                '<rect x="100" y="100" width="40" height="40" fill="currentColor"/>'
+                '</svg>' % colour_attr, encoding="utf-8")
+            rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
+                                                  str(_rules67(name, colours)), "--json"], tmp)
+            dat = env.get("data") or {}
+            m = dat.get("measured") or {}
+            bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
+            return rc, m, bad
+
+        _rc67a, _m67a, _bad67a = _run67("resolved", ' color="#111111"', ["#111111"])
+        _rc67b, _m67b, _bad67b = _run67("resolved-off-palette", ' color="#c8362c"',
+                                        ["currentcolor"])
+        _rc67c, _m67c, _bad67c = _run67("unknown", "", ["currentcolor"])
+        add("A67-currentcolor-resolves-through-color",
+            bool(_rc67a == 0 and not _bad67a and _m67a.get("colours") == ["#111111"]
+                 and _rc67b == 1 and _bad67b == ["COLOUR-ALLOWED"]
+                 and _m67b.get("colours") == ["#c8362c"]
+                 and _rc67c == 0 and _m67c.get("colours") == ["currentcolor"]),
+            "resolved_rc=" + str(_rc67a) + " colours=" + str(_m67a.get("colours"))
+            + " off_rc=" + str(_rc67b) + " off_bad=" + str(_bad67b)
+            + " off_colours=" + str(_m67b.get("colours"))
+            + " unknown_colours=" + str(_m67c.get("colours")))
+    except Exception as e:                      # noqa: BLE001
+        add("A67-currentcolor-resolves-through-color", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
