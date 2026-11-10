@@ -37,6 +37,8 @@ def main():
     ap.add_argument("--landing-only", action="store_true",
                     help="only take H1 evidence (mode=landing-only); default runs the full chain")
     ap.add_argument("--run-id", default="")
+    ap.add_argument("--print", action="store_true",
+                    help="also land a real PDF/X-1a master and check the print facts")
     args = ap.parse_args()
 
     th = L.load_thresholds()
@@ -175,12 +177,67 @@ def main():
     smoke["h1_pass"] = True
     smoke["structure_readback"] = sr
     smoke["note"] = "VectorCraft 真实产出 .ai 并通过 H1 重开回读"
+
+    # ---- print track: a real PDF/X-1a master, then the facts read from it ----
+    # The screen path never writes /OutputIntent, so the counting rules and the
+    # PDF/X claim were only ever exercised by synthetic bytes. This runs the
+    # other profile for real and refuses ok when the master does not back the
+    # claim.
+    if args.print:
+        prun = log_dir / ("run-" + rid + "-print")
+        rc3, out3, err3 = _run([sys.executable, str(SCRIPTS / "land_craft.py"),
+                                "--svg", str(sample), "--out", str(prun),
+                                "--profile", "print", "--pdf-standard", "pdfX1a",
+                                "--run-id", rid], timeout=600)
+        L.write_text_atomic(log_dir / "print-raw.txt",
+                            "exit=" + str(rc3) + "\nstdout:\n" + out3 +
+                            "\nstderr:\n" + err3)
+        dl = {}
+        if (prun / "deliverable.json").is_file():
+            try:
+                dl = json.loads((prun / "deliverable.json").read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                dl = {}
+        pp = ((dl.get("observed") or {}).get("print_pdf") or {})
+        pdfx = str(pp.get("gts_pdfx_value") or "")
+        smoke["print"] = {
+            "exit": rc3,
+            "pdf": (prun / "print.pdf").is_file(),
+            "pdf_bytes": ((prun / "print.pdf").stat().st_size
+                          if (prun / "print.pdf").is_file() else 0),
+            "gts_pdfx_value": pdfx or None,
+            "output_intent": pp.get("output_intent"),
+            "output_intent_objects": pp.get("output_intent_objects"),
+            "device_rgb": pp.get("device_rgb"),
+            "cmyk_ops": (None if pp.get("content_ops") is None
+                         else pp["content_ops"].get("k", 0) + pp["content_ops"].get("K", 0)),
+            "unverified": dl.get("unverified"),
+        }
+        backed = (rc3 == 0 and smoke["print"]["pdf"] and
+                  pdfx.startswith("PDF/X") and
+                  (pp.get("output_intent") or 0) >= 1 and
+                  pp.get("output_intent_objects") == 1 and
+                  pp.get("device_rgb") == 0 and
+                  smoke["print"]["cmyk_ops"] and
+                  dl.get("unverified") == [])
+        if not backed:
+            smoke["status"] = "fail"
+            smoke["note"] = "print 档 PDF/X 产物未兑现声明（见 print 段）"
+            L.write_json_atomic(log_dir / "smoke.json", smoke)
+            L.append_run_log(log_dir, SCRIPT + " print PDF/X claim not backed")
+            return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL, run_id=rid,
+                          data=smoke,
+                          errors=[L.err("E-PDFX-PROOF",
+                                        "print master does not back the PDF/X claim")])
+
     L.write_json_atomic(log_dir / "smoke.json", smoke)
     L.append_run_log(log_dir, SCRIPT + " ok h1_pass=true")
+    art = {"smoke": "smoke.json", "final_ai": "final.ai",
+           "structure_readback": "structure_readback.json"}
+    if args.print:
+        art["print_pdf"] = "run-" + rid + "-print/print.pdf"
     return L.emit(SCRIPT, status="ok", code=L.EXIT_OK, run_id=rid,
-                  data=smoke,
-                  artifacts={"smoke": "smoke.json", "final_ai": "final.ai",
-                             "structure_readback": "structure_readback.json"})
+                  data=smoke, artifacts=art)
 
 
 if __name__ == "__main__":

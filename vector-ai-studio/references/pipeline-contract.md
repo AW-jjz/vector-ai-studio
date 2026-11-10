@@ -118,7 +118,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 ## 证据轨道分层（H1 与 H2–H4）
 
 - full 轨（默认）：grading_entered=true，H1–H4 全判，h2 为 bool，grade 为三档之一，scores 五键齐全（L2 下 A/B 为 capability_missing 状态枚举、C/D 为数字、E/F 为 N/A 或数字）。
-- landing-only 轨：仅取证 H1；grading_entered=false、h2=null、h2_status=not_evaluated、tier/grade/h3/h4=null，scores 可为空，不进入 §7.3 分档，输出不得出现任何档位词。`../scripts/smoke_ai.py` 加 `--landing-only` 走此轨，默认走 full。双向防滥用：mode=full 却 grading_entered=false，或 mode=landing-only 却 grading_entered=true，均报 E-EXEMPTION-ABUSE。
+- landing-only 轨：仅取证 H1；grading_entered=false、h2=null、h2_status=not_evaluated、tier/grade/h3/h4=null，scores 可为空，不进入 §7.3 分档，输出不得出现任何档位词。`../scripts/smoke_ai.py` 加 `--landing-only` 走此轨，默认走 full。`--print` 额外落一份真实 PDF/X-1a 主文件并核对 print 段（PDF/X 版本串、output_intent≥1、output_intent_objects=1、无 DeviceRGB 算子、CMYK 算子>0、unverified 为空），任一不符报 E-PDFX-PROOF。双向防滥用：mode=full 却 grading_entered=false，或 mode=landing-only 却 grading_entered=true，均报 E-EXEMPTION-ABUSE。
 
 ## D 与 H1 的证据分工
 

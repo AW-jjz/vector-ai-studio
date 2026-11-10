@@ -48,7 +48,7 @@ def _f(v, default=0.0):
         return default
 
 
-def _area(el):
+def _area(el, stroke_width=0.0):
     t = _tag(el)
     if t == "rect":
         return _f(el.get("width")) * _f(el.get("height"))
@@ -58,7 +58,7 @@ def _area(el):
         return math.pi * _f(el.get("rx")) * _f(el.get("ry"))
     if t == "line":
         return math.hypot(_f(el.get("x2")) - _f(el.get("x1")),
-                          _f(el.get("y2")) - _f(el.get("y1"))) * _f(el.get("stroke-width"), 1.0)
+                          _f(el.get("y2")) - _f(el.get("y1"))) * _f(stroke_width, 1.0)
     if t in ("polygon", "polyline"):
         pts = [tuple(map(float, p.split(","))) for p in (el.get("points") or "").split()]
         if len(pts) < 3:
@@ -69,9 +69,9 @@ def _area(el):
     return 0.0
 
 
-def _bbox(el, expand):
+def _bbox(el, expand, has_stroke):
     t = _tag(el)
-    pad = expand / 2.0 if el.get("stroke-width") else 0.0
+    pad = expand / 2.0 if has_stroke else 0.0
     if t == "rect":
         x, y = _f(el.get("x")), _f(el.get("y"))
         box = (x, y, x + _f(el.get("width")), y + _f(el.get("height")))
@@ -93,27 +93,45 @@ def _bbox(el, expand):
     return (box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad)
 
 
-def _colour(el, key):
-    v = (el.get(key) or "").strip().lower()
+def _colour(val):
+    v = (val or "").strip().lower()
     if not v or v in ("none", "transparent") or v.startswith("url("):
         return None
     return v
 
 
 def _measure(svg, canvas):
+    # Presentation attributes inherit: an icon library writes stroke and
+    # stroke-width once on the root <svg> and every path reads them. Measuring
+    # only the element's own attributes reported "no stroke, no width" for
+    # such files, so a legal 2pt icon failed a 2pt rule. Only attributes are
+    # inherited here; a width declared in style="" or a stylesheet stays out of
+    # scope, and that is reported as unmeasured rather than guessed.
+    parents = {c: p for p in svg.iter() for c in p}
+
+    def prop(el, key):
+        cur = el
+        while cur is not None:
+            val = cur.get(key)
+            if val is not None:
+                return val
+            cur = parents.get(cur)
+        return None
+
     els = [e for e in svg.iter() if _tag(e) in SHAPES]
     colours, widths, per_colour, boxes = set(), set(), {}, []
     for e in els:
-        fill, stroke = _colour(e, "fill"), _colour(e, "stroke")
+        fill, stroke = _colour(prop(e, "fill")), _colour(prop(e, "stroke"))
         for c in (fill, stroke):
             if c:
                 colours.add(c)
+        width = _f(prop(e, "stroke-width"), 1.0)
         if stroke:
-            widths.add(_f(e.get("stroke-width"), 1.0))
+            widths.add(width)
         owner = fill or stroke
         if owner:
-            per_colour[owner] = per_colour.get(owner, 0.0) + _area(e)
-        box = _bbox(e, _f(e.get("stroke-width")))
+            per_colour[owner] = per_colour.get(owner, 0.0) + _area(e, width)
+        box = _bbox(e, width, bool(stroke))
         if box:
             boxes.append(box)
     bbox = ([min(b[0] for b in boxes), min(b[1] for b in boxes),

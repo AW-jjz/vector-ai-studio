@@ -34,6 +34,7 @@
 | `E-L2-WORDING` | L2 输出出现达标 / 优秀 / 完美字样 | aggregate_log |
 | `E-NO-SCORE` | 受评日志缺少必需维 `{A,B,C,D,F}`；达标日志还须带 `E` | aggregate_log |
 | `E-OUTPUT-STALE` | 调用引擎前清不掉上一轮的产物（`output/<run-id>/final.ai`、`output/<run-id>/print.pdf`、`output/<run-id>/preview.png`），拒绝继续：旧文件会让「文件存在」被误当成本轮产出 | land_vc, land_craft |
+| `E-PDFX-PROOF` | `../scripts/smoke_ai.py --print` 落到真机的 PDF/X 主文件没有兑现声明：无 PDF/X 版本串、无输出意图、意图对象数不等于 1、仍含 DeviceRGB 算子、CMYK 算子为 0，或 deliverable 的 unverified 非空 | smoke_ai |
 | `E-QUICK-UNVERIFIED` | quick 模式（F 未验证）宣称达标 | aggregate_log |
 | `E-RENDERER-MISSING` | 渲染器全部缺失且内置兜底也产不出真实 PNG；或 Pillow 缺失导致 PNG 无法读取，小尺寸三检保持未测量 | render_png, legibility |
 | `E-REVIEW-EMPTY` | 盲评表每一个分数格都是空的：空表不是证据，退出 1，不出汇总 | review |
