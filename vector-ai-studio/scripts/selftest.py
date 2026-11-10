@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Layered L1: pure-script selftest. Zero external deps, zero credentials, zero
-Illustrator, zero renderer, zero network - MUST be runnable after install.
+Adobe, zero renderer, zero network - MUST be runnable after install.
 
 All sub-script calls use ABSOLUTE script paths while cwd is a temp dir, which
 proves cwd independence. Real-machine checks live only in smoke_ai.py (L2).
@@ -28,8 +28,8 @@ FIX = L.fixtures_dir()
 GOOD = FIX / "good"
 BAD = FIX / "bad"
 
-INLINE_FEATURES = ["def ", "#target illustrator", "param(", "New-Object -ComObject",
-                   "import json", "import lib_common", "#!/usr/bin/env python"]
+INLINE_FEATURES = ["def ", "param(", "import json", "import lib_common",
+                   "#!/usr/bin/env python"]
 THRESHOLD_LITERALS = ["0.15", "0.25", "0.45", "0.6667", "0.70", "0.20", "0.10", "0.8", "0.6"]
 CORE_SCRIPTS = ["score.py", "batch_check.py", "iterate.py", "aggregate_log.py"]
 O3_BANNED = ["优秀", "Excellent"]
@@ -265,8 +265,7 @@ def main():
     skill_md = (ROOT / "SKILL.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```[^\n]*\n(.*?)```", skill_md, re.S)
     inline = sorted({f for b in blocks for f in INLINE_FEATURES if f in b})
-    all_scripts = sorted({p.name for p in SCRIPTS.iterdir()
-                          if p.suffix in (".py", ".jsx", ".ps1")})
+    all_scripts = sorted(p.name for p in SCRIPTS.iterdir() if p.suffix == ".py")
     unmentioned = [s for s in all_scripts if ("scripts/" + s) not in skill_md]
     add("A5-no-inline-source-and-mapping", not inline and not unmentioned,
         "inline=" + ",".join(inline) + " unmentioned=" + ",".join(unmentioned))
@@ -672,10 +671,22 @@ def main():
     reg_path = ROOT / "references" / "error-codes.md"
     code_set = set()
     for sp in sorted((ROOT / "scripts").glob("*.py")):
-        code_set |= set(re.findall(r'"(E-[A-Z0-9-]+)"', sp.read_text(encoding="utf-8")))
+        _src = sp.read_text(encoding="utf-8")
+        # Either quote style counts. Matching only double quotes let a new code
+        # written with single quotes be invisible to both sides of the
+        # comparison. (Quoted examples in comments are why this scan uses a
+        # strict E- pattern: anything that looks like a code must be registered.)
+        code_set |= set(re.findall(r"""["'](E-[A-Z0-9-]+)["']""", _src))
     reg_set = set()
     if reg_path.is_file():
-        reg_set = set(re.findall(r"`(E-[A-Z0-9-]+)`", reg_path.read_text(encoding="utf-8")))
+        # The registry keeps retired codes on purpose (downstream code may still
+        # branch on them), so a row marked 已废弃 is documentation, not a claim
+        # that some script can emit it. Counting it as live made the two sets
+        # impossible to satisfy at once.
+        for line in reg_path.read_text(encoding="utf-8").splitlines():
+            if "已废弃" in line:
+                continue
+            reg_set |= set(re.findall(r"`(E-[A-Z0-9-]+)`", line))
     reg_ok = bool(code_set) and code_set == reg_set
     add("A28-error-code-registry", reg_ok,
         "in_code=" + str(len(code_set)) + " in_registry=" + str(len(reg_set)) +
@@ -696,8 +707,8 @@ def main():
     # difference is the whole point, so it is the sample this assertion uses.
     a29_ok, a29_detail = False, "not run"
     try:
-        _spec = importlib.util.spec_from_file_location("land_ai_under_test",
-                                                       ROOT / "scripts" / "land_ai.py")
+        _spec = importlib.util.spec_from_file_location("lib_pdf_under_test",
+                                                       ROOT / "scripts" / "lib_pdf.py")
         _mod = importlib.util.module_from_spec(_spec)
         _spec.loader.exec_module(_mod)
 
@@ -1009,113 +1020,38 @@ def main():
         a30_detail = type(e).__name__ + ": " + str(e)[:140]
     add("A30-vectorcraft-chain-h1-h2", a30_ok, a30_detail, skipped=a30_skip)
 
-    # A31: the manifest must not drift from its own schema, for BOTH engines.
+    # A31: the manifest must not drift from its own schema, in BOTH directions.
     #
     # Round 8 found 13 fields emitted but undeclared on one engine and absent on
     # the other, and the schema still validated because it never forbade extra
     # keys. A contract that validates while omitting half the payload is worse
-    # than no contract: it certifies nothing. So compare both directions, per
-    # engine, and treat a mismatch as a failure.
+    # than no contract: it certifies nothing.
+    #
+    # r45 removed the synthetic half that built an Illustrator manifest through
+    # its own constructor. That half exercised the constructor, not the chain
+    # feeding it: deleting `engine` from the real chain still left it green.
+    # The only manifest that ships now is the one land_vc writes, so that is
+    # what gets diffed -- produced by a real run, not by hand.
     a31_ok, a31_detail, a31_skip = False, "not run", False
     try:
-        _spec3 = importlib.util.spec_from_file_location("land_ai_schema", ROOT / "scripts" / "land_ai.py")
-        _la = importlib.util.module_from_spec(_spec3)
-        _spec3.loader.exec_module(_la)
         _schema = json.loads((ROOT / "references" / "schemas" /
                               "deliverable.schema.json").read_text(encoding="utf-8"))
+        _real_missing = os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1"
 
-        # --- Illustrator shape: built through the same constructor the real
-        # path uses, so no Illustrator install is needed to check the contract.
-        _obs = {"bytes": 1000, "sha256": "0" * 64, "pdf_compatible": True,
-                "pdf_header": "%PDF-1.6", "has_ai_private": True,
-                "device_rgb": 1, "device_cmyk": 0, "output_intent": 0,
-                "iccbased": 0, "fonts": 0, "images": 0, "layers": 1,
-                "artboard_pt": [200.0, 200.0], "artboard_mm": [70.6, 70.6],
-                "content_ops": {"rg": 1, "RG": 0, "k": 0, "K": 0},
-                "content_streams": {"streams": 1, "decoded": 1},
-                "color_mode": "rgb(operators)"}
-        _kv = {"layers": "1", "trimmarks_ink": "GrayColor:gray=100:n=8",
-               "artboard": "200x200", "open_paths": "5", "reopen_paths": "5",
-               "raster": "0", "placed": "0", "viewBox": "0_0_200_200",
-               "app_version": "28.3.0", "notes": "compat:app_default"}
-        _opts = {"profile": "screen", "compat": "latest", "pdf": 1, "icc": 0,
-                 "cmyk": 0, "bleed_mm": 0.0, "bleed_pt": 0.0, "layers": 0}
-        # The Illustrator half is synthetic by default: building it needs no
-        # Illustrator, so self-check stays fast. That proves the constructor's
-        # output but NOT that the real chain feeds it -- if the JSX stopped
-        # reporting app_version, the real run would say "unknown" and this would
-        # still be green.
-        #
-        # VECTOR_AI_STUDIO_REAL_AI=1 switches that half to a real AI deliverable
-        # when one exists, so a release can be gated on real evidence while the
-        # everyday run stays cheap. Which one ran is written into the detail.
-        # A real-artefact search must not use a field it is meant to guard.
-        # Selecting on `engine` meant: delete `engine` -> candidate rejected ->
-        # fall back to synthetic -> synthetic is produced by the constructor and
-        # therefore always conforms -> green. The regression switched off the
-        # check that exists to catch it. Pick by an INDEPENDENT signal instead:
-        # each run dir carries a structure_readback.json whose `source` names the
-        # engine that produced it. Once selected, a missing `engine` shows up as
-        # missing like any other field.
-        ai_label = "synthetic"
-        ai_doc = None
-        if os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1":
-            _root = Path(os.environ.get("VECTOR_AI_STUDIO_OUT")
-                         or (Path.home() / ".vector-ai-studio" / "output"))
-            _cands = []
-            if _root.is_dir():
-                # bounded: newest 200 only, so a large output tree cannot turn
-                # the self-check into a directory walk
-                _all = sorted(_root.rglob("deliverable.json"),
-                              key=lambda q: q.stat().st_mtime, reverse=True)
-                _cands = _all[:200]
-            for _c in _cands:
-                _sib = _c.parent / "structure_readback.json"
-                try:
-                    _srchk = json.loads(_sib.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError):
-                    continue
-                if _srchk.get("source") != "illustrator-saveAs-reopen":
-                    continue                     # that run was another engine
-                try:
-                    ai_doc = json.loads(_c.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError):
-                    continue
-                ai_label = "real:" + _c.parent.name
-                break
-            if ai_doc is None:
-                # Asked for real coverage and did not get it: this must not be
-                # green. A label that reads "not found" under a passing light is
-                # the quietest form of the failure this whole assertion prevents.
-                ai_label = "real requested, not found under " + str(_root)
 
-        _real_missing = False
-        if ai_doc is None:
-            _real_missing = (os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1")
-            ai_doc = _la._deliverable(Path("final.ai"), _opts, _obs, _kv,
-                                      engine="illustrator", engine_version="28.3.0")
-        ai_extra, ai_missing, ai_typebad, ai_nested = _schema_diff(
-            ai_doc, _schema, optional=CRAFT_ONLY_KEYS)
 
-        # --- vectorcraft shape: the real thing, if the CLI is present.
+
+        # --- the only shipping manifest: produced by a real land_vc run ---
         vc_extra = vc_missing = vc_typebad = vc_nested = []
         if _cli is None:
-            # A missing optional engine normally downgrades this assertion to a
-            # skip, which is honest: that half genuinely was not evaluated.
-            # But "real coverage was requested and not found" is a known miss,
-            # not an unknown. Skipping it would turn a definite failure into
-            # "not evaluated", and an exit-code-only gate (0 vs non-zero) would
-            # read the resulting exit 3 the same way it reads "optional engine
-            # absent". Failure has to outrank skip here.
+            # A missing engine normally downgrades this assertion to a skip,
+            # which is honest: the manifest genuinely was not produced. But
+            # "real coverage was requested and did not happen" is a known miss,
+            # not an unknown, so failure has to outrank skip here.
             a31_skip = not _real_missing
             a31_ok = not _real_missing
-            a31_detail = ("ai(" + ai_label + ") extra=" + str(ai_extra or "-") +
-                          " missing=" + str(ai_missing or "-") +
-                          " typebad=" + str(ai_typebad or "-") +
-                          " nested=" + str(ai_nested or "-") +
-                          " | vectorcraft " +
-                          ("skipped (no CLI) but REAL_AI was requested"
-                           if _real_missing else "skipped (no CLI)"))
+            a31_detail = ("vectorcraft skipped (no CLI)"
+                          + (" but REAL_AI was requested" if _real_missing else ""))
         else:
             vdir2 = tmp / "schema-diff-vc"
             _call("land_vc.py", ["--svg", str(GOOD / "sample.svg"),
@@ -1124,20 +1060,27 @@ def main():
             vc_doc = json.loads((vdir2 / "deliverable.json").read_text(encoding="utf-8"))
             vc_extra, vc_missing, vc_typebad, vc_nested = _schema_diff(
                 vc_doc, _schema, optional=CRAFT_ONLY_KEYS)
-            # Requested real coverage and did not get it => red, not green.
-            a31_ok = (not _real_missing) and not (
-                          ai_extra or ai_missing or ai_typebad or ai_nested or
-                          vc_extra or vc_missing or vc_typebad or vc_nested)
-            # "ai synthetic" is part of the detail on purpose: this half checks
-            # the constructor's output, not the real Illustrator chain feeding it.
-            a31_detail = ("ai(" + ai_label + ") extra=" + str(ai_extra or "-") +
-                          " missing=" + str(ai_missing or "-") +
-                          " typebad=" + str(ai_typebad or "-") +
-                          " nested=" + str(ai_nested or "-") +
-                          " | vc extra=" + str(vc_extra or "-") +
+            # The bidirectional diff only compares keys and primitive types; it
+            # does not evaluate `const`, so a wrong or deleted engine still read
+            # as conformant. Run the published validator as well.
+            _rc31, _, _ = _call("schema_check.py",
+                                [str(ROOT / "references" / "schemas" /
+                                     "deliverable.schema.json"),
+                                 str(vdir2 / "deliverable.json"), "--json"], tmp)
+            # The run asked for --profile print: that request must reach the
+            # manifest. A hardcoded "screen" profile (or dropping the prof
+            # argument) would leave every key present and still be wrong.
+            _prof31 = (vc_doc.get("profile") == "print"
+                       and (vc_doc.get("save_options") or {}).get("cmyk") is True
+                       and vc_doc.get("engine") == "vectorcraft")
+            a31_ok = (_rc31 == 0 and _prof31
+                      and not (vc_extra or vc_missing or vc_typebad or vc_nested))
+            a31_detail = ("vc extra=" + str(vc_extra or "-") +
                           " missing=" + str(vc_missing or "-") +
                           " typebad=" + str(vc_typebad or "-") +
                           " nested=" + str(vc_nested or "-") +
+                          " schema_check=" + str(_rc31) +
+                          " profile_wired=" + str(_prof31) +
                           " engine=" + str(vc_doc.get("engine")))
     except Exception as e:                      # noqa: BLE001
         a31_detail = type(e).__name__ + ": " + str(e)[:140]
@@ -1260,13 +1203,10 @@ def main():
     # the seam main() itself calls: the original defects lived in the wiring
     # (hardcoded icc, a second write after construction, `.split()[-1]`), and
     # guards aimed at the helpers stayed green when the wiring was reverted.
-    # A36 additionally drives the AI side through land_ai._resolve_options and
-    # land_ai._make_jsx, so the constant read and the substitution both have to
-    # hold (QA round 18 M39, round 19 M40/M42: each kept a shallower guard green).
+    # A36 additionally checked a second engine's request/claim symmetry through
+    # its JSX template. r45 removed that engine and the template, so the guard
+    # below drives the shipping chain and mutation-tests the profile constant.
     try:
-        _s36a = importlib.util.spec_from_file_location("r24_land_ai", SCRIPTS / "land_ai.py")
-        _la36 = importlib.util.module_from_spec(_s36a)
-        _s36a.loader.exec_module(_la36)
         _s36b = importlib.util.spec_from_file_location("r24_land_vc", SCRIPTS / "land_vc.py")
         _lv36 = importlib.util.module_from_spec(_s36b)
         _s36b.loader.exec_module(_lv36)
@@ -1277,71 +1217,38 @@ def main():
                   "sha256": "0" * 64}
         _kv36 = {"layers": "5", "notes": ""}
 
-        # A36: the same physical fact -- no /OutputIntent, no /ICCBased --
-        # must be "a request not honoured" on BOTH engines for the same
-        # profile. Before r24 the VC profile never declared the request, so
-        # its answer lived in `warnings` and was incomparable.
-        # The AI half is driven the way main() drives it: profile name in,
-        # _resolve_options reads PROFILE_DEFAULTS, _make_jsx substitutes the
-        # value Illustrator actually receives, _deliverable records it. A
-        # hand-built opts dict (r25/r26) left both hops blind: QA round 18's
-        # M39 set PROFILE_DEFAULTS["print"]["icc"]=0, round 19's M40 stopped
-        # reading it there, M42 stopped substituting it into the JSX -- each
-        # kept this line green while the JSX told Illustrator EMBED_ICC=0 and
-        # the manifest still claimed true.
-        # The args come from the parser a user drives, not a hand-written
-        # namespace: QA round 20 (M48/M49) changed the real defaults and this
-        # line stayed green. parse_args also proves "--profile print" is a
-        # choice the CLI accepts.
-        _parser36 = _la36._build_parser()
-        _args36 = _parser36.parse_args(
-            ["--out", str(tmp / "a.ai"), "--profile", "print"])
-        # The documented defaults are part of the contract: "--profile screen"
-        # is what a user gets with no flags. QA round 20's M49 changed that
-        # default and every guard stayed green, because the old guard built its
-        # own namespace and never looked at the parser.
-        _def36 = _parser36.parse_args(["--out", str(tmp / "a.ai")])
-        _def_ok36 = (_def36.profile == "screen" and _def36.embed_icc == ""
-                     and _def36.cmyk == "" and _def36.pdf_compatible == "")
-        _opts_ai36 = _la36._resolve_options(_args36)
-        # main() copies the profile onto the opts at land_ai.py:441; without it
-        # the AI half reports profile="" while the VC half reports "print"
-        # (QA round 20, Q20-4: the detail line claimed "same profile" and no
-        # assertion looked at the field).
-        _opts_ai36["profile"] = _args36.profile
-        _d_ai = _la36._deliverable(
-            tmp / "a.ai", _opts_ai36, _obs36, _kv36,
-            engine="illustrator", engine_version="28.3.0")
-        # The substitution is the last hop before the engine: ai_bridge.jsx
-        # reads `var EMBED_ICC = ("__EMBED_ICC__" === "1")` and passes it to
-        # opts.embedICCProfile. Assert on the text handed to Illustrator, not
-        # on the Python dict -- a dict-only guard cannot see M42.
-        _jsx36 = _la36._make_jsx(tmp / "a.svg", tmp / "a.ai", False,
-                                 tmp / "result.txt", _opts_ai36)
-        _jsx_icc36 = 'var EMBED_ICC = ("1" === "1")' in _jsx36
-        # The VC side goes through the seam main() itself calls, so reverting
-        # the `icc` wiring (not just the profile constant) turns this red.
+        # A36: a print delivery asks for an embedded ICC and never claims the
+        # request was honoured. The request must come from PROFILE_DEFAULTS,
+        # not from a literal, and the unverified bucket must name the missing
+        # /OutputIntent. The mutation below replaces the old AST scan: flipping
+        # the constant and re-running the seam proves the value flows through.
+        _icc_print = _lv36.PROFILE_DEFAULTS["print"]["icc"] is True
+        _icc_screen = _lv36.PROFILE_DEFAULTS["screen"]["icc"] is False
         _d_vc = _lv36._build_deliverable(tmp / "a.ai", "print",
                                          _lv36.PROFILE_DEFAULTS["print"],
                                          _obs36, _kv36,
                                          "vectorcraft-cli 0.22.0", [], None)
-        _u_ai = [x for x in _d_ai["unverified"] if "OutputIntent" in x]
         _u_vc = [x for x in _d_vc["unverified"] if "OutputIntent" in x]
-        _ok36 = (bool(_u_ai) and bool(_u_vc)
-                 and _d_ai["save_options"]["embed_icc"] is True
-                 and _d_vc["save_options"]["embed_icc"] is True
-                 and _jsx_icc36
-                 and _def_ok36
-                 and _d_ai["profile"] == _d_vc["profile"] == "print"
-                 and not any("未嵌入 ICC" in x for x in _d_ai["warnings"])
+        _saved36 = _lv36.PROFILE_DEFAULTS["print"]["icc"]
+        _lv36.PROFILE_DEFAULTS["print"]["icc"] = False
+        try:
+            _d_mut36 = _lv36._build_deliverable(tmp / "a.ai", "print",
+                                                _lv36.PROFILE_DEFAULTS["print"],
+                                                _obs36, _kv36,
+                                                "vectorcraft-cli 0.22.0", [], None)
+        finally:
+            _lv36.PROFILE_DEFAULTS["print"]["icc"] = _saved36
+        _mut36 = (_d_mut36["save_options"]["embed_icc"] is False
+                  and not any("OutputIntent" in x for x in _d_mut36["unverified"]))
+        _ok36 = (bool(_u_vc) and _d_vc["save_options"]["embed_icc"] is True
+                 and _icc_print and _icc_screen and _mut36
+                 and _d_vc["profile"] == "print"
                  and not any("未嵌入 ICC" in x for x in _d_vc["warnings"]))
-        add("A36-cross-engine-unverified-bucket", _ok36,
-            "same profile print, same bytes: ai.unverified=" + str(len(_u_ai))
-            + " vc.unverified=" + str(len(_u_vc))
-            + " embed_icc=" + str((_d_ai["save_options"]["embed_icc"],
-                                   _d_vc["save_options"]["embed_icc"]))
-            + " jsx_icc=" + str(_jsx_icc36)
-            + " defaults=" + str(_def_ok36))
+        add("A36-icc-request-not-claimed", _ok36,
+            "print unverified=" + str(len(_u_vc))
+            + " embed_icc=" + str(_d_vc["save_options"]["embed_icc"])
+            + " profile_defaults=" + str((_icc_print, _icc_screen))
+            + " mutation_follows=" + str(_mut36))
 
         # A37: a warning emitted by three steps must appear once, and the
         # deliverable must carry that exact de-duplicated list (not a second
@@ -1459,111 +1366,73 @@ def main():
             + " rc_branch=" + str(_rc39.get("available"))
             + " nonjson=" + str(_js39.get("available")))
 
-        # Module-wide, value-flow based, and write-aware. QA round 21 showed
-        # the r28 guard could be walked around three ways (the call moved into a
-        # helper outside main(); a stray write into save_opts; a lookup through
-        # globals()) and false-red on four legitimate shapes (renaming the
-        # variable, passing a copy, passing an alias). The rules below keep the
-        # promise without freezing the spelling:
-        #   * every _make_jsx / _deliverable call in the module must receive an
-        #     argument that still carries the resolved options;
-        #   * that argument may be an alias or a copy -- what must not happen is
-        #     a DIFFERENT value (PROFILE_DEFAULTS["screen"], a literal, ...);
-        #   * nothing may write into the resolved options afterwards, except
-        #     the one documented line that copies the profile name onto it.
-        import ast as _ast
-        _tree40 = _ast.parse((SCRIPTS / "land_ai.py").read_text(encoding="utf-8"))
-        _assigns40 = {}
-        for _n in _ast.walk(_tree40):
-            if isinstance(_n, _ast.Assign) and len(_n.targets) == 1:
-                _t = _n.targets[0]
-                if isinstance(_t, _ast.Name):
-                    _assigns40.setdefault(_t.id, []).append(_n.value)
+        # (r45) A40's AST scan was retired with the JSX template it guarded.
+        # The replacement below guards the same property behaviourally: a
+        # failed landing must not leave the previous run's H1 evidence behind.
+        _hyg = tmp / "a40-hygiene"
+        _hygc = tmp / "a40-hygiene-craft"
 
-        def _carries40(name, depth=0):
-            """True when this name still holds the resolved options."""
-            if depth > 6 or name not in _assigns40:
-                return False
-            for _v in _assigns40[name]:
-                if isinstance(_v, _ast.Call):
-                    _fn = getattr(_v.func, "id", "")
-                    if _fn == "_resolve_options":
-                        continue
-                    if _fn in ("dict", "list") and _v.args and isinstance(_v.args[0], _ast.Name) \
-                            and _carries40(_v.args[0].id, depth + 1):
-                        continue
-                    return False
-                if isinstance(_v, _ast.Name):
-                    if _carries40(_v.id, depth + 1):
-                        continue
-                    return False
-                if isinstance(_v, _ast.Attribute) and _v.attr == "copy" \
-                        and isinstance(_v.value, _ast.Name) \
-                        and _carries40(_v.value.id, depth + 1):
-                    continue
-                return False
-            return True
+        def _stale40(where):
+            d = where or _hyg
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "structure_readback.json").write_text(json.dumps({
+                "schema": "vector-ai-studio/structure-readback-v1",
+                "ok": True, "raster": 0, "placed": 0, "paths": 5,
+                "artboard_matches_viewBox": True,
+                "source": "vectorcraft-info"}), encoding="utf-8")
+            (d / "final.ai").write_bytes(b"%PDF-1.4 stale-from-previous-run")
 
-        def _arg_carries40(arg, depth=0):
-            """Does this argument still carry the resolved options?
-
-            A plain name, an alias, or a copy of them all do. A DIFFERENT value
-            (PROFILE_DEFAULTS["screen"], a literal, a fresh dict) does not.
-            """
-            if depth > 6:
+        def _sr40_gone(where):
+            p = (where or _hyg) / "structure_readback.json"
+            if not p.is_file():
+                return True
+            try:
+                return json.loads(p.read_text(encoding="utf-8")).get("ok") is False
+            except (OSError, json.JSONDecodeError):
                 return False
-            if isinstance(arg, _ast.Name):
-                return _carries40(arg.id, depth)
-            if isinstance(arg, _ast.Call):
-                _fn = getattr(arg.func, "id", "")
-                if _fn in ("dict", "list") and arg.args and isinstance(arg.args[0], _ast.Name):
-                    return _carries40(arg.args[0].id, depth + 1)
-                return False
-            if isinstance(arg, _ast.Attribute) and arg.attr == "copy" \
-                    and isinstance(arg.value, _ast.Name):
-                return _carries40(arg.value.id, depth + 1)
-            return False
 
-        _site40 = {"resolved_from_options": bool([n for n in _assigns40 if _carries40(n)]),
-                   "profile_copied": False, "writes_after_resolve": [],
-                   "dynamic_dispatch": [],
-                   "make_jsx": [0, 0], "deliverable": [0, 0]}  # [calls, wired_calls]
-        for _n in _ast.walk(_tree40):
-            if isinstance(_n, _ast.Assign) and len(_n.targets) == 1:
-                _t = _n.targets[0]
-                if isinstance(_t, _ast.Subscript) \
-                        and isinstance(_t.value, _ast.Name) \
-                        and _carries40(_t.value.id):
-                    _is_profile = (isinstance(_n.value, _ast.Attribute)
-                                   and _n.value.attr == "profile"
-                                   and isinstance(_n.value.value, _ast.Name)
-                                   and _n.value.value.id == "args")
-                    if _is_profile:
-                        _site40["profile_copied"] = True
-                    else:
-                        _site40["writes_after_resolve"].append(_ast.unparse(_t))
-            if isinstance(_n, _ast.Call):
-                _fn = getattr(_n.func, "id", "")
-                # A call the scanner cannot attribute (globals()["_make_jsx"]...)
-                # would simply stop being counted, so dynamic dispatch is
-                # refused outright: QA round 21's B8 walked straight past the
-                # r28 guard this way.
-                if _fn in ("globals", "eval", "exec", "getattr"):
-                    _site40["dynamic_dispatch"].append(_ast.unparse(_n))
-                if _fn in ("_make_jsx", "_deliverable"):
-                    _site40[_fn.lstrip("_")][0] += 1
-                    for _a in _n.args:
-                        if _arg_carries40(_a):
-                            _site40[_fn.lstrip("_")][1] += 1
-                            break
-        _ok40 = (_site40["resolved_from_options"] and _site40["profile_copied"]
-                 and not _site40["writes_after_resolve"]
-                 and not _site40["dynamic_dispatch"]
-                 and _site40["make_jsx"][0] > 0
-                 and _site40["make_jsx"][1] == _site40["make_jsx"][0]
-                 and _site40["deliverable"][0] > 0
-                 and _site40["deliverable"][1] == _site40["deliverable"][0])
-        add("A40-module-call-site-wiring", _ok40, "static: " + str(_site40))
+        def _landing40(where):
+            try:
+                return json.loads(((where or _hyg) / "landing.json").read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                return {}
+
+        # (a) engine absent: degraded L4, stale evidence removed
+        _stale40(_hyg)
+        _rc40a, _, _ = _call("land_vc.py",
+                             ["--svg", str(GOOD / "sample.svg"), "--out", str(_hyg),
+                              "--vc", str(tmp / "definitely-no-cli.exe"), "--json"], tmp)
+        _l40a = _landing40(_hyg)
+        _ok40a = (_rc40a == 3 and _sr40_gone(_hyg)
+                  and _l40a.get("status") == "degraded"
+                  and _l40a.get("stale_readback_removed") is True)
+
+        # (b) source SVG missing: fail landing, stale evidence removed
+        _stale40(_hyg)
+        _rc40b, _, _ = _call("land_vc.py",
+                             ["--svg", str(tmp / "missing.svg"),
+                              "--out", str(_hyg), "--json"], tmp)
+        _l40b = _landing40(_hyg)
+        _ok40b = (_rc40b == 2 and _sr40_gone(_hyg) and _l40b.get("status") == "fail")
+
+        # (c) the print sibling has the same hygiene on its failure exit.
+        # Its own directory on purpose: sharing (b)'s would let (b)'s fail
+        # landing satisfy this clause even if land_craft wrote nothing, which is
+        # exactly the bug this assertion exists to catch. Exit is 2 (no SVG) or
+        # 3 (no CLI on this machine); 0 must never appear.
+        _stale40(_hygc)
+        _rc40c, _, _ = _call("land_craft.py",
+                             ["--svg", str(tmp / "missing.svg"),
+                              "--out", str(_hygc), "--json"], tmp)
+        _l40c = _landing40(_hygc)
+        _ok40c = (_rc40c in (2, 3) and _sr40_gone(_hygc)
+                  and _l40c.get("status") == "fail"
+                  and _l40c.get("stale_readback_removed") is True)
+        add("A40-failed-landing-clears-stale-evidence",
+            bool(_ok40a and _ok40b and _ok40c),
+            "vc_no_cli=" + str(_ok40a) + " vc_no_svg=" + str(_ok40b)
+            + " craft_no_svg=" + str(_ok40c))
+
 
         # A41: E is the one dimension that is a set comparison with its own
         # thresholds, and until r28 every fixture recorded E="N/A" -- the branch
@@ -1633,11 +1502,11 @@ def main():
     except Exception as e:                      # noqa: BLE001
         # Only fill in assertions that never ran. Re-adding an ID that already
         # produced a result would give one guard two contradictory verdicts.
-        for _id in ("A36-cross-engine-unverified-bucket",
+        for _id in ("A36-icc-request-not-claimed",
                     "A37-tool-warnings-deduplicated",
                     "A38-engine-version-parser",
                     "A39-font-probe-carried",
-                    "A40-main-call-site-wiring",
+                    "A40-failed-landing-clears-stale-evidence",
                     "A41-brand-reference-jaccard"):
             if not any(x["id"] == _id for x in a):
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])

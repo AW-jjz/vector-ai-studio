@@ -773,3 +773,70 @@ sha256        : caba99c8f1ffc718b49e0e35bf0824eedcc33744ee5c304efe19003d9b96fe0e
                 回读校验：从远端 clone --depth 1 后与本地源树逐文件比 md5 ——
                 58/58 全等，missing/diff 均为空；docs 三件同 md5。
                 详见 04-QA/test-log-r44/r44-08-远端回读.txt
+
+════════════════════════════════════════════════════════════════════
+r45（2026-11-10，版本 1.1.0，55 文件 / 179,943 B）— 当前版本
+════════════════════════════════════════════════════════════════════
+
+文件数        : 55
+字节数        : 179,943 B
+sha256        : ef3c5ed0465807261c6080e2e7f9faa57773668a67900673105a157ac6c435a2
+对应冻结基线  : 04-QA/test-log-r45/00-freeze-r45-manifest.txt（55 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 15:53:34，484,036 B
+                清单 sha256 0be7887d4bcddf4e284a67ca8133a26dd852cbbdd0dcae227aac2a849580d4cb
+
+本版包含      : 全部转 VectorCraft，移除 Adobe 依赖（Illustrator / COM / JSX / PowerShell）
+                · 删除 scripts/land_ai.py、ai_bridge.jsx、ai_bridge.ps1、render_export.jsx
+                · 新增 scripts/lib_pdf.py：PDF 字节观察、deliverable/landing 构造、
+                  清旧读数、预览兜底
+                · land_vc.py 为默认 lander，land_craft.py 为印刷母版；共用同一
+                  landing 形状，异常出口一律清旧 readback 并写 fail/degraded
+                · smoke_ai.py 不再探测 COM：查 vectorcraft_cli，FOUND 才跑真机，
+                  缺失记 L4 exit 3
+                · detect_deps.py 删 _find_illustrator / _probe_com / --probe-com
+                · render_png.py 候选链只剩 resvg → cairosvg → 内置兜底
+                · A31 改为对真实 land_vc 产物做双向 schema diff + const + profile
+                  接线；A40 由 AST 扫描改为行为断言（失败出口清旧读数）
+                · H1 不过按结果处理（degraded + exit 1），本轮读数保留
+                · 文档统一 craft 语义；E-SEMI-MANUAL-NOT-ALLOWED 标「已废弃」
+
+相对 r44 变更 : 新增 1 / 删除 4 / 修改 17 / 其余 33 个 sha256 不变
+                新增 scripts/lib_pdf.py 23,722 B
+                删除 scripts/land_ai.py 50,120 B、scripts/ai_bridge.jsx 12,698 B、
+                     scripts/ai_bridge.ps1 933 B、scripts/render_export.jsx 2,163 B
+                scripts/selftest.py 111,945 → 103,438 B
+                scripts/land_vc.py 20,323 → 22,448 B
+                scripts/land_craft.py 17,330 → 18,844 B
+                scripts/detect_deps.py 10,147 → 6,148 B
+                scripts/render_png.py 11,738 → 9,240 B
+                scripts/smoke_ai.py 8,779 → 8,626 B
+                scripts/export_print.py 7,258 → 6,704 B
+                scripts/aggregate_log.py 36,015 → 35,537 B
+                references/pipeline-contract.md 27,492 → 26,278 B
+                SKILL.md 30,931 → 29,103 B
+                其余 7 个：README.md、config/thresholds.json、references/error-codes.md、
+                references/schemas/deliverable.schema.json、requirements.txt、
+                scripts/lib_common.py、templates/delivery-note.template.md
+
+实测证据      : selftest --fixtures 46/0/0（VECTOR_AI_STUDIO_REAL_AI=1 复跑同为 46/0/0）
+                run_fixtures 24/24；validate_skill 0 error / 0 warning
+                双打包 ×2 字节一致，zip ↔ 基线 55/0/0/0（missing/extra/diff）
+                真机 smoke：status=ok / h1_pass=true / h2=true / grade=不达标，
+                final.ai 5 paths、5 layers、画板 200×200 == viewBox、raster=0、placed=0
+                证据目录 04-QA/test-log-r45/
+
+已知限制      : VectorCraft 产物无 /OutputIntent、无 /ICCBased，清单按实测写
+                unverified，不声称 CMYK 输出意图或 ICC 嵌入
+                渲染器 resvg / cairosvg / svgo 与 host LLM 在本机 MISSING，
+                detect_deps 如实记 MISSING，预览走内置兜底
+                Illustrator 打开时文字读成轮廓（实测 textFrames=0），文件内仍保留
+                文字对象；需改活字请交付 SVG 源文件
+
+独立 QA       : 第 39 轮首检「需修后重签」：P1×3（两个 lander 异常出口、A40 缺口）、
+                P2×4（stale 零断言、engine const、placed 常量、旧 preview 复用）；
+                修复后复核「可签收」，无新增可验证缺陷
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 00-freeze-r45-manifest.txt 比对，应 55/55
+                2) python scripts/selftest.py --fixtures 期望 46/46；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 ef3c5ed0…35a2（179,943 B）

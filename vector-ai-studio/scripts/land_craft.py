@@ -8,7 +8,7 @@ licensed, activated and reachable. VectorCraft is a clean-room, MIT/Apache-2.0
 Illustrator-class engine with a headless CLI; its 933-command catalogue covers
 what the old JSX/COM path did and considerably more.
 
-Output contract mirrors land_ai.py so downstream (aggregate_log.py, the H1 gate,
+Output contract mirrors land_vc.py so downstream (aggregate_log.py, the H1 gate,
 the QA reports) can consume either engine without special cases:
 
   final.svg               source SVG copied into the run dir
@@ -38,7 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
-import land_ai as LA           # one PDF reader for all three engines
+import lib_pdf as LP           # one PDF reader for both craft landers
 from trace_ref import require_cli, find_cli  # single source of truth for the CLI locator
 
 SCRIPT = "land_craft.py"
@@ -110,16 +110,16 @@ def _pdf_facts(path, warnings=None):
     facts["output_condition"] = _pdf_text(m.group(1)) if m else None
     facts["output_intent_objects"] = len(re.findall(rb"/Type\s*/OutputIntent\b", raw))
 
-    # Selection is land_ai's too: page /Contents refs plus /Subtype /Form
+    # Selection is lib_pdf's too: page /Contents refs plus /Subtype /Form
     # XObjects. Selecting differently per engine is how the same PDF ended up
     # with two different operator counts.
-    streams, n_refs, n_objects = LA._page_streams(raw, warnings)
-    ops, decoded = LA._count_ops(streams)
+    streams, n_refs, n_objects = LP._page_streams(raw, warnings)
+    ops, decoded = LP._count_ops(streams)
     # None means "nothing decoded", and it must stay None. Filling zeros here
     # made an unmeasured page indistinguishable from a page with no colour
     # operator, so a caller could assert "no CMYK in this file" from a
-    # measurement that never happened. land_ai already reports null on this
-    # path; the two engines have to agree on the difference.
+    # measurement that never happened. land_vc reports null on this path; the
+    # two engines have to agree on the difference.
     facts["content_ops"] = ops
     # Only the page content streams and Form XObjects are page description;
     # ICC profiles, font programs and CMaps are binary blobs that happen to
@@ -140,6 +140,24 @@ def _structure(ai_path):
     return json.loads(p.stdout)
 
 
+def _record_failure(run_dir, note):
+    """Fail landing + no stale readback, so a failed print run cannot inherit
+    the previous run's H1 pass. Mirrors land_vc.py."""
+    cleared = LP._drop_stale_readback(run_dir)
+    try:
+        cur = json.loads((run_dir / "landing.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        cur = {}
+    if cur.get("status") == "fail":
+        return
+    try:
+        L.write_json_atomic(run_dir / "landing.json",
+                            LP._landing("none", "fail", note, False, False,
+                                        {"stale_readback_removed": cleared}))
+    except OSError:
+        pass
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--svg", required=True)
@@ -153,6 +171,16 @@ def main():
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        return _land(args, out)
+    except BaseException:
+        _record_failure(out, "print landing aborted by an exception")
+        raise
+
+
+def _land(args, out):
     cli = require_cli()          # E-CAPABILITY-MISSING, never a silent success
     src = Path(args.svg)
     if not src.is_file():
@@ -163,8 +191,6 @@ def main():
         raise L.ToolError("E-USAGE", "PDF/X needs --profile print", L.EXIT_USAGE)
 
     vb = viewbox_of(src)
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
     ai = out / "final.ai"
     png = out / "preview.png"
     pdf = out / "print.pdf"
@@ -319,11 +345,18 @@ def main():
                            "sha256sum final.ai  # " + observed["sha256"]],
     })
 
-    if not h1:
-        raise L.ToolError("E-H1-STRUCTURE",
-                          "structure readback failed: " + json.dumps(struct)[:300], L.EXIT_FAIL)
-
-    return L.emit(SCRIPT, status="ok", code=0, data={
+    # A measured H1 failure is a result, not an exception: raising here would
+    # make _record_failure delete the readback this very run just measured, and
+    # the only evidence of why the print master failed would be gone. Mirrors
+    # land_vc.py: degraded landing, exit 1, readback kept.
+    L.write_json_atomic(out / "landing.json",
+                        LP._landing("vectorcraft", "ok" if h1 else "degraded",
+                                    "" if h1 else "structure readback did not satisfy H1",
+                                    True, h1,
+                                    substitute=("inspect the source artboard/fonts; "
+                                                "the engine itself was found and ran")))
+    return L.emit(SCRIPT, status="ok" if h1 else "degraded",
+                  code=0 if h1 else L.EXIT_FAIL, data={
         "profile": args.profile, "pdf_standard": args.pdf_standard,
         "h1_pass": h1, "paths": paths, "raster": raster, "placed": placed,
         "artboard": [art[2] - art[0], art[3] - art[1]], "viewBox": vb,

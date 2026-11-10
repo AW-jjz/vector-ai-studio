@@ -2,9 +2,9 @@
 """H2 / grading / O2 / O3 / generation budget / F data isolation.
 
 Grading is a mechanical numeric comparison driven by config, never declared by
-the LLM. Handles the L2 capability-missing status (no third grading tier), the
-semi-manual COM branch, strict fallback-PNG H2 counting and runtime-derived
-generation budget. acceptance.json puts headline on the first line.
+the LLM. Handles the L2 capability-missing status (no third grading tier),
+strict fallback-PNG H2 counting and runtime-derived generation budget.
+acceptance.json puts headline on the first line.
 
 --validate-case runs the acceptance-log validator against a fixture sample so
 run_fixtures.py can assert every E-* rejection code mechanically.
@@ -311,7 +311,7 @@ def main():
     sr = _load_optional(run_dir / "structure_readback.json")
     final_ai = run_dir / "final.ai"
     ai_ok = final_ai.is_file() and final_ai.stat().st_size > 0
-    h1_ok, h1_status, h1_reason = False, "unverified", "no Illustrator saveAs readback in this run"
+    h1_ok, h1_status, h1_reason = False, "unverified", "no structure readback in this run"
     if isinstance(sr, dict) and ai_ok:
         raster, placed, paths = sr.get("raster"), sr.get("placed"), sr.get("paths")
         dims_ok = sr.get("artboard_matches_viewBox") is True
@@ -321,11 +321,11 @@ def main():
         # The reason must follow the verdict: a fixed "raster/placed=0..." line
         # reads like a pass even when the readback failed.
         if h1_ok:
-            h1_reason = "saveAs readback: raster/placed=0, paths>0, artboard==viewBox"
+            h1_reason = "readback: raster/placed=0, paths>0, artboard==viewBox"
         elif sr.get("stale") is True:
             h1_reason = "stale readback from an earlier run; this run has no readback"
         else:
-            h1_reason = "saveAs readback did not satisfy H1: raster/placed/paths/artboard"
+            h1_reason = "readback did not satisfy H1: raster/placed/paths/artboard"
 
     # ---- H2: four artifacts, strict real-PNG rule ----
     final_svg = run_dir / "final.svg"
@@ -497,13 +497,6 @@ def main():
                 scores[d] = "N/A"
     scores_missing = [d for d in ("A", "B", "C", "D", "F") if scores.get(d) in (None, "")]
 
-    # ---- semi-manual branch ----
-    landing = _load_optional(run_dir / "landing.json") or {}
-    semi = landing.get("automation") == "semi-manual"
-    if semi:
-        degradation.append({"level": "L4", "reason": "COM not drivable; semi-manual JSX path",
-                            "note": msg["semi_manual_note"]})
-
     # ---- grading (L2 still uses the 7.3 mechanical comparison; no third tier) ----
     hard_all_pass = bool(h1_ok and h2_ok and h3_status == "pass" and h4_ok and f_data_isolated)
     grade = msg["grade_fail"]
@@ -608,8 +601,7 @@ def main():
         "generation_budget": generation_budget,
         "f_source_runs": f_source_runs,
         "c2_revisions": c2_revisions,
-        "automation": "semi-manual" if semi else ("auto" if h1_ok else "none"),
-        "semi_manual_note": msg["semi_manual_note"] if semi else "",
+        "automation": "auto" if h1_ok else "none",
         "scores": scores,
         "scores_source": {"score": score_source, "F": f_source, "missing": scores_missing},
         "degraded_dims": degraded_dims,

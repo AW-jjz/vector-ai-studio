@@ -36,7 +36,7 @@ metadata:
 - 只要位图 / 照片级真实感 / 3D / 像素级修图。
 - 已持有成品 SVG、仅需转换为 `.ai`（属纯格式转换，不启用生成与质量闭环）。
 - 纯格式考据、可行性论证、来源对比或尽调报告。
-- 本机没有 Illustrator 且不接受「格式底线未满足」的降级说明。
+- 本机没有 VectorCraft CLI 且不接受「格式底线未满足」的降级说明。
 
 触发词（矢量图 / logo / 图标 / 插画）仅为演示，规则本身适用于任何纯矢量图形领域，不把能力窄化为某一类图形。
 
@@ -44,7 +44,7 @@ metadata:
 
 - 本技能按 `marketplace` 上架口径立标（假设）；上架字段仅为静态元数据，任何脚本都不读取它们。以 `local` 方式安装时零门槛、无需联网 / 凭据 / 额外组件，默认链路完全相同。
 - 默认链路零付费凭据、零第三方付费服务；商业生成端只在用户自行提供凭据时启用，不隐式调用。
-- 一切外部依赖（Illustrator COM、PNG 渲染器、宿主 LLM 读图）一律先由 `scripts/detect_deps.py` 探测，显式列出 FOUND / MISSING / UNVERIFIED 与替代方案，不假设已装。
+- 一切外部依赖（VectorCraft CLI、PNG 渲染器、宿主 LLM 读图）一律先由 `scripts/detect_deps.py` 探测，显式列出 FOUND / MISSING / UNVERIFIED 与替代方案，不假设已装。
 
 ## 工作流程
 
@@ -149,56 +149,45 @@ F 统计只从 f_source_runs 按 run 取数，C2 收敛产物严禁跨 run 回�
 
 按需求 §7.5.1 原编排实现，无编排变更；阈值一个都不改。详见 `references/pipeline-contract.md`。
 
-### 步 9 本机 Illustrator 落地（C4 / H1 / H2）
+### 步 9 落地为原生 `.ai`（C4 / H1 / H2）
 
 ```
-python scripts/land_ai.py --svg path/to/round/sanitized.svg --out path/to/run --deps path/to/run/deps.json
+python scripts/land_vc.py --svg path/to/round/sanitized.svg --out path/to/run --profile print
 ```
 
-`scripts/land_ai.py` 运行时替换 `scripts/ai_bridge.jsx` 的占位符，经 `scripts/ai_bridge.ps1` 的 COM 通道执行：打开 SVG → 结构断言 → `saveAs()` 产出原生 `.ai` → 重新打开并重读对象计数。断言 `rasterItems=0`、`placedItems=0`、`pathItems>0` 且画板与 viewBox 一致。绝不把 SVG 改后缀、绝不生成 PDF 容器冒称原生可编辑 `.ai`。
+`scripts/land_vc.py` 走 VectorCraft 的 CLI（`vectorcraft-cli`）：不需要 Adobe、不需要 COM、不需要 Windows 桌面。流程是 `run --in SVG --export final.ai [--export final.pdf]`，再用 `info` 重新打开产物读回结构，最后由 `scripts/lib_pdf.py` 直接测量文件字节。断言 `images=0`、`paths>0` 且画板与 viewBox 一致（容差 1pt）。绝不把 SVG 改后缀、绝不把没有结构回读的文件冒称合格 `.ai`。
 
 **交付档位**：落地前先明确客户要什么，不要用默认值赌。
-
-```
---profile screen     屏幕交付（默认）：PDF 兼容、RGB、无出血
---profile print      印刷交付：PDF 兼容 + 请求嵌入 ICC + 逐对象转 CMYK + 3mm 出血与裁切线
---profile handoff    客户改稿：把顶层分组建成命名图层，便于分件开关
-```
-
-单项可覆盖：`--compat` / `--pdf-compatible` / `--embed-icc` / `--cmyk` / `--bleed-mm` / `--layers-from-groups`。所有保存选项都显式写入 `IllustratorSaveOptions`，不依赖 Illustrator 默认值——`pdfCompatible` 默认恰好为真、`embedICCProfile` 默认恰好为假，靠默认值等于把交付质量交给安装环境。
-
-落地成功会额外产出交付清单 deliverable.json（见输出规范）。其中的 `unverified` 字段记录「要求了但没兑现」的项：例如请求了 CMYK 而产物未以 CMYK 着色时，这条差异会连着实测到的算子计数写进清单，代码不会假装成功。
-
-**色彩模式的判定依据是内容流算子，不是资源字典。** 未声明的 `k` 操作数按 PDF 规范即 DeviceCMYK；只数 `/DeviceCMYK` 会把一份合格的 CMYK 文件误判成 RGB——这在两条引擎上都发生过。
-
-### 备选引擎：VectorCraft（不依赖 Illustrator）
-
-```
-python scripts/land_vc.py --svg path/to/final.svg --out path/to/run --profile print
-```
-
-`scripts/land_vc.py` 走 VectorCraft 的 CLI（`vectorcraft-cli`），不需要 Illustrator、不需要 COM、跨平台。档位行为：
 
 | 档位 | 行为 |
 |---|---|
 | `screen` | 导出 PDF 兼容 `.ai`（RGB） |
-| `print` | 先 `file.documentColorMode {mode:"cmyk",convert:true}`，再导出 `.ai` **与** `.pdf` |
+| `print` | 先 `file.documentColorMode {mode:"cmyk",convert:true}`，再导出 `.ai` **与** `output/<run-id>/final.pdf` |
 | `handoff` | 同 screen；SVG 的 `<g>` 自动成为命名图层 |
 
-**三条引擎是并行关系，不是替代**：产出同一套产物与同一份交付清单契约（字段集因引擎能力不同略有增删，均已在 `references/schemas/deliverable.schema.json` 声明），`engine` 字段记录实际用的是哪一个，一条路出问题不会污染另一条。Illustrator / VectorCraft / 半自动邻居三条路共用同一个 PDF 解析器（`land_ai._pdf_objects`/`_page_streams`/`_count_ops`），同一份 PDF 上的算子计数不允许出现两个答案。
+落地成功会额外产出交付清单 `output/<run-id>/deliverable.json`。其中 `unverified` 记录「要求了但没兑现」的项：例如请求了 CMYK 而产物未以 CMYK 着色时，差异会连着实测算子计数写进清单，代码不会假装成功。
 
-实测差异（vectorcraft 0.22.0，2026-11-08）：
+**色彩模式的判定依据是内容流算子，不是资源字典。** 未声明的 `k` 操作数按 PDF 规范即 DeviceCMYK；只数 `/DeviceCMYK` 会把一份合格的 CMYK 文件误判成 RGB。
 
-- **CMYK 在这条路上是真的**（内容流出现 k/K 算子、rg/RG 归零）；Illustrator 脚本路径做不到，PDF 层始终写 RGB
-- **文字在 Illustrator 里会变成轮廓**：实测同一份产物在 VectorCraft 中 `kinds.Type=2`（文字对象仍在、字体仍挂着），在 Illustrator 中 `textFrames=0`、`pathItems` 增加。**能否改字取决于客户用哪个软件打开**；以 Illustrator 为交付环境时应改走 Illustrator 引擎保住活字。清单会写明这一条
-- **字体缺失会被静默替换**：源文件的字体若本机没有，产物用回退字体渲染。工具会报出来，清单照抄进 `warnings`
-- **图层不完全可靠**：5 个「只含单个元素」的 `<g>` 实测生成 5 个命名图层；另两个「`<g>` 内含多个子元素」的复杂样本都只有 1 层——**其中一个并没有 defs 也没有剪切蒙版**，所以塌层与它们无关。规律尚未确认，清单里的层数取自文件的 /OCGs，是实测值、不是承诺值
-- 产物**不含输出意图与 ICC**：是 CMYK、不是 PDF/X，印刷条件未声明
-- 不支持出血，`--bleed-mm` 仅对 Illustrator 引擎有效
+**印刷母版**由 `scripts/land_craft.py` 产出：同一引擎，额外给 PDF/X-1a / X-3 / X-4、裁切线、出血与 TrimBox/BleedBox 实测。
 
-**这两条（文字转轮廓、字体替换）都是复杂样本才暴露的**，只拿干净的小图测会漏掉——所以换引擎前必须用带文字、渐变、剪切蒙版的样本压一遍。
+```
+python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
+  --profile print --pdf-standard pdfX1a --bleed-mm 3
+```
 
-`scripts/render_png.py` 的渲染器按 resvg → cairosvg → 无头浏览器 → **Illustrator 导出** → 内置兜底依次尝试；其中 Illustrator 导出由 `scripts/render_export.jsx` 经同一个 `scripts/ai_bridge.ps1` 通道执行 `exportFile(..., ExportType.PNG24, ...)`。Illustrator 本来就是产出原生 `.ai` 的硬依赖，因此只要能交付 `.ai`，就必然能导出与 `.ai` 一致的忠实预览，无需额外安装第三方渲染器。
+两个落地脚本共用 `scripts/lib_pdf.py` 的 PDF 解析器与 landing 契约；清单字段各自构造（都以 `references/schemas/deliverable.schema.json` 为准），同一份 PDF 上的算子计数不允许出现两个答案。
+
+实测限制（vectorcraft 0.22.0，2026-11-08）：
+
+- **CMYK 是真的**（内容流出现 k/K 算子、rg/RG 归零）
+- **文字在 Illustrator 里会变成轮廓**：同一份产物在 VectorCraft 中 `kinds.Type>0`，在 Illustrator 中 `textFrames=0`、路径增加。能否改字取决于客户用哪个软件打开；清单会写明这一条
+- **字体缺失会被静默替换**：源文件字体本机没有时，产物用回退字体渲染。工具会报出来，清单照抄进 `warnings`
+- **图层不完全可靠**：5 个「只含单个元素」的 `<g>` 实测生成 5 个命名图层；两个「`<g>` 内含多个子元素」的样本只有 1 层（均无 defs、无剪切蒙版）。规律尚未确认，清单层数取自文件 /OCGs，是实测值
+- `.ai` 本身不含输出意图与 ICC：是 CMYK、不是 PDF/X；需要印刷条件时走 `scripts/land_craft.py`
+- 这些差异只在带文字、渐变、剪切蒙版的复杂样本上暴露，换版本前必须压一遍
+
+`scripts/render_png.py` 的渲染器按 resvg → cairosvg → 无头浏览器 → 内置兜底依次尝试。落地脚本自己会先用 VectorCraft 导出预览；失败时才回落到 `scripts/render_png.py`，其 `output/<run-id>/preview.meta.json` 会如实标注 renderer 与 fidelity。
 
 ### 步 10 验收日志聚合（H2 / H3 / H4）
 
@@ -220,7 +209,7 @@ python scripts/smoke_ai.py
 
 H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生（`--log-dir` 必须指向运行目录）；不传 `--log-dir` 时日志落在默认输出根下，`scripts/aggregate_log.py` 找不到它，H3 恒不通过。也可用 `--selftest-log <path>` 显式指定。
 
-`scripts/selftest.py` 是纯脚本层，零外部依赖必能跑；`scripts/run_fixtures.py` 跑随包 good / bad 回归；`scripts/smoke_ai.py` 是独立的真机冒烟命令，真实尝试 COM，不可用按 L4 显式降级并留真实日志，绝不编造 `.ai`。
+`scripts/selftest.py` 是纯脚本层，零外部依赖必能跑；`scripts/run_fixtures.py` 跑随包 good / bad 回归；`scripts/smoke_ai.py` 是独立的真机冒烟命令，真实探测并调用 VectorCraft 落地，引擎不可用按 L4 显式降级并留真实日志，绝不编造 `.ai`。
 
 ## 命令速查
 
@@ -264,11 +253,11 @@ python scripts/batch_check.py --runs-dir path/to/run --out path/to/run/batch.jso
 ### 落地与聚合
 
 ```
-python scripts/land_ai.py --svg path/to/round/sanitized.svg --out path/to/run --deps path/to/run/deps.json
+python scripts/land_vc.py --svg path/to/round/sanitized.svg --out path/to/run --profile print
 python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptance.json
 ```
 
-快速预览用 `scripts/aggregate_log.py --quick`；只取 H1 证据、不评级用 `scripts/aggregate_log.py --landing-only`；半自动落地用 `scripts/land_ai.py --semi-manual`（仅 COM 不可驱动时由用户显式选择）与 `scripts/land_ai.py --collect`。
+快速预览用 `scripts/aggregate_log.py --quick`；只取 H1 证据、不评级用 `scripts/aggregate_log.py --landing-only`。
 
 ### 路线 B：客户给了一张照片，要印刷件
 
@@ -305,7 +294,7 @@ python scripts/export_print.py --in art.ai --out print.jpg --height-mm 300 --dpi
 
 ### 路线 C：只用 VectorCraft（默认推荐，不依赖 Adobe）
 
-`scripts/land_craft.py` 与 land_ai 脚本**同输出契约**，但整条链只用 VectorCraft CLI，
+`scripts/land_craft.py` 与 `scripts/land_vc.py` **同输出契约**，但整条链只用 VectorCraft CLI，
 无 COM、无 Windows 依赖、无 Adobe 授权。Adobe 官方说明 Creative Cloud 服务未在中国大陆的
 adobe.com 上开放，自动化产线不应把落地绑在桌面程序上。
 
@@ -354,7 +343,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 
 交付清单 deliverable.json 是**给客户的**，与验收日志分开：它不评价好坏，只记录物件本身的可核事实（色彩空间、ICC、出血、图层、字体、位图、画板 pt/mm、sha256）与必须说明的风险（第三方重存会剥离 AIPrivateData、CMYK 未做色彩管理等）。`observed` 段每一项都是从产物字节实测（含 print.pdf 的 /OutputConditionIdentifier）；`save_options` 段记录本次**请求**的保存参数，两者不混写——唯一例外是 `save_options.output_intent`：没有 PDF 可读回时它记请求值，读得到时它记读回值（请求值另存 `output_intent_requested`），因为「按请求写的」与「文件里真的这么写」是两件事，混在一起就无法区分。`unverified` 字段专门记录「要求了但没兑现」的条目——例如要求转 CMYK 而 PDF 兼容层仍写 RGB 时会出现在这里，而不是被略过。
 
-- final.ai 由 Illustrator `saveAs()` 产出，附重开回读计数；final.svg 与它同源；preview.png 为真实可解析 PNG；acceptance.json 含 A–F 各项分数、轮次记录、H1–H4 与降级标记。
+- final.ai 由 VectorCraft `run --export` 产出、再由 `info` 重开回读计数；final.svg 与它同源；preview.png 为真实可解析 PNG；acceptance.json 含 A–F 各项分数、轮次记录、H1–H4 与降级标记。
 - 阈值、分档、降级文案的唯一事实源是 `config/thresholds.json`；`calibration_policy` 登记可校准白名单与审批流，判据定义类一律锁定，任何放宽必须标 `loosening: true` 且带裁决引用。
 - 判定类 JSON 不含 wall-clock，同一输入两次执行逐字节一致；时间只进 append-only 运行日志。
 - 验收日志另含 generation_count / generation_budget（运行时派生）、f_source_runs / c2_revisions / f_data_isolated、f_verified、needs_human_review、reason、h1 至 h4 等强制字段，供 QA 机械核对。
@@ -364,7 +353,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 ## 降级与边界
 
 - L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），仍按 §7.3 机械比较得出「不达标」、不引入额外档位；强制 degraded / needs_human_review / reason 为 capability_missing、首行「语义 / 构图判读未取证，需人工终审」；四件产物含原生 `.ai` 照常落盘、交付不阻断；L3 商业增强需用户自行提供凭据；L4 依赖缺失；L5 无风格参考时 E 记 N/A。
-- COM 不可驱动：默认 L4 全自动降级，H1 判不达标，仅交付净化 SVG 与 PNG 并标注「非原生 `.ai`」。用户可显式选择半自动路径，在本机 Illustrator 内手动执行一次 `scripts/ai_bridge.jsx`，仍由 `saveAs()` 产出真 `.ai`；日志强制 `automation: semi-manual`、degradation.level 为 L4、`status: degraded`，并写明「需人工在 Illustrator 内执行一次脚本」，禁止宣称全自动或装好即用无人工。半自动绝不静默触发。
+- VectorCraft CLI 缺失：L4 全自动降级，H1 判不达标，仅交付净化 SVG 与 PNG 并标注「非原生 `.ai`」，`substitute` 写明安装方式或 `VECTORCRAFT_CLI`。不存在半自动兜底路径（r45 起移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
 
 ## 注意事项
 

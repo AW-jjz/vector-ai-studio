@@ -16,7 +16,7 @@
 }
 ```
 
-退出码：`0` 成功 / `1` 判据或校验不通过（业务失败，非崩溃）/ `2` 用法或畸形输入（显式报错，不猜测语义）/ `3` 依赖 MISSING 已降级（不得静默成功）/ `4` 内部异常或真机 COM 失败。`degradation` 仅在降级时出现。
+退出码：`0` 成功 / `1` 判据或校验不通过（业务失败，非崩溃）/ `2` 用法或畸形输入（显式报错，不猜测语义）/ `3` 依赖 MISSING 已降级（不得静默成功）/ `4` 内部异常或落地引擎失败。`degradation` 仅在降级时出现。
 
 ## 数据契约（全部机器可读 JSON）
 
@@ -29,8 +29,8 @@
 | revision.json | vector-ai-studio/revision-v1 | `../scripts/iterate.py` | change_only / must_keep / decision / K_max |
 | batch.json | vector-ai-studio/batch-v1 | `../scripts/batch_check.py` | F / f_verified / per_run[] / aggregate |
 | preview.meta.json | vector-ai-studio/preview-meta-v1 | `../scripts/render_png.py` | renderer / degraded / note / width / height / fidelity（full 或 faithful 或 limited；缺字段按 limited 处理） |
-| structure_readback.json | vector-ai-studio/structure-readback-v1 | `../scripts/land_ai.py` | raster / placed / paths / artboard_matches_viewBox / ok |
-| landing.json | vector-ai-studio/landing-v1 | `../scripts/land_ai.py` | automation / status / degradation / ai_produced |
+| structure_readback.json | vector-ai-studio/structure-readback-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | raster / placed / paths / artboard_matches_viewBox / ok |
+| landing.json | vector-ai-studio/landing-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | automation / status / degradation / ai_produced |
 | acceptance.json | vector-ai-studio/acceptance-v1 | `../scripts/aggregate_log.py` | headline(首行) / grade / scores / rounds / hard_gates / degradation |
 | selftest.json | vector-ai-studio/selftest-v1 | `../scripts/selftest.py` | assertions[] / chain[] / passed / failed |
 
@@ -52,11 +52,11 @@ output/<run-id>/run.log                 # append-only，唯一允许含 wall-clo
 
 run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言：final.ai + final.svg + 真实可解析 preview.png + acceptance.json。
 
-## JSX / COM 落地与结构回读
+## 落地为原生 .ai 与结构回读
 
-`../scripts/land_ai.py` 运行时替换 `../scripts/ai_bridge.jsx` 的四个占位符：`__SVG_PATH__` / `__OUT_PATH__` / `__OUTLINE_TEXT__` / `__RESULT_PATH__`（第四个供半自动回读收集）。经 `../scripts/ai_bridge.ps1` 的 COM 通道执行固定序列：打开 → 结构断言 → `saveAs()` 原生 `.ai` → 关闭 → 重开重读计数。返回 `OK|<out path>|...|raster=0|placed=0|artboard=WxH|viewBox=...` 或显式 `ERROR:`。第四个占位符是为半自动路径兑现 H1 而加的实现扩展，不改判据。保存选项与自动路径同源——两条分支都传 `_resolve_options()` 的结果，因此 `--profile` / `--embed-icc` 等对半自动同样生效（r28 修正：此前半自动分支漏传，固定落回 screen 默认值）。
+r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../scripts/land_vc.py` 执行 `vectorcraft-cli run --in <sanitized.svg> [--cmd file.documentColorMode …] --export output/<run-id>/final.ai [--export output/<run-id>/final.pdf]`，再执行 `vectorcraft-cli info` 重新打开产物读回 kinds / artboards；最后由 `../scripts/lib_pdf.py` 直接解析文件字节（对象流、页面内容流、字体、图像、/OCGs）。H1 = `images=0` 且 `paths>0` 且画板与 viewBox 一致（±1pt）且结构回读的 ok 字段为真。`../scripts/land_craft.py` 是印刷母版兄弟：同一引擎，追加 PDF/X、裁切线、出血、TrimBox / BleedBox 实测。
 
-两条路径都不把「文件存在」当成「本次产出」：自动路径在暂存区没有 `.ai` 时直接报 `E-H1-STRUCTURE`；半自动 `--collect` 读 `OK` 行第二个字段（JSX 实际保存的路径），必须指向本次 run 的 `output/<run-id>/final.ai` 且非空，否则同样报错，并把 `output/<run-id>/landing.json` 改写成 `status: fail`、删掉上一轮留下的 `output/<run-id>/structure_readback.json`（否则 `../scripts/aggregate_log.py` 会把旧读数当成这一轮的成绩）。`output/<run-id>/manual-result.txt` 缺失时先删旧读数、记 `degraded`（脚本还没跑，不算失败）；首行不是 `OK|`（含 0 字节）时先删旧读数再写 `status: fail`。自动路径的每个失败出口同样先删旧读数、再写 `status: fail` 的 `output/<run-id>/landing.json`；L4 降级（COM 不可用、转半自动或只交 SVG+PNG）、入参错误（源 SVG 缺失、未确认 COM 不可用却要求半自动）与未预期异常，也都在退出前删掉旧读数。`output/<run-id>/landing.json` 记 `stale_readback_removed`（布尔）：删除失败时旧读数会被改写为 `ok: false`，宁可让 H1 判失败，也不让上一轮的 pass 留下来。失败信封的 `data` 带 `reported_ai`（`OK` 行报的路径）与 `expected_ai`（本次 run 应有的路径），非 `OK` 行时带 `manual_result_line`。半自动的 `output/<run-id>/landing.json` 另记 `ai_provenance: path-asserted-by-manual-jsx`——文件身份由人工执行的脚本断言，工具没有独立的时间证据。
+两个脚本都不把「文件存在」当成「本次产出」：落地命令必须退出 0，`output/<run-id>/final.ai` 非空，`output/<run-id>/structure_readback.json` 的 `source` 为 `vectorcraft-info`（land_vc）或 `vectorcraft-cli info (reopen)`（land_craft）。任何失败出口（源 SVG 缺失、CLI 缺失、导出非零、未写出 .ai）都先删上一轮的 `output/<run-id>/structure_readback.json`，再写 `status: fail` 或 `degraded` 的 `output/<run-id>/landing.json`；旧读数删不掉时把它改写为 `ok: false`，宁可让 H1 判失败，也不让上一轮的 pass 留下来。`output/<run-id>/landing.json` 记 `stale_readback_removed`（布尔）。CLI 缺失是 L4 降级：只交 SVG + PNG，并把安装方式或 `VECTORCRAFT_CLI` 写进 `substitute`，绝不把 SVG 改后缀冒充 `.ai`。
 
 ## L0–L5 → 脚本行为映射
 
@@ -66,14 +66,14 @@ run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言
 | L1 | 分档未达标 | `../scripts/iterate.py` 出 `stop_exhausted`，acceptance.json 首行标注需人工终审 |
 | L2 | 宿主读图不可用 | `../scripts/llm_judge.py` 标 capability_missing，`../scripts/score.py` 令 A/B = N/A (capability_missing)（状态枚举非分数），`../scripts/aggregate_log.py` 机械归「不达标」、强制 degraded / needs_human_review / reason=capability_missing，四件产物照常落盘 |
 | L3 | 用户提供凭据 | 默认链路不受影响，不隐式调用 |
-| L4 | COM / 渲染器缺失 | `../scripts/detect_deps.py` 显式 `MISSING`；`../scripts/land_ai.py` 交付 SVG + PNG；半自动路径标 `automation: semi-manual` |
+| L4 | VectorCraft CLI / 渲染器缺失 | `../scripts/detect_deps.py` 显式 `MISSING`；`../scripts/land_vc.py` 交付 SVG + PNG，`automation: none`，H1 不达标 |
 | L5 | 无风格参考 | `../scripts/score.py` 令 E = N/A，不计入总分 |
 
 ## detect_deps MISSING 表
 
 | 项 | 缺失时的替代 |
 |---|---|
-| Illustrator COM | L4：H1 不达标，仅 SVG + PNG；或显式半自动 JSX 路径 |
+| VectorCraft CLI 缺失 | L4：H1 不达标，仅 SVG + PNG；安装引擎或设 `VECTORCRAFT_CLI` |
 | PNG 渲染器全部 | 内置最小 SVG→PNG 兜底（真实 PNG，`renderer: builtin-fallback`，`degraded: true`） |
 | 宿主读图 | L2（detect_deps 列 MISSING + 替代）：A/B = N/A (capability_missing)，C/D/F 与 H1–H4 照常计分，人工终审，不伪造分数 |
 | Node / svgo | `../scripts/sanitize_svg.py` 内置最小实现 + warning |
@@ -84,7 +84,7 @@ run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言
 
 - 判定类 JSON spec.json / score.json / judge.json / revision.json / acceptance.json / deps.json 不含 wall-clock，固定键顺序，同一输入两次逐字节一致。
 - 写文件用临时文件加原子覆盖（os.replace），重入结果不变；时间只进 run.log。
-- 原生 .ai 二进制字节级一致由 Illustrator 决定，不承诺；幂等断言施加于 JSON 日志与结构计数。
+- 原生 .ai 二进制字节级一致由 VectorCraft 决定（内含时间戳等元数据），不承诺；幂等断言施加于 JSON 日志与结构计数。
 - **舍入统一 6 位小数**（v1.4 新增）。规则是：内部计算全程保留全精度，只在写出 JSON 时 `round(x, 6)`；禁止在中间步骤提前舍入——提前舍入会让误差沿链条累积，且不同调用顺序会得到不同结果。所有分数、比值、色差、对比度均适用此规则。
 - **浮点确定性由 A3 守护，不另设重复断言**（v1.4 记）。A3-idempotent-byte-identical 对同一输入跑两遍整条链，逐字节比对 spec.json / final.svg / judge.json / score.json / acceptance.json / preview.png / preview.meta.json 七个产物，比"单独重跑 score.py"更强。该断言的判别力经变异验证：向 score.json 注入一个 set 序字段（字符串哈希随机化会逐进程改变其顺序），A3 立即转红。**曾计划新增 A32 专测确定性，因与 A3 完全重叠而撤除——为已有性质再加一条断言，只会让通过数变大，覆盖面不变。**
 
@@ -97,9 +97,9 @@ run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言
 - `--quick` 为单 run 显式预览、不参与达标判定：验收日志强制 `f_verified: false`、首行「F 未验证，不宣称达标」、grade 不得为达标，违例报 E-QUICK-UNVERIFIED。
 - **阈值一个都不改**；A–F 判据、H1–H4、迭代轮上限全部保持定稿初值。
 
-## 降级与真实性登记（COM / PNG / L2）
+## 降级与真实性登记（引擎 / PNG / L2）
 
-- 半自动 COM 兜底：仅在 detect_deps 真机确认 COM 不可驱动且用户显式选择时启用；日志强制 `automation: semi-manual` / degradation.level 为 L4 / `status: degraded`，写明需人工在 Illustrator 内执行一次脚本，禁止宣称全自动。
+- 只在 `../scripts/detect_deps.py` 真机确认 `vectorcraft_cli` 为 `FOUND` 时才进入落地；`MISSING` 时 `../scripts/land_vc.py` 把降级级别写为 L4、`status: degraded`、`automation: none`，只交净化 SVG 与 PNG。不存在人工半自动兜底路径（r45 移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
 - 兜底 PNG 计入 H2 的严格条件：真实可解析 PNG（非零字节、魔数 `89 50 4E 47 0D 0A 1A 0A`、可读宽高、IEND），日志标 `renderer: builtin-fallback` / `degraded: true` / 保真度受限；产不出真实 PNG 则 PNG 判缺失、H2 不达标；零字节或占位文件禁止凑数。
 - L2 口径：A/B 记 N/A (capability_missing)（禁几何折算，违例 E-FABRICATED-SCORE）；仍按 §7.3 机械比较得出「不达标」、不引入额外档位；强制 `degraded: true` / `needs_human_review: true` / reason=capability_missing、首行「语义 / 构图判读未取证，需人工终审」；四件产物含原生 .ai 照常落盘、交付不阻断；对外说明禁达标 / 优秀 / 完美字样。
 
@@ -126,17 +126,17 @@ run-id = sha256(prompt + spec + thresholds.version)[:12]。H2 四件齐全断言
 
 ## 交付档位与交付清单（v1.1 新增）
 
-land_ai.py 的保存选项全部显式写入 `IllustratorSaveOptions`，不依赖默认值：
+`../scripts/land_vc.py` 的档位是**请求**，兑现与否由 `../scripts/lib_pdf.py` 实测后写进交付清单：
 
-| 档位 | pdfCompatible | embedICCProfile | CMYK | 出血 | 按组分层 |
-|---|---|---|---|---|---|
-| `screen`（默认） | true | false | false | 0 | false |
-| `print` | true | true | true（逐对象算术转换） | 3mm + 8 条裁切线 | false |
-| `handoff` | true | false | false | 0 | true |
+| 档位 | 转 CMYK | 另出 `output/<run-id>/final.pdf` | 请求 ICC / 输出意图 | 图层 |
+|---|---|---|---|---|
+| `screen`（默认） | 否 | 否 | 否 | 按源 group |
+| `print` | 是（`file.documentColorMode`） | 是 | 是 | 按源 group |
+| `handoff` | 否 | 否 | 否 | 按源 group |
 
-单项覆盖：`--compat` / `--pdf-compatible` / `--embed-icc` / `--cmyk` / `--bleed-mm` / `--layers-from-groups`。
+印刷母版另由 `../scripts/land_craft.py` 提供：`--pdf-standard pdfX1a|pdfX3|pdfX4`、`--bleed-mm`、裁切 / 套准标记。
 
-**为什么必须显式**：`pdfCompatible` 官方默认恰好为 `true`、`embedICCProfile` 官方默认恰好为 `false`。第一版传了一个空的 `IllustratorSaveOptions()`，交付看似正常，实际是默认值凑巧对——换一台装了不同版本的机器，行为就会变。
+**为什么仍要逐项记录请求**：`save_options` 记请求、`observed` 记实测，两者分开才能发现「要求了但没兑现」（进 `unverified`）。r45 起不依赖任何桌面程序的默认保存选项，因此不存在「默认值凑巧对」这类随安装环境漂移的问题；实际风险变成引擎版本差异，靠清单里的 `engine_version` 与实测字段暴露。
 
 ### deliverable.json 的字段契约
 
@@ -146,11 +146,11 @@ land_ai.py 的保存选项全部显式写入 `IllustratorSaveOptions`，不依�
 |---|---|
 | `profile` | 本次按哪一档交付 |
 | `save_options` | 本次**请求**的保存参数（不是实测值；实测值在 observed）。唯一例外 `output_intent`：读得到 print.pdf 的 `/OutputConditionIdentifier` 时它是读回值，请求值另存 `output_intent_requested` |
-| `observed` | 从文件字节实测：`pdf_compatible`、`has_ai_private`（= `has_aiprivatedata1_marker`）、`device_rgb` / `device_cmyk`、`output_intent` / `iccbased` / `output_condition`、`fonts` / `fonts_embedded`（嵌入字体程序数，一个 Type0 字体计 1 次，不按 `/BaseFont` 条目重复计）、`images`、`content_ops`（只数页面 `/Contents` 引用与 `/Subtype /Form` 流；ICC / 字体 / CMap 二进制不计入，内联图像 `BI…ID…EI` 之间的像素字节也不计入；三条引擎同一口径）、`content_streams`（`objects` 文件里**实际找到**的页面流数 / `refs` 页面 `/Contents` **引用**数 / `decoded` 实际解码并计过数的流数，未压缩内容流算解码成功；`refs > objects` 说明有引用指向读取器没解开的对象；`decoded < objects` 说明有流未测；**`decoded` 为 0 时 `content_ops` 写 null，表示未测，不写 0**——0 会被读成「测过，没有颜色算子」）、`artboard_pt` / `artboard_mm`、`sha256`；vectorcraft 另写 `print_pdf`（GTS_PDFXVersion / OutputIntent / 各 Box 计数与矩形 / 同一份 `content_ops`）、`paths`、`artboard_matches_viewBox` |
+| `observed` | 从文件字节实测：`pdf_compatible`、`has_ai_private`（= `has_aiprivatedata1_marker`）、`device_rgb` / `device_cmyk`、`output_intent` / `iccbased` / `output_condition`、`fonts` / `fonts_embedded`（嵌入字体程序数，一个 Type0 字体计 1 次，不按 `/BaseFont` 条目重复计）、`images`、`content_ops`（只数页面 `/Contents` 引用与 `/Subtype /Form` 流；ICC / 字体 / CMap 二进制不计入，内联图像 `BI…ID…EI` 之间的像素字节也不计入；两条落地脚本同一口径）、`content_streams`（`objects` 文件里**实际找到**的页面流数 / `refs` 页面 `/Contents` **引用**数 / `decoded` 实际解码并计过数的流数，未压缩内容流算解码成功；`refs > objects` 说明有引用指向读取器没解开的对象；`decoded < objects` 说明有流未测；**`decoded` 为 0 时 `content_ops` 写 null，表示未测，不写 0**——0 会被读成「测过，没有颜色算子」）、`artboard_pt` / `artboard_mm`、`sha256`；vectorcraft 另写 `print_pdf`（GTS_PDFXVersion / OutputIntent / 各 Box 计数与矩形 / 同一份 `content_ops`）、`paths`、`artboard_matches_viewBox` |
 | `structure` | 结构回读：`open_paths` / `reopen_paths` / `layers` / `reopen_layers` / `artboard` / `viewBox` |
-| `jsx_notes` | JSX 每步实际做了什么（如 `cmyk:objects=5:naive_no_icc`、`cropmarks:8`） |
+| `engine_notes` | 引擎每步实际做了什么；VectorCraft 路径留空数组（无此回报） |
 | `warnings` | 必须让客户知道的风险（第三方重存剥离 AIPrivateData、CMYK 未做色彩管理、无出血等） |
-| `tool_warnings` | 工具链自己看到的提示，保留写入方的写法：`land_vc` 收导出引擎各步的告警（同一条只留一次，按首次出现顺序），`land_ai` 收 PDF 读取器的条目（每条带 `pdf reader: ` 前缀，如对象流 `/N` 不符）。与 `warnings` 分工不同——这栏是"工具看到了什么"，`warnings` 是"客户需要知道什么"；`land_vc` 目前不转发读取器那一条（见下） |
+| `tool_warnings` | 工具链自己看到的提示，保留写入方的写法：`land_vc` 收导出引擎各步的告警（同一条只留一次，按首次出现顺序），`lib_pdf` 收 PDF 读取器的条目（每条带 `pdf reader: ` 前缀，如对象流 `/N` 不符）。与 `warnings` 分工不同——这栏是"工具看到了什么"，`warnings` 是"客户需要知道什么"；`land_vc` 目前不转发读取器那一条（见下） |
 | `unverified` | **要求了但没兑现**的项。例如要求转 CMYK 而 PDF 兼容层仍以 `rg` 算子写 RGB，此条会出现在这里，不会被静默略过 |
 | `verify_yourself` | 客户可自行执行的校验命令与 sha256 |
 
@@ -171,7 +171,7 @@ land_ai.py 的保存选项全部显式写入 `IllustratorSaveOptions`，不依�
 
 ### 交付清单的幂等口径
 
-deliverable.json **不保证字节幂等**：它内嵌 `.ai` 的 sha256，而两次落地产出的 `.ai` 字节本就不同（Illustrator 会写入时间戳等元数据）。因此对该文件的正确判据是「测量值正确」，不是「两次运行逐字节相同」。acceptance.json 与 structure_readback.json 仍适用字节幂等。
+deliverable.json **不保证字节幂等**：它内嵌 `.ai` 的 sha256，而两次落地产出的 `.ai` 字节本就不同（VectorCraft 会写入时间戳等元数据）。因此对该文件的正确判据是「测量值正确」，不是「两次运行逐字节相同」。acceptance.json 与 structure_readback.json 仍适用字节幂等。
 
 ### 结果契约的机器可读定义
 
@@ -206,32 +206,22 @@ schemas/acceptance.schema.json 与 deliverable.schema.json（draft 2020-12）。
 
 **跳过任何非可选断言，H3 一律 fail，并在 reason 里指名是哪一条。** 这条比"允许 partial 通过"更重要：可选引擎缺席不该让整台机器判不达标，但任何**守卫**没跑都必须拦下。
 
-## A31 的覆盖范围与真机开关（v1.3 新增）
+## A31 的覆盖范围与真机开关（r45 修订）
 
-`A31-deliverable-schema-no-drift` 检查交付清单与它的 schema 是否双向一致（多余键 / 声明缺失 / 类型不符 / 嵌套多余）。它的 **Illustrator 半边默认是合成形状**：直接调 `_deliverable()` 造一份，不需要装 Illustrator。
+`A31-deliverable-schema-no-drift` 检查交付清单与 schema 是否双向一致（多余键 / 声明缺失 / 类型不符 / 嵌套多余）。
 
-**这个默认值有代价，必须写明**：合成形状只证明「构造器输出合规」，**不能证明真机链路把输入供全了**。举例：若 JSX 哪天不再回报 `app_version`，真机产物会是 engine_version 为 unknown，而合成形状仍写死 28.3.0——断言照旧绿。
+r45 删掉了拟合成的 Illustrator 半边：它只证明「构造器输出合规」，**不能证明真机链路把输入供全了**——若模板哪天不再回报 `app_version`，合成形状仍写死 28.3.0，断言照旧绿。现在唯一会出货的清单由 `../scripts/land_vc.py` 真跑产生，直接对它比对。
 
-**覆盖开关**：
+`VECTOR_AI_STUDIO_REAL_AI=1` 的含义随之变成「要求这台机器上必须有 VectorCraft CLI 并跑真的落地」：
 
-```
-VECTOR_AI_STUDIO_REAL_AI=1   # 该半边改用真机产物
-VECTOR_AI_STUDIO_OUT=<dir>   # 去哪里找（默认 ~/.vector-ai-studio/output）
-```
+| 结局 | 判据 |
+|---|---|
+| CLI 在，真机清单双向一致 | 绿 |
+| CLI 在，比对不一致 | 红 |
+| CLI 不在，未设开关 | skip（可选引擎缺席，H3 允许） |
+| CLI 不在，设了开关 | 红（要求了真机却没跑成） |
 
-行为：设了开关就在输出根下（最多 200 个候选，按 mtime 从新到旧）找真机产物。**挑选依据不是 engine 字段**——那是 A31 要守护的字段之一，用它筛选会让「engine 缺失」这个回归把检查自己关掉：候选被排除 → 退化为合成 → 合成必然合规 → 绿。改用同目录 structure_readback.json 的 source 是否为 illustrator-saveAs-reopen 作为独立信号；选中后再正常比 schema，engine 缺失就会自己变红。
-
-**三种结局都会写进 detail**：
-
-| detail | 含义 | 判据 |
-|---|---|---|
-| ai(synthetic) | 未要求真机 | 正常比对 |
-| ai(real:run-dir) | 用上了真机产物 | 正常比对 |
-| ai(real requested, not found under root) | **要求了真机但没找到** | **判红** |
-
-最后一行是关键：**只要不是绿**。一句「not found」的标签挂在一盏绿灯下，比错的结论更难被发现。
-
-**发布前必须至少跑一次 `VECTOR_AI_STUDIO_REAL_AI=1`**，否则这份发布就没有真机覆盖。日常自检不设该变量，保持 30 秒级。
+最后一行是关键：一句「skipped」挂在一盏绿灯下，比错的结论更难被发现。**发布前必须至少跑一次 `VECTOR_AI_STUDIO_REAL_AI=1`**；日常自检不设该变量，保持快跑。
 
 ## 感知色彩层与标签传播（v1.4 新增）
 

@@ -16,5 +16,7 @@
 # PyYAML is intentionally NOT used: configuration is JSON read by the
 # standard library, so there is no parser fork between runtimes.
 #
-# Illustrator COM (Windows PowerShell) is a real-machine capability, not a
-# pip package; it is detected at runtime by scripts/detect_deps.py.
+# VectorCraft CLI (vectorcraft-cli) is a real-machine capability, not a
+# pip package; it is detected at runtime by scripts/detect_deps.py and can be
+# pointed at explicitly with VECTORCRAFT_CLI. No Adobe / COM / PowerShell path
+# exists in this skill (removed in r45).

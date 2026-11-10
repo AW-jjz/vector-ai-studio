@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Layered L2: real-machine Illustrator smoke test (standalone command).
+"""Layered L2: real-machine smoke test on the VectorCraft engine.
 
-Fully decoupled from selftest.py. It performs a REAL COM probe via
-detect_deps.py --probe-com. If COM is not drivable it degrades explicitly to
-L4 (exit 3, status=degraded) and writes a real log. It NEVER writes ok and
-NEVER fabricates a .ai artifact.
+Fully decoupled from selftest.py. It probes this machine's dependencies for
+real, then runs the actual landing command with the built-in sample. If
+vectorcraft-cli is absent it degrades explicitly to L4 (exit 3,
+status=degraded) and writes a real log. It NEVER writes ok and NEVER fabricates
+a .ai artifact. No Adobe, no COM, no PowerShell.
 """
 
 import argparse
@@ -30,10 +31,9 @@ def _run(cmd, timeout=240):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="real-machine Illustrator smoke test")
+    ap = argparse.ArgumentParser(description="real-machine landing smoke test")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--log-dir", default="")
-    ap.add_argument("--illustrator-exe", default="")
     ap.add_argument("--landing-only", action="store_true",
                     help="only take H1 evidence (mode=landing-only); default runs the full chain")
     ap.add_argument("--run-id", default="")
@@ -49,15 +49,12 @@ def main():
     log_dir.mkdir(parents=True, exist_ok=True)
 
     deps_path = log_dir / "deps.json"
-    cmd = [sys.executable, str(SCRIPTS / "detect_deps.py"), "--json",
-           "--probe-com", "--out", str(deps_path)]
-    if args.illustrator_exe:
-        cmd += ["--illustrator-exe", args.illustrator_exe]
-    rc, out, errout = _run(cmd)
+    rc, out, errout = _run([sys.executable, str(SCRIPTS / "detect_deps.py"), "--json",
+                            "--out", str(deps_path)])
     L.write_text_atomic(log_dir / "probe-raw.txt",
                         "exit=" + str(rc) + "\nstdout:\n" + out + "\nstderr:\n" + errout)
 
-    com_status = "UNVERIFIED"
+    cli_status = "UNVERIFIED"
     missing = []
     summary = {}
     if deps_path.is_file():
@@ -66,8 +63,8 @@ def main():
             summary = d.get("summary", {})
             missing = d.get("missing", [])
             for item in d.get("dependencies", []):
-                if item.get("name") == "illustrator_com":
-                    com_status = str(item.get("status", "UNVERIFIED"))
+                if item.get("name") == "vectorcraft_cli":
+                    cli_status = str(item.get("status", "UNVERIFIED"))
         except (OSError, json.JSONDecodeError):
             pass
 
@@ -76,39 +73,38 @@ def main():
         "run_id": rid,
         "status": "degraded",
         "degradation": {"level": "L4", "reason": "", "missing": [], "substitute": []},
-        "com_probe": {"attempted": True, "probe_exit_code": rc,
-                      "illustrator_com": com_status,
-                      "deps_summary": summary, "deps_missing": missing},
+        "engine_probe": {"attempted": True, "probe_exit_code": rc,
+                         "vectorcraft_cli": cli_status,
+                         "deps_summary": summary, "deps_missing": missing},
         "ai_produced": False,
         "h1_pass": False,
         "note": "",
         "log_files": ["smoke.json", "probe-raw.txt", "deps.json"],
     }
 
-    if com_status != "FOUND":
+    if cli_status != "FOUND":
         smoke["degradation"] = {
             "level": "L4",
-            "reason": "Illustrator COM is not drivable on this machine (real probe result: " +
-                      com_status + ")",
-            "missing": ["illustrator_com"] + [m for m in missing if m != "illustrator_com"],
-            "substitute": ["deliver sanitized SVG + PNG only, H1 fails",
-                           "or user-selected semi-manual JSX path (one manual script execution)",
-                           "install/enable Illustrator COM automation"],
+            "reason": "vectorcraft-cli is not available on this machine (probe result: " +
+                      cli_status + ")",
+            "missing": ["vectorcraft_cli"] + [m for m in missing if m != "vectorcraft_cli"],
+            "substitute": ["install VectorCraft or set VECTORCRAFT_CLI",
+                           "deliver sanitized SVG + PNG only, H1 fails"],
         }
-        smoke["note"] = th["messages"]["semi_manual_note"]
+        smoke["note"] = "无落地引擎：只交 SVG + PNG，H1 未通过"
         L.write_json_atomic(log_dir / "smoke.json", smoke)
-        L.append_run_log(log_dir, SCRIPT + " degraded L4 com=" + com_status)
+        L.append_run_log(log_dir, SCRIPT + " degraded L4 vectorcraft_cli=" + cli_status)
         return L.emit(SCRIPT, status="degraded", code=L.EXIT_MISSING, run_id=rid,
                       data=smoke,
                       degradation=smoke["degradation"],
                       artifacts={"smoke": "smoke.json", "probe_raw": "probe-raw.txt",
                                  "deps": "deps.json" if deps_path.is_file() else ""})
 
-    # COM is drivable: run the real landing chain with the built-in sample.
+    # CLI is present: run the real landing chain with the built-in sample.
     run_dir = log_dir / ("run-" + rid)
-    rc2, out2, err2 = _run([sys.executable, str(SCRIPTS / "land_ai.py"),
+    rc2, out2, err2 = _run([sys.executable, str(SCRIPTS / "land_vc.py"),
                             "--svg", str(sample), "--out", str(run_dir),
-                            "--deps", str(deps_path), "--run-id", rid])
+                            "--run-id", rid])
     L.write_text_atomic(log_dir / "land-raw.txt",
                         "exit=" + str(rc2) + "\nstdout:\n" + out2 + "\nstderr:\n" + err2)
     sr = {}
@@ -126,7 +122,7 @@ def main():
     if not h1:
         smoke["degradation"] = {"level": "L4",
                                "reason": "landing ran but H1 readback assertion failed "
-                                         "(land_ai exit=%d)" % rc2,
+                                         "(land_vc exit=%d)" % rc2,
                                "missing": [], "substitute": ["inspect structure_readback.json"]}
         smoke["ai_produced"] = ai_ok and rc2 == 0
         smoke["note"] = "H1 未通过，未宣称达标"
@@ -178,7 +174,7 @@ def main():
     smoke["ai_produced"] = True
     smoke["h1_pass"] = True
     smoke["structure_readback"] = sr
-    smoke["note"] = "真实产出 .ai 并通过 H1 重开回读"
+    smoke["note"] = "VectorCraft 真实产出 .ai 并通过 H1 重开回读"
     L.write_json_atomic(log_dir / "smoke.json", smoke)
     L.append_run_log(log_dir, SCRIPT + " ok h1_pass=true")
     return L.emit(SCRIPT, status="ok", code=L.EXIT_OK, run_id=rid,

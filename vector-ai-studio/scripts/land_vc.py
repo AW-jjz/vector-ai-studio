@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Land a native .ai through VectorCraft instead of Illustrator.
+"""Land a native .ai through VectorCraft. This is the default lander.
 
-Why this exists: the Illustrator path needs COM, a Windows desktop, and a cold
-start of ~20 s per run, and its scripting API cannot convert to CMYK (we proved
-that over several rounds: the PDF-compatible layer kept writing rg operators).
-VectorCraft's CLI does the conversion for real and writes an .ai that a real
-Illustrator opens, with groups preserved as named layers.
+Why VectorCraft: it needs no Adobe licence, no COM, no Windows desktop and no
+~20 s cold start. Its CLI converts to CMYK for real and writes an .ai that
+Illustrator opens, with groups preserved as named layers. The old COM/JSX
+path was removed in r45 because it could not do the conversion and required a
+licensed desktop app.
 
-The two engines are deliberately parallel, not merged: this file produces the
-same artifacts and the same deliverable.json contract as land_ai.py, so a
-regression in one cannot silently affect the other. Which engine ran is
-recorded in the manifest rather than left to be guessed.
+land_craft.py is the print sibling: same engine, PDF/X master, crop marks,
+bleed. Both write the same deliverable.json / structure_readback.json
+contract via lib_pdf.py, so downstream code never special-cases an engine.
 
 Verified before writing this (2026-11-08, vectorcraft 0.22.0):
   - 5 shapes / 5 named layers / 200x200 artboard survive the round trip
@@ -25,7 +24,6 @@ ICC embedding.
 
 import argparse
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -34,21 +32,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
-import land_ai as LA          # reuses _observe_ai / _deliverable, one contract
+import lib_pdf as LP          # reuses _observe_ai / _deliverable, one contract
 
 SCRIPT = "land_vc.py"
-
-# Where VectorCraft is looked for. The first hit wins; --vc overrides.
-CANDIDATES = [
-    r"E:/Vector craft/vectorcraft-0.22.0/vectorcraft-0.22.0-windows-x64-portable/vectorcraft-cli.exe",
-    r"C:/Program Files/VectorCraft/vectorcraft-cli.exe",
-]
 
 PROFILE_DEFAULTS = {
     # cmyk: run the colour-mode conversion before exporting
     # pdf:  also emit a PDF next to the .ai
     # icc:  does this profile REQUEST an embedded profile / output intent?
-    #       land_ai declares it for "print"; this engine historically wrote
+    #       lib_pdf declares it for "print"; this engine historically wrote
     #       False unconditionally, so the same physical fact (no /OutputIntent,
     #       no /ICCBased) was "a promise not kept" on one engine and "an
     #       informational note" on the other. Whether the request can actually
@@ -91,20 +83,16 @@ def _collect_export_warnings(steps):
 
 
 def find_cli(explicit):
+    """--vc wins; otherwise the shared locator (trace_ref.find_cli).
+
+    Keeping a second CANDIDATES list here meant detect_deps could report FOUND
+    while this lander looked in different places, or vice versa. One locator.
+    """
     if explicit:
         p = Path(explicit)
         return p if p.is_file() else None
-    env = os.environ.get("VECTORCRAFT_CLI")
-    if env and Path(env).is_file():
-        return Path(env)
-    for c in CANDIDATES:
-        if Path(c).is_file():
-            return Path(c)
-    for name in ("vectorcraft-cli", "vectorcraft-cli.exe"):
-        found = shutil.which(name)
-        if found:
-            return Path(found)
-    return None
+    from trace_ref import find_cli as _shared
+    return _shared()
 
 
 def run_cli(cli, args, timeout=300):
@@ -183,12 +171,35 @@ def _build_deliverable(ai_path, profile_name, prof, obs, kv, ver_text, steps, sr
             "cmyk": prof["cmyk"],
             "bleed_mm": 0.0, "bleed_pt": 0.0,
             "layers": True}      # groups become layers automatically
-    return LA._deliverable(ai_path, opts, obs, kv,
+    return LP._deliverable(ai_path, opts, obs, kv,
                            engine="vectorcraft",
                            engine_version=_parse_engine_version(ver_text),
                            export_steps=steps,
                            source_probe=src,
                            tool_warnings=_collect_export_warnings(steps))
+
+
+def _record_failure(run_dir, note):
+    """Leave a fail landing and no stale readback after an unexpected abort.
+
+    Without this, an exception in the middle of a landing left the previous
+    run's structure_readback.json and final.ai in place; aggregate_log would
+    grade that old pass as if this run had produced it. A specific handler may
+    already have written a more precise landing; it is not overwritten.
+    """
+    cleared = LP._drop_stale_readback(run_dir)
+    try:
+        cur = json.loads((run_dir / "landing.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        cur = {}
+    if cur.get("status") == "fail":
+        return
+    try:
+        L.write_json_atomic(run_dir / "landing.json",
+                            LP._landing("none", "fail", note, False, False,
+                                        {"stale_readback_removed": cleared}))
+    except OSError:
+        pass
 
 
 def main():
@@ -204,27 +215,44 @@ def main():
 
     run_dir = Path(args.out)
     run_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        return _run(args, run_dir)
+    except BaseException:
+        _record_failure(run_dir, "landing aborted by an exception")
+        raise
+
+
+def _run(args, run_dir):
     th = L.load_thresholds()
     msg = th["messages"]
     prof = PROFILE_DEFAULTS[args.profile]
 
     svg = Path(args.svg) if args.svg else (run_dir / "final.svg")
     if not svg.is_file():
+        cleared = LP._drop_stale_readback(run_dir)
+        L.write_json_atomic(run_dir / "landing.json",
+                            LP._landing("none", "fail", "source SVG not found",
+                                        False, False,
+                                        {"stale_readback_removed": cleared}))
         raise L.ToolError("E-H1-STRUCTURE", "source SVG not found: " + svg.name,
                           L.EXIT_USAGE)
 
     cli = find_cli(args.vc)
     if cli is None:
         # Never pretend. Without the CLI there is no native .ai from this engine.
+        # A previous run's readback must not survive to be graded as this run's.
+        cleared = LP._drop_stale_readback(run_dir)
         L.write_json_atomic(run_dir / "landing.json",
-                            LA._landing("none", "degraded",
-                                        "VectorCraft CLI not found", False, False))
+                            LP._landing("none", "degraded",
+                                        "VectorCraft CLI not found", False, False,
+                                        {"stale_readback_removed": cleared}))
         return L.emit(SCRIPT, status="degraded", code=L.EXIT_MISSING,
                       run_id=args.run_id,
-                      data={"engine": "vectorcraft", "found": False},
+                      data={"engine": "vectorcraft", "found": False,
+                            "stale_readback_removed": cleared},
                       degradation={"level": "L4",
                                    "reason": "vectorcraft-cli not found",
-                                   "substitute": "install VectorCraft or use land_ai.py"})
+                                   "substitute": "install vectorcraft-cli (or set VECTORCRAFT_CLI) and rerun"})
 
     ai_path = run_dir / "final.ai"
     pdf_path = run_dir / "final.pdf"
@@ -250,14 +278,21 @@ def main():
     export_warnings = _collect_export_warnings(steps)
 
     if rc != 0 or not ai_path.is_file() or ai_path.stat().st_size == 0:
+        cleared = LP._drop_stale_readback(run_dir)
+        L.write_json_atomic(run_dir / "landing.json",
+                            LP._landing("vectorcraft", "fail",
+                                        "no .ai produced (rc=" + str(rc) + ")",
+                                        False, False,
+                                        {"stale_readback_removed": cleared}))
         return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL, run_id=args.run_id,
                       data={"engine": "vectorcraft", "steps": steps,
-                            "stderr": (err or "")[:300]},
+                            "stderr": (err or "")[:300],
+                            "stale_readback_removed": cleared},
                       errors=[L.err("E-H1-STRUCTURE",
                                     "no .ai produced (rc=" + str(rc) + ")")])
 
     # ---- measure, do not assume ----
-    obs = LA._observe_ai(ai_path)
+    obs = LP._observe_ai(ai_path)
     # Layers come from the file, not from an assumption: passing 0 here made
     # the manifest claim "only 1 layer" for a document that had five named ones.
     kv = {"layers": str(obs.get("layers") or 0), "trimmarks_ink": "", "artboard": ""}
@@ -276,12 +311,6 @@ def main():
                                      _vout, steps, src)
 
     deliverable["warnings"].extend(_font_warnings(src))
-    # The shared warning mentions a flag this engine does not have.
-    deliverable["warnings"] = [
-        (w.replace("（可用 --layers-from-groups 1）",
-                   "（本引擎按源文件的 group 结构生成图层，本例未生成）")
-         if "--layers-from-groups" in w else w)
-        for w in deliverable["warnings"]]
 
     for w in export_warnings:
         lw = w.lower()
@@ -291,11 +320,10 @@ def main():
             # PDF-compatible section where the type is outlined -- so whether
             # the client can edit the text depends on which app they open it
             # with. Saying "text becomes outlines" flatly was wrong.
-            _kinds = (deliverable.get("source_probe") or {})
             deliverable["warnings"].append(
                 "文字在外观上会变：Illustrator 打开时读成轮廓（实测 textFrames=0），"
                 "文件内仍保留文字对象（用 VectorCraft 打开可编辑）。"
-                "若客户用 Illustrator 改稿，请改走 Illustrator 引擎以保住活字")
+                "若客户必须在 Illustrator 里改活字，改交付 SVG 源文件")
 
     # ---- the other two artifacts the chain expects ----
     # Without final.svg and preview.png the H2 gate reports "four artifacts
@@ -321,9 +349,14 @@ def main():
         preview_meta = {"schema": "vector-ai-studio/preview-meta-v1",
                         "renderer": "vectorcraft-cli", "degraded": True,
                         "fidelity": "limited", "note": "preview export crashed"}
-    if "fidelity" not in preview_meta:
-        preview_meta["fidelity"] = "full" if not preview_meta["degraded"] else "limited"
-    L.write_json_atomic(run_dir / "preview.meta.json", preview_meta)
+    if preview_meta["degraded"] and LP._ensure_preview(run_dir, svg_out):
+        # render_png.py wrote its own preview.meta.json (renderer, fidelity,
+        # note). Keep that record instead of overwriting it with a guess.
+        preview_meta = None
+    if preview_meta is not None:
+        if "fidelity" not in preview_meta:
+            preview_meta["fidelity"] = "full" if not preview_meta["degraded"] else "limited"
+        L.write_json_atomic(run_dir / "preview.meta.json", preview_meta)
 
     # ---- structure readback, in the shape the rest of the chain reads ----
     # aggregate_log.py treats a missing structure_readback.json as "no native
@@ -361,12 +394,17 @@ def main():
     ab_ok = bool(ab_rect and _w > 0 and _h > 0)
     dims_ok = bool(ab_ok and vb and abs(_w - vb[2]) <= 1 and abs(_h - vb[3]) <= 1)
     paths_n = int(kinds.get("Path", 0))
+    # Count placed/linked objects from the reopened file instead of asserting
+    # zero: H1 (and aggregate_log) treat placed==0 as evidence, so a constant
+    # here was not a measurement. land_craft counts the same way.
+    placed_n = sum(v for k, v in kinds.items()
+                   if "placed" in k.lower() or "link" in k.lower())
     layers_info = kinds.get("Layer")
     sr = {
         "schema": "vector-ai-studio/structure-readback-v1",
-        "ok": bool(paths_n > 0 and obs["images"] == 0 and dims_ok),
+        "ok": bool(paths_n > 0 and obs["images"] == 0 and placed_n == 0 and dims_ok),
         "raster": int(obs["images"]),          # images embedded in the file
-        "placed": 0,                            # no linked assets: self-contained
+        "placed": int(placed_n),                # linked/placed objects found on reopen
         "paths": paths_n,
         "layers": obs["layers"],
         # rect is [left, top, right, bottom] with top > bottom, so height is
@@ -393,10 +431,10 @@ def main():
             "、/OCGs=" + str(obs["layers"]) + "（清单保留两者，未择一）")
 
     # Fill structure{} from what was measured, not from empty placeholders.
-    # The AI path fills these from its JSX readback; leaving seven of them null
-    # here made the manifest disagree with structure_readback.json from the same
-    # run, and a reader could not tell "unknown" from "empty". Written last so
-    # every warning collected above lands in the file.
+    # Leaving seven of them null here made the manifest disagree with
+    # structure_readback.json from the same run, and a reader could not tell
+    # "unknown" from "empty". Written last so every warning collected above
+    # lands in the file.
     _ab = sr.get("artboard")
     _vb = sr.get("viewBox")
     deliverable["structure"] = {
@@ -414,9 +452,11 @@ def main():
 
     h1 = bool(sr["ok"])
     L.write_json_atomic(run_dir / "landing.json",
-                        LA._landing("vectorcraft", "ok" if h1 else "degraded",
-                                    "" if h1 else "no PDF container and no AIPrivateData",
-                                    True, h1))
+                        LP._landing("vectorcraft", "ok" if h1 else "degraded",
+                                    "" if h1 else "structure readback did not satisfy H1",
+                                    True, h1,
+                                    substitute=("inspect the source artboard/fonts; "
+                                                "the engine itself was found and ran")))
     status = "ok" if h1 else "degraded"
     return L.emit(SCRIPT, status=status, code=L.EXIT_OK if h1 else L.EXIT_FAIL,
                   run_id=args.run_id,

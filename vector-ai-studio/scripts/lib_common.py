@@ -25,7 +25,7 @@ EXIT_OK = 0        # success
 EXIT_FAIL = 1      # criterion / validation failed (business failure, not crash)
 EXIT_USAGE = 2     # bad usage or malformed input (explicit error, never guess)
 EXIT_MISSING = 3   # dependency MISSING, already degraded (never silent success)
-EXIT_ERROR = 4     # internal exception or real-machine COM failure (L4)
+EXIT_ERROR = 4     # internal exception or landing-engine failure
 
 CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 

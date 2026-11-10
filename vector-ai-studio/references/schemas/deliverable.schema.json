@@ -10,6 +10,7 @@
     "profile",
     "save_options",
     "observed",
+    "engine",
     "warnings",
     "verify_yourself"
   ],
@@ -264,7 +265,7 @@
         },
         "artboard_matches_viewBox": {
           "type": "boolean",
-          "description": "vectorcraft-only: H1 half-clause, same comparison land_ai makes from the JSX readback"
+          "description": "vectorcraft-only: H1 half-clause, the same comparison lib_pdf and aggregate_log make from the structure readback"
         },
         "print_pdf": {
           "type": [
@@ -434,7 +435,7 @@
     },
     "structure": {
       "type": "object",
-      "description": "structural readback; keys mirror the Illustrator JSX and the vectorcraft info report",
+      "description": "structural readback; keys mirror the fields the craft landers measure",
       "properties": {
         "open_paths": {
           "type": [
@@ -494,11 +495,12 @@
         }
       }
     },
-    "jsx_notes": {
+    "engine_notes": {
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "free-form per-engine notes carried from the lander; empty when the engine reports none"
     },
     "warnings": {
       "type": "array",
@@ -527,11 +529,8 @@
       "description": "ink of the crop marks; null where the engine draws none"
     },
     "engine": {
-      "enum": [
-        "illustrator",
-        "vectorcraft"
-      ],
-      "description": "which engine produced the file"
+      "const": "vectorcraft",
+      "description": "which engine produced the file (r45: VectorCraft is the only engine)"
     },
     "engine_version": {
       "type": "string",
@@ -584,7 +583,7 @@
       "items": {
         "type": "string"
       },
-      "description": "warnings the toolchain saw, kept as each producer wrote them. Two writers: land_vc records export-engine warnings, one entry per distinct string in first-seen order; land_ai records the PDF reader's entries, each prefixed with 'pdf reader: '. land_vc does not forward the reader's entry, so a vectorcraft manifest has no reader line"
+      "description": "warnings the toolchain saw, kept as each producer wrote them. Two writers: land_vc records export-engine warnings, one entry per distinct string in first-seen order; lib_pdf records the PDF reader's entries, each prefixed with 'pdf reader: '. land_vc does not forward the reader's entry, so a vectorcraft manifest has no reader line"
     },
     "h1_pass": {
       "type": "boolean",

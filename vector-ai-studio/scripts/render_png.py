@@ -133,53 +133,6 @@ def _try_cairosvg(text, out, w, h):
         return False
 
 
-def _try_illustrator(src, out, scale=100.0):
-    """Export a faithful PNG through Illustrator itself.
-
-    Illustrator is already a hard requirement of this skill (a native .ai cannot
-    be produced without it), so on any machine that can deliver the real
-    artefact this renderer is available by construction. It is also the only
-    candidate that shows what the .ai will actually look like. Everything is
-    staged in a pure-ASCII temp workspace because ExtendScript File() is
-    unreliable with Windows backslashes and non-ASCII path segments.
-    """
-    pw = shutil.which("powershell") or shutil.which("pwsh")
-    if not pw:
-        return False
-    scripts = Path(__file__).resolve().parent
-    bridge = scripts / "ai_bridge.ps1"
-    tpl = scripts / "render_export.jsx"
-    if not bridge.is_file() or not tpl.is_file():
-        return False
-    try:
-        import tempfile
-        work = Path(tempfile.mkdtemp(prefix="vector-ai-render-"))
-        ws_svg = work / "preview-src.svg"
-        ws_png = work / "preview.png"
-        result_file = work / "render-result.txt"
-        tmp_jsx = work / "_render_runtime.jsx"
-        shutil.copyfile(src, ws_svg)
-        jsx = (tpl.read_text(encoding="utf-8")
-               .replace("__SVG_PATH__", ws_svg.as_posix())
-               .replace("__OUT_PNG__", ws_png.as_posix())
-               .replace("__SCALE__", str(scale))
-               .replace("__RESULT_PATH__", result_file.as_posix()))
-        tmp_jsx.write_text(jsx, encoding="utf-8")
-        subprocess.run([pw, "-NoProfile", "-ExecutionPolicy", "Bypass",
-                        "-File", str(bridge), "-JsxPath", str(tmp_jsx)],
-                       timeout=180, capture_output=True, text=True, check=False)
-        if not ws_png.is_file():
-            return False
-        data = ws_png.read_bytes()
-        if len(data) < 24 or data[:8] != PNG_MAGIC:
-            return False
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(data)
-        return True
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-
 def main():
     ap = argparse.ArgumentParser(description="render a real PNG preview")
     ap.add_argument("--in", dest="inp", required=True)
@@ -223,29 +176,23 @@ def main():
             candidates.append("cairosvg:MISSING" if not args.force_builtin
                               else "cairosvg:SKIPPED(force-builtin)")
             candidates.append("headless-browser:MISSING")
-            if not args.force_builtin and _try_illustrator(src, out):
-                renderer = "illustrator-export"
-                candidates.append("illustrator-export")
-            else:
-                candidates.append("illustrator-export:SKIPPED(force-builtin)"
-                                  if args.force_builtin else "illustrator-export:MISSING")
-                w, h, data = _builtin_raster(sig)
-                if not data or len(data) < 24 or data[:8] != PNG_MAGIC:
-                    return L.emit(SCRIPT, status="missing", code=L.EXIT_MISSING,
-                                  run_id=args.run_id,
-                                  data={"renderer_used": None, "candidates": candidates},
-                                  errors=[L.err("E-RENDERER-MISSING",
-                                                "all renderers MISSING and builtin fallback failed")],
-                                  degradation={"level": "L4",
-                                               "reason": "no PNG renderer and no valid fallback",
-                                               "substitute": "install resvg or cairosvg (optional enhancement)"})
-                out.write_bytes(data)
-                renderer = "builtin-fallback"
-                degraded = True
-                fidelity = _builtin_fidelity(sig)
-                note = th["messages"]["fallback_png_note"]
-                candidates.append("builtin-fallback:USED")
-                candidates.append("fidelity:" + fidelity)
+            w, h, data = _builtin_raster(sig)
+            if not data or len(data) < 24 or data[:8] != PNG_MAGIC:
+                return L.emit(SCRIPT, status="missing", code=L.EXIT_MISSING,
+                              run_id=args.run_id,
+                              data={"renderer_used": None, "candidates": candidates},
+                              errors=[L.err("E-RENDERER-MISSING",
+                                            "all renderers MISSING and builtin fallback failed")],
+                              degradation={"level": "L4",
+                                           "reason": "no PNG renderer and no valid fallback",
+                                           "substitute": "install resvg or cairosvg (optional enhancement)"})
+            out.write_bytes(data)
+            renderer = "builtin-fallback"
+            degraded = True
+            fidelity = _builtin_fidelity(sig)
+            note = th["messages"]["fallback_png_note"]
+            candidates.append("builtin-fallback:USED")
+            candidates.append("fidelity:" + fidelity)
 
     if renderer != "builtin-fallback":
         try:

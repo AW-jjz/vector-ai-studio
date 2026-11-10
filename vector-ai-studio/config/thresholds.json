@@ -82,7 +82,6 @@
     "l2_grade": "不达标",
     "l2_capability_missing": "N/A (capability_missing)",
     "l4_note": "非原生 .ai，格式底线未满足",
-    "semi_manual_note": "需人工在 Illustrator 内执行一次脚本",
     "fallback_png_note": "预览保真度受限",
     "grade_pass": "达标",
     "grade_fail": "不达标",
@@ -95,7 +94,7 @@
     "L1": "质量未达标，进入定向收敛",
     "L2": "宿主 LLM 读图不可用，A/B 记 N/A (capability_missing)、grade 不达标、交付不阻断",
     "L3": "商业增强档（用户自行提供凭据）",
-    "L4": "依赖缺失（Illustrator COM / 渲染器）",
+    "L4": "依赖缺失（VectorCraft CLI / 渲染器）",
     "L5": "无风格参考，E 记 N/A"
   },
   "calibration_policy": {

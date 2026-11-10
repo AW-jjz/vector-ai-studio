@@ -23,7 +23,7 @@
 | `E-FABRICATED-SCORE` | L2 下出现数字分（伪造读图判读） | aggregate_log |
 | `E-FIXTURE-MISMATCH` | fixture 的期望值与实际结果不符 | run_fixtures |
 | `E-FORBIDDEN` | SVG 含禁用构造（filter / clipPath / use 等） | sanitize_svg |
-| `E-H1-STRUCTURE` | 结构回读失败（raster / placed / paths / 画板与 viewBox）；也用于三条「没有本次产物」的硬失败：自动路径暂存区无 `.ai`，半自动 `OK` 行路径不是本次 run 的 `output/<run-id>/final.ai`，半自动 `output/<run-id>/manual-result.txt` 首行不是 `OK|`（含 0 字节） | land_ai, smoke_ai |
+| `E-H1-STRUCTURE` | 结构回读失败（raster / placed / paths / 画板与 viewBox）；也用于「没有本次产物」的硬失败：落地命令非零退出或未写出本次 `output/<run-id>/final.ai` | land_vc, land_craft, lib_pdf, smoke_ai |
 | `E-H2-INCOMPLETE` | 四件产物不齐 | aggregate_log |
 | `E-INTERNAL` | 未预期异常（保留原始异常文本） | lib_common |
 | `E-JUDGE-SCHEMA` | 判读文件不符合 schema，且重试一次后仍失败 | llm_judge |
@@ -36,10 +36,10 @@
 | `E-RENDERER-MISSING` | 渲染器全部缺失且内置兜底也产不出真实 PNG | render_png |
 | `E-SCHEMA` | 输入结构不符合 schema | aggregate_log, lib_common, run_fixtures, score |
 | `E-SELFTEST` | 自检断言失败（附失败断言 id 列表） | selftest |
-| `E-SEMI-MANUAL-NOT-ALLOWED` | 未确认 COM 不可用却要求半自动路径 | land_ai |
+| `E-SEMI-MANUAL-NOT-ALLOWED` | 未确认 COM 不可用却要求半自动路径（已废弃：r45 移除 Adobe/COM 链路，半自动路径不复存在；保留供下游按码分流） | （已废弃） |
 | `E-SMOKE-NO-SAMPLE` | 冒烟缺少内置样例 SVG | smoke_ai |
 | `E-XML` | SVG XML 解析失败 | sanitize_svg |
-| `E-CAPABILITY-MISSING` | 所需引擎不可用（VectorCraft CLI 缺失），显式降级而非静默成功 | export_print, trace_ref |
+| `E-CAPABILITY-MISSING` | 所需引擎不可用（VectorCraft CLI 缺失），显式降级而非静默成功 | export_print, trace_ref, land_craft |
 | `E-DELIGHT-EMPTY` | 去光照找不到主体像素（掩膜为空） | delight |
 | `E-RENDER` | 矢量转位图失败（引擎返回非零或未产出文件） | export_print |
 | `E-TRACE` | 参考图描摹失败（引擎报错或未产出文件） | trace_ref |

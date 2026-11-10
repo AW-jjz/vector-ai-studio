@@ -12,8 +12,6 @@ reported as capability_missing when that CLI is absent — never as a silent
 success with a smaller file.
 """
 import argparse
-import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -22,27 +20,10 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+from trace_ref import find_cli
 
 SCRIPT = "export_print.py"
 VECTOR_EXT = {".pdf", ".ai", ".eps", ".svg"}
-CANDIDATES = [
-    r"E:/Vector craft/vectorcraft-0.22.0/vectorcraft-0.22.0-windows-x64-portable/vectorcraft-cli.exe",
-    r"C:/Program Files/VectorCraft/vectorcraft-cli.exe",
-]
-
-
-def find_cli():
-    env = os.environ.get("VECTORCRAFT_CLI")
-    if env and Path(env).is_file():
-        return Path(env)
-    for c in CANDIDATES:
-        if Path(c).is_file():
-            return Path(c)
-    for name in ("vectorcraft-cli", "vectorcraft-cli.exe"):
-        found = shutil.which(name)
-        if found:
-            return Path(found)
-    return None
 
 
 def mm_to_px(mm, dpi):
