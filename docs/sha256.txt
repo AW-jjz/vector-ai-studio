@@ -205,9 +205,11 @@ sha256        : 329e236ff4ee233b6626b5132a7ef6579cdf18feda878f818a5f0789d2e297a3
                 名为 /BI 的资源被当内联图像起点的概率未测（Q2）。
 
 远端状态      : 已推送，发布提交 **ec1deca**（父 8a6e93b，6 files changed），
-                docs 补记 **0134a36**。回读校验：从远端 clone --depth 1，
-                与 r37 发布包逐文件比 md5 —— pkg_files=58 / remote_files=58，
-                missing=0 / extra=0 / diff=0（04-QA/test-log-r37/r37-08-远端回读.txt）。
+                docs 补记 **0134a36**、**e206e77**（后者仅补本节与发布说明的远端读数；
+                本文件最终版所在提交号不写进正文，避免自指）。
+                回读校验：从远端 clone --depth 1，与 r37 发布包逐文件比 md5 ——
+                pkg_files=58 / remote_files=58，missing=0 / extra=0 / diff=0
+                （04-QA/test-log-r37/r37-08-远端回读.txt）。
 
 
 ════════════════════════════════════════════════════════════════════
