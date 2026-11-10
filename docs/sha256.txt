@@ -1588,3 +1588,6 @@ sha256        : 43e30a3a4afa6fe17f166a1eac7d534cf2bb94b69e3ad5c2c068dd764f8c8123
                 4) get-filehash 发布包应为 43e30a3a…8123（258,945 B）
 
 行尾说明（如实记录）：本轮用脚本重写 selftest.py 时统一写成 LF，该文件从 CRLF 变为 LF。语义无关，selftest 58/0/0 与 59/59 两组读数均在 LF 版本上取得；代价是提交 diff 膨胀到 4058 行，且本包内 selftest.py 为 LF 而其余脚本仍为 CRLF。发布包 sha256 与冻结值记录的都是包内实际字节，不受影响。
+
+已推送发布提交 `103bccb`（父 `9b82f6c`）；`clone --depth 1` 回读 95/95 全等，missing / extra / diff 皆空（`04-QA/test-log-r59/r59-07-readback.txt`）。
+
