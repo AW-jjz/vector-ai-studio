@@ -1427,3 +1427,65 @@ sha256        : 9193caf9a8ece3f5fafd240c5d622cca94f2975e17cbe1aebeee551abedfd91e
                 3) validate_skill.py 期望 0 error / 0 warning
                 4) conformance.py 对三例各跑一次，期望全 exit 0 且 unchecked 只剩应留项
                 5) get-filehash 发布包，sha256 应为 9193caf9…d91e（248,925 B）
+
+────────────────────────────────────────────────────────────
+r57（2026-11-10）　清账：删掉没人读的字段、没人调的探针、没人用的旋钮
+────────────────────────────────────────────────────────────
+版本          : r57
+文件数        : 95
+字节数        : 256311
+sha256        : cf4ea0bb14fffbe92c4278ab76eb5ead0314cd50b98852ef7fed25e35d93320c
+冻结时刻      : 2026-11-10（04-QA/test-log-r57/r57-00-frozen-sha256.txt，95 行）
+
+变更范围      : 12 个文件，无新增、无删除
+                scripts/land_craft.py     19593 → 19123 B
+                scripts/land_vc.py        25394 → 25340 B
+                scripts/detect_deps.py     6148 →  5212 B
+                scripts/batch_check.py    11078 → 11003 B
+                scripts/conformance.py    15477 → 15456 B
+                scripts/selftest.py      146158 → 146253 B
+                config/thresholds.json     9084 →  9034 B
+                references/schemas/deliverable.schema.json 17146 → 16740 B
+                references/sources-whitelist.md  9226 → 9502 B
+                references/pipeline-contract.md 28001 → 27924 B
+                README.md                  5350 →  5401 B
+                requirements.txt           1122 →  1082 B
+
+本轮删除    : 1) land_craft 的 _step() 与 rows 累积（写了从不读）
+                2) land_craft 的 facts["streams_decoded"]（schema 的 deprecated alias，
+                   没有消费者；删字段后 A46 的 nested 差集会红，证明守卫有效）
+                3) schema 里 streams / streams_decoded 两个 deprecated alias 属性
+                4) thresholds 的 A.min_elements 与 grade.e_applicable_min（无人读取，
+                   属假旋钮；≥1 条元素是结构要求，由 freeze_spec 判定非空）
+                5) detect_deps 的 svgo / renderer_headless 探针（默认链路从不调用；
+                   render_png 对 headless 恒记 MISSING，探针报 FOUND 会自相矛盾）
+                6) batch_check / conformance / land_vc / selftest 各一处未读局部变量
+
+本轮修复    : land_craft 的 --run-id 此前被接受但从不写进信封；现与 land_vc 一致，
+              A46 增加 run_id 断言（变异去掉该行即 58/1）
+
+本轮改真    : sources-whitelist §8 原文仍写「默认 licenses_allowed 含 commercial、
+              建议增加两字段、一年内为有效」——与 r56 已实现的检查相反，改为现状描述
+              requirements / README 的 Python 3.13 改为 3.12+（本机实测 3.12.10，
+              3.13 从未取证）
+
+实测证据      : selftest --fixtures 58/0/0（A46 detail run_id=a46-craft）
+                validate_skill exit 0 / 0 error / 0 warning
+                双打包 ×2 字节一致；zip ↔ 基线 95/0/0/0
+                真机 smoke：status=ok / h1=true / acceptance.h2=true / grade=不达标
+                变异：去掉 run_id → A46 红；恢复 streams_decoded → A46 红（nested 差集）
+                证据目录 04-QA/test-log-r57/
+
+已知限制      : 1) selftest.py 的 main() 仍有 2397 行，58 条断言在同一函数内顺序执行；
+                   可读性靠 id 前缀而非结构，拆分需重跑全量变异，本轮不动
+                2) land_craft._pdf_facts 与 lib_pdf._observe_ai 各有一套 PDF 计数逻辑，
+                   测的是不同产物（print.pdf vs .ai），口径未合并
+                3) --validate / --json 等标志在部分脚本中不改变行为（输出恒为信封），
+                   属稳定 CLI 契约，未删
+                4) 两名真人外部评审未回收，usable_for_claim 恒为假
+
+校验方式      : 1) 解压发布包后逐文件 sha256 与 r57-00-frozen-sha256.txt 比对，应 95/95
+                2) python scripts/selftest.py --fixtures 期望 58/58；run_fixtures.py 期望 24/24
+                3) validate_skill.py 期望 0 error / 0 warning
+                4) get-filehash 发布包，sha256 应为 cf4ea0bb…330c（256,311 B）
+
