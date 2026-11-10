@@ -212,12 +212,17 @@
         },
         "content_streams": {
           "type": "object",
-          "description": "scope is the page /Contents refs plus /Subtype /Form streams; ICC profiles, font programs and CMaps are excluded",
+          "description": "scope is the page /Contents refs plus /Subtype /Form streams; ICC profiles, font programs and CMaps are excluded. Illustrator and VectorCraft write this under observed; the Craft engine writes it under observed.print_pdf instead",
           "properties": {
             "objects": {
               "type": "integer",
               "minimum": 0,
-              "description": "page-level stream objects selected for counting (all three engines write this key)"
+              "description": "page-level stream objects actually found in the file"
+            },
+            "refs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "page /Contents references; exceeds objects when a reference points at an object the reader never unpacked"
             },
             "streams": {
               "type": "integer",
@@ -226,7 +231,8 @@
             },
             "decoded": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "streams whose operators were actually counted; decoded < objects means part of the page was not measured"
             },
             "scope": {
               "type": "string"
@@ -409,6 +415,10 @@
               "type": "object",
               "properties": {
                 "objects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "refs": {
                   "type": "integer",
                   "minimum": 0
                 },

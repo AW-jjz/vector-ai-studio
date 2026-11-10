@@ -718,12 +718,31 @@ def main():
         plain = b"<< /Length 22 >>\nstream\n1 0 0 0 k\n0 0 0 1 K\nendstream\n"
         ops_plain, dec_plain = _mod._count_ops([plain])
 
-        # Inline image samples are binary, not operators. The k/K/G bytes inside
-        # it used to be counted, inflating k and inventing a stroke G.
+        # Inline image samples are binary, not operators. The end is computed
+        # from the dict's /W /H /BPC /CS, not from the first whitespace " EI ":
+        # this sample contains those two bytes, and scanning for them ended the
+        # image early so the tail of the bitmap was counted (k=2, true value 1).
+        inline_sample = b"\x01\x02 EI k\x03\x00\x00\x00\x00"      # 12 = 3*1*4*8/8
         inline = (b"<< /Length 99 >>\nstream\n"
-                  b"0 0 0 1 k\nq BI /W 2 /H 1 /BPC 8 /CS /G ID \x00k K G\x00 EI Q\n"
+                  b"0 0 0 1 k\nq BI /W 3 /H 1 /BPC 8 /CS /CMYK ID " +
+                  inline_sample + b" EI Q\n"
                   b"endstream\n")
         ops_inline, dec_inline = _mod._count_ops([inline])
+
+        # A dict this reader cannot size is unmeasured, never half-counted: the
+        # sample would otherwise leak operators, and truncating the tail would
+        # hide the ones after it.
+        inline_unknown = (b"<< /Length 99 >>\nstream\n"
+                          b"0 0 0 1 k\nq BI /W 3 /H 1 /F /AHx ID \x01\x02 EI\n"
+                          b"endstream\n")
+        ops_iunk, dec_iunk = _mod._count_ops([inline_unknown])
+
+        # `/BI` is a name, not an inline image start. Excluding only word
+        # characters matched it, jumped to the next " EI ", and lost the k
+        # operator sitting between the two.
+        slash_bi = (b"<< /Length 99 >>\nstream\n"
+                    b"/BI 0 0 0 1 k\n/ID x EI\n0 0 0 1 K\nendstream\n")
+        ops_bi, dec_bi = _mod._count_ops([slash_bi])
 
         # Scope guard: counting every decodable stream inflated the number ~40x
         # on real files because ICC profiles and font programs contain k/K
@@ -750,16 +769,65 @@ def main():
                   b"7 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
         scoped_os, stats_os = _mod._content_ops(pdf_os)
 
+        # /N smaller than the packed pair count. The page dictionary sat in the
+        # pair /N said did not exist, so it was never read: the file reported
+        # zero page streams and no operator -- a miss indistinguishable from a
+        # clean run. The packed count is authoritative; the mismatch is warned.
+        decoy_dict = b"<< /Type /Metadata >>"                 # 20 bytes
+        page_dict = b"<< /Type /Page /Contents 10 0 R >>"
+        packed2 = (b"6 0 7 " + str(len(decoy_dict)).encode() + b" " +
+                   decoy_dict + page_dict)
+        objstm2 = zlib.compress(packed2)
+        warn_os = []
+        pdf_os2 = (b"%PDF-1.6\n"
+                   b"5 0 obj\n<< /Type /ObjStm /N 1 /First 10 /Length " +
+                   str(len(objstm2)).encode() + b" /Filter /FlateDecode >>\nstream\n" +
+                   objstm2 + b"\nendstream\nendobj\n"
+                   b"10 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
+        scoped_n, stats_n = _mod._content_ops(pdf_os2, warn_os)
+
+        # Hand-computed reference, not score.py's own extractor: comparing the
+        # engine against itself passes on any bug the two share. Counted by
+        # reading the stream: two k, two K, one rg, nothing else.
+        fixed = (b"<< /Length 99 >>\nstream\n"
+                 b"1 0 0 0 k\n0 0.5 0 0 k\n0 0 0 1 K\n0 0 1 rg\nq 0 0 0 1 K Q\n"
+                 b"endstream\n")
+        ops_fixed, _dec_fixed = _mod._count_ops([fixed])
+        expect_fixed = {"k": 2, "K": 2, "rg": 1, "RG": 0, "g": 0, "G": 0,
+                        "sc": 0, "SC": 0, "scn": 0, "SCN": 0}
+
+        # 1/2/4 bpc has two readings: one packed bit stream, or rows padded to
+        # a byte boundary. Here both ends land on a whitespace " EI ", so the
+        # file does not say which one produced it. Taking either is a guess;
+        # the stream is reported unmeasured instead.
+        subbit = (b"<< /Length 99 >>\nstream\n"
+                  b"q BI /W 3 /H 2 /BPC 1 /CS /G ID \x00k EI Q\n0 0 0 1 k\n"
+                  b"endstream\n")
+        ops_sub, dec_sub = _mod._count_ops([subbit])
+
+        # A /Contents reference pointing at a missing object: refs and objects
+        # must not collapse into one number, or a page that was never read
+        # reports the same count as a page that was measured.
+        pdf_ref = (b"%PDF-1.6\n"
+                   b"3 0 obj\n<< /Type /Page /Contents [4 0 R 9 0 R] >>\nendobj\n"
+                   b"4 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
+        scoped_ref, stats_ref = _mod._content_ops(pdf_ref)
+
         # None means "nothing decoded". Normalise to empty so a real failure
         # reports its numbers instead of dying on a subscript and hiding which
         # clause broke.
         ops = ops or {}
         ops_plain = ops_plain or {}
         ops_inline = ops_inline or {}
+        ops_bi = ops_bi or {}
         scoped = scoped or {}
         scoped_os = scoped_os or {}
         scoped_stats = scoped_stats if isinstance(scoped_stats, dict) else {}
         stats_os = stats_os if isinstance(stats_os, dict) else {}
+        scoped_n = scoped_n or {}
+        scoped_ref = scoped_ref or {}
+        stats_ref = stats_ref if isinstance(stats_ref, dict) else {}
+        stats_n = stats_n if isinstance(stats_n, dict) else {}
 
         # The Craft path must report the same numbers on the same bytes: one
         # reader, not two that agree until someone edits one of them.
@@ -809,15 +877,25 @@ def main():
                   ops_plain.get("k") == 1 and ops_plain.get("K") == 1 and dec_plain == 1 and
                   ops_inline.get("k") == 1 and ops_inline.get("G") == 0 and
                   ops_inline.get("K") == 0 and dec_inline == 1 and
+                  ops_iunk is None and dec_iunk == 0 and
+                  ops_bi.get("k") == 1 and ops_bi.get("K") == 1 and dec_bi == 1 and
+                  ops_sub is None and dec_sub == 0 and
+                  ops_fixed == expect_fixed and
+                  scoped_ref.get("K") == 1 and stats_ref.get("refs") == 2 and
+                  stats_ref.get("objects") == 1 and stats_ref.get("decoded") == 1 and
                   scoped_os.get("k") == 0 and scoped_os.get("K") == 1 and
                   stats_os.get("objects") == 1 and stats_os.get("decoded") == 1 and
+                  scoped_n.get("K") == 1 and stats_n.get("objects") == 1 and
+                  stats_n.get("decoded") == 1 and len(warn_os) == 1 and
                   craft_facts["content_ops"] == scoped and
                   craft_facts["content_streams"]["decoded"] == 1 and
+                  craft_facts["content_streams"].get("refs") == 1 and
                   ai_undec is None and ai_undec_stats.get("decoded") == 0 and
                   craft_undec["content_ops"] is None and
                   craft_undec["content_streams"]["decoded"] == 0 and
                   scoped.get("k") == 0 and scoped.get("K") == 1 and scoped.get("rg") == 1 and
                   scoped_stats.get("objects") == 1 and
+                  scoped_stats.get("refs") == 1 and
                   scoped_stats.get("decoded") == 1 and fonts == 1 and
                   set(scoped) == _decl_keys)
         # Short discriminating values first, then the long dictionary: add()
@@ -825,12 +903,22 @@ def main():
         # a red assertion needed it (the whole dict fit, the verdict did not).
         a29_detail = ("k=" + str(scoped.get("k")) + "/0 K=" + str(scoped.get("K")) + "/1" +
                       " objects=" + str(scoped_stats.get("objects")) + "/1" +
+                      " refs=" + str(scoped_stats.get("refs")) + "/1" +
                       " decoded=" + str(scoped_stats.get("decoded")) + "/1" +
                       " objstm=" + str(stats_os.get("objects")) + "/" +
                       str(stats_os.get("decoded")) +
+                      " osN=" + str(stats_n.get("objects")) + "/" +
+                      str(stats_n.get("decoded")) + "/w" + str(len(warn_os)) +
                       " plain=" + str(ops_plain.get("k")) + "/" + str(dec_plain) +
                       " inline=" + str(ops_inline.get("k")) + "," + str(ops_inline.get("G")) +
                       ",dec" + str(dec_inline) +
+                      " iunk=" + str(ops_iunk) + "/" + str(dec_iunk) +
+                      " bi=" + str(ops_bi.get("k")) + "/" + str(ops_bi.get("K")) +
+                      " sub=" + str(ops_sub) + "/" + str(dec_sub) +
+                      " ref=" + str(stats_ref.get("refs")) + "/" +
+                      str(stats_ref.get("objects")) + "/" +
+                      str(stats_ref.get("decoded")) +
+                      " fixed=" + str(ops_fixed == expect_fixed) +
                       " fonts=" + str(fonts) + "/1" +
                       " craft=" + str(craft_facts["content_ops"] == scoped) +
                       " undec=" + str(ai_undec) + "/" + str(craft_undec["content_ops"]) +

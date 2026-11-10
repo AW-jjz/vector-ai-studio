@@ -159,7 +159,7 @@ def _structure_doc(kv, sig, automation):
     }
 
 
-def _pdf_objects(raw):
+def _pdf_objects(raw, warnings=None):
     """object number -> body. A segment ends at the next object header, never
     at an `endobj` string that may occur inside compressed data.
 
@@ -177,16 +177,21 @@ def _pdf_objects(raw):
         seg = raw[body_start:end]
         cut = seg.rfind(b"endobj")
         out[num] = seg[:cut] if cut >= 0 else seg
-    for num, body in _objstm_objects(out):
+    for num, body in _objstm_objects(out, warnings):
         out.setdefault(num, body)
     return out
 
 
-def _objstm_objects(objs):
+def _objstm_objects(objs, warnings=None):
     """(number, body) pairs unpacked from every /Type /ObjStm stream.
 
     Layout: /N pairs of `num offset` in the header, then the bodies start at
     /First; each body ends where the next one begins.
+
+    A stream whose /N disagrees with the packed pairs is read at its packed
+    count, not at /N. Trusting a too-small /N silently dropped the page
+    dictionary, so the file reported one selected stream and zero decoded --
+    a clean-looking "unmeasured" instead of the real content.
     """
     pairs = []
     for body in list(objs.values()):
@@ -200,7 +205,11 @@ def _objstm_objects(objs):
             continue
         first_off = int(first.group(1))
         nums = [int(x) for x in re.findall(rb"\d+", data[:first_off])]
-        table = list(zip(nums[0::2], nums[1::2]))[:int(n.group(1))]
+        table = list(zip(nums[0::2], nums[1::2]))
+        declared = int(n.group(1))
+        if len(table) != declared and warnings is not None:
+            warnings.append("object stream declares /N %d but packs %d pairs; "
+                            "the packed count was used" % (declared, len(table)))
         for idx, (onum, off) in enumerate(table):
             start = first_off + off
             end = (first_off + table[idx + 1][1]) if idx + 1 < len(table) else len(data)
@@ -252,34 +261,100 @@ def _decode_stream(body):
     return None
 
 
-def _strip_strings(data):
-    """Blank out data that is not an operator.
+_INLINE_COMPONENTS = {b"G": 1, b"DeviceGray": 1, b"RGB": 3, b"DeviceRGB": 3,
+                      b"CMYK": 4, b"DeviceCMYK": 4}
 
-    Literal and hex strings first, then inline images: everything between
-    `BI ... ID` and `EI` is raw samples, and a k/K byte inside it used to be
-    counted as a fill/stroke operator. Skipping only () and <> left that hole.
+
+def _inline_length(head):
+    """Candidate sample byte counts for an inline-image dictionary, or None.
+
+    A whitespace-delimited `EI` is not a delimiter: the sample itself may
+    contain those two bytes, so scanning for the first one ends the image too
+    early and returns the rest of the sample to the operator count. With a
+    declared size the end is computed instead of guessed.
+
+    Sub-byte depths (1/2/4 bpc) have two readings in the wild: one bit stream
+    for the whole image, or each row padded to a byte boundary. Both are
+    returned so the caller can take the one that lands on a real `EI`; picking
+    only the first truncates every row-aligned 1-bit mask.
+
+    Filters and indexed colour spaces resize the payload in ways this reader
+    cannot derive, so they stay None and the stream is reported as unmeasured
+    rather than guessed.
     """
+    m = re.search(rb"/L\s+(\d+)", head)
+    if m:
+        return [int(m.group(1))]
+    if re.search(rb"/F\b", head) or re.search(rb"/DP\b", head):
+        return None
+    w = re.search(rb"/W\s+(\d+)", head)
+    h = re.search(rb"/H\s+(\d+)", head)
+    cs = re.search(rb"/CS\s*/(\w+)", head)
+    if not (w and h and cs):
+        return None
+    comp = _INLINE_COMPONENTS.get(cs.group(1))
+    if comp is None:
+        return None
+    bpc = re.search(rb"/BPC\s+(\d+)", head)
+    depth = int(bpc.group(1)) if bpc else 8
+    width = int(w.group(1))
+    height = int(h.group(1))
+    stream = (width * height * comp * depth + 7) // 8
+    row = ((width * comp * depth + 7) // 8) * height
+    return [stream] if stream == row else [stream, row]
+
+
+def _strip_plain(data):
+    """Blank out literal and hex strings, which never hold an operator."""
     data = re.sub(rb"\((?:\\.|[^\\()])*\)", b"()", data)
-    data = re.sub(rb"<[0-9A-Fa-f\s]*>", b"<>", data)
-    begin = re.compile(rb"(?<![\w.])BI(?=[\s/])")
+    return re.sub(rb"<[0-9A-Fa-f\s]*>", b"<>", data)
+
+
+def _strip_strings(data):
+    """Blank out data that is not an operator. None means "not measurable".
+
+    Inline images are cut on the byte offsets declared in the BI dictionary,
+    before any string blanking, because replacing a `(...)` inside a sample
+    shifts every offset after it. A dict this reader cannot size makes the
+    whole stream unmeasured: counting part of its sample is how a bitmap got
+    reported as colour operators, and counting none of it hides operators that
+    follow.
+    """
+    # `/BI` is a name, not an inline image start; a dict key must follow.
+    begin = re.compile(rb"(?<![\w./])BI(?=\s*/[A-Za-z])")
     data_id = re.compile(rb"(?<![\w.])ID\s")
-    data_ei = re.compile(rb"[\s\x00]EI(?=\s|$)")
-    out, pos = [], 0
+    data_ei = re.compile(rb"(?<=[\s\x00])EI(?=[\s\x00]|$)")
+    spans, pos = [], 0
     for m in begin.finditer(data):
         if m.start() < pos:
             continue
         idm = data_id.search(data, m.end())
-        eim = data_ei.search(data, idm.end()) if idm else None
-        if not eim:
-            break                          # truncated inline image: keep the rest
-        out.append(data[pos:m.start()])
-        out.append(b"BI ID EI")
+        if not idm:
+            break                          # truncated: keep the rest as text
+        sizes = _inline_length(data[m.end():idm.start()])
+        if sizes is None:
+            return None
+        hits = [data_ei.search(data, max(idm.end() + n - 1, idm.end())) for n in sizes]
+        if not any(hits):
+            return None                    # declared size overruns the stream
+        if len(sizes) > 1 and all(hits):
+            # Both the packed-bit-stream end and the row-padded end land on a
+            # whitespace " EI ". Nothing in the file says which produced it, so
+            # neither is taken.
+            return None
+        eim = hits[0] or hits[1]
+        spans.append((m.start(), eim.end()))
         pos = eim.end()
-    out.append(data[pos:])
+    out, cur = [], 0
+    for start, end in spans:
+        out.append(_strip_plain(data[cur:start]))
+        out.append(b" BI ID EI ")
+        cur = end
+    out.append(_strip_plain(data[cur:]))
     return b"".join(out)
 
 
-def _page_streams(raw):
+def _page_streams(raw, warnings=None):
     """Only the streams that describe the page.
 
     Counting every decodable stream inflates the count: ICC profiles, font
@@ -288,8 +363,14 @@ def _page_streams(raw):
     scope is the /Contents of /Type /Page objects plus /Subtype /Form
     XObjects -- the same scope land_craft.py uses, so the two engines report
     comparable numbers.
+
+    Returns (bodies, refs, found). `refs` counts the page's /Contents
+    references, `found` how many of those objects exist in this file. They
+    differ when a reference points at an object the reader never unpacked, and
+    reporting only the reference count made that look like a stream that failed
+    to decode.
     """
-    objs = _pdf_objects(raw)
+    objs = _pdf_objects(raw, warnings)
     wanted = set()
     for num, body in objs.items():
         head = body.split(b"stream", 1)[0]
@@ -302,19 +383,27 @@ def _page_streams(raw):
                     wanted.add(int(m.group(1)))
         if re.search(rb"/Subtype\s*/Form\b", head):
             wanted.add(num)
-    return [objs[n] for n in sorted(wanted) if n in objs], len(wanted)
+    bodies = [objs[n] for n in sorted(wanted) if n in objs]
+    return bodies, len(wanted), len(bodies)
 
 
 def _count_ops(streams):
-    """Colour operators in already-selected stream bodies."""
+    """Colour operators in already-selected stream bodies.
+
+    A stream whose inline-image samples cannot be delimited is left out of
+    `decoded` rather than counted on a guess, so the caller can tell
+    "measured zero" from "could not measure".
+    """
     ops = {k: 0 for k in ("k", "K", "rg", "RG", "g", "G", "sc", "SC", "scn", "SCN")}
     decoded = 0
     for body in streams:
         data = _decode_stream(body)
         if data is None:
             continue
-        decoded += 1
         data = _strip_strings(data)
+        if data is None:
+            continue
+        decoded += 1
         for op in ops:
             ops[op] += len(re.findall(rb"(?<![\w.])" + op.encode() + rb"(?![\w])", data))
     return (ops if decoded else None), decoded
@@ -331,7 +420,7 @@ def _font_programs(raw):
             + raw.count(b"/FontFile2") + raw.count(b"/FontFile3"))
 
 
-def _content_ops(raw):
+def _content_ops(raw, warnings=None):
     """Colour operators in the page's own content streams.
 
     A resource dictionary saying /DeviceRGB tells you what the PDF *declares*;
@@ -339,11 +428,11 @@ def _content_ops(raw):
     they can disagree. Streams that cannot be decoded are reported, not guessed.
 
     Returns (ops, stats) where stats records how many page streams were
-    selected and how many decoded.
+    referenced, how many were found, and how many were decoded.
     """
-    streams, objects = _page_streams(raw)
+    streams, refs, objects = _page_streams(raw, warnings)
     ops, decoded = _count_ops(streams)
-    stats = {"objects": objects, "decoded": decoded,
+    stats = {"objects": objects, "refs": refs, "decoded": decoded,
              "scope": "page /Contents refs + /Subtype /Form streams only"}
     return ops, stats
 
@@ -384,7 +473,7 @@ def _color_mode(ops, device_cmyk, device_rgb, iccbased):
     return "unknown"
 
 
-def _observe_ai(path):
+def _observe_ai(path, warnings=None):
     """Read back what the .ai actually is, from its own bytes.
 
     We do not trust what we asked Illustrator to do; we look at the file. This
@@ -398,7 +487,7 @@ def _observe_ai(path):
     if mb:
         x0, y0, x1, y1 = (float(v) for v in mb.groups())
         w, h = round(x1 - x0, 2), round(y1 - y0, 2)
-    ops, op_stats = _content_ops(raw)
+    ops, op_stats = _content_ops(raw, warnings)
     return {
         "bytes": len(raw),
         "sha256": hashlib.sha256(raw).hexdigest(),
@@ -760,10 +849,14 @@ def main():
     deliverable = None
     ai_path = run_dir / "final.ai"
     if ai_path.is_file() and ai_path.stat().st_size > 0:
-        obs = _observe_ai(ai_path)
+        # A malformed object stream is reported, never smoothed over: the
+        # manifest says how many page streams were referenced vs found.
+        read_warnings = []
+        obs = _observe_ai(ai_path, read_warnings)
         deliverable = _deliverable(ai_path, save_opts, obs, kv,
                                    engine="illustrator",
-                                   engine_version=str(kv.get("app_version") or "unknown"))
+                                   engine_version=str(kv.get("app_version") or "unknown"),
+                                   tool_warnings=["pdf reader: " + w for w in read_warnings])
         L.write_json_atomic(run_dir / "deliverable.json", deliverable)
 
     _ensure_preview(run_dir, final_svg)

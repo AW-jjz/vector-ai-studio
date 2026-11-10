@@ -1,5 +1,6 @@
 vector-ai-studio 发布校验留痕
 
+【本段为 r29 历史读数，最新版本见文件末尾 r38 段】
 文件数        : 54
 字节数        : 161934
 sha256        : 30855c2b58d8e05366b59811cdc7d0f6d0c2b4e520cda2e898e54100e99f0e79
@@ -268,4 +269,89 @@ sha256        : b7e06a24e5b88a94d242658fbb154cf1a54e71571cf290ae5770e7bb04d0ddfe
 远端状态      : 已推送，发布提交 **01bda42**（父 a0bfe0a，2026-11-10 08:4x，6 files changed）。
                 回读校验：从远端 clone --depth 1，与 r36 发布包逐文件比 md5 ——
                 pkg_files=58 / remote_files=58，missing=0 / extra=0 / diff=0。
+
+
+════════════════════════════════════════════════════════════════════
+r38（2026-11-10，版本 1.1.0，58 文件 / 193,956 B）— 当前候选
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 193,956 B
+sha256        : 44b973f2feb82d97c2de3164043dc4a067bf605c0bb07303f0841b3c3083eedb
+对应冻结基线  : 04-QA/test-log-r38/00-freeze-r38-manifest.txt（58 文件，逐文件 sha256）
+                冻结时刻 2026-11-10 11:31:54，528,569 B
+                清单 sha256 de99b032cfe7446604dc0a424db3e3109f8e8ebe1f29372e8e6083973295326b
+
+本版包含      : 第 28 轮 QA 的 Q1–Q5 整改（两个 FAIL + 三项可改进）
+                · Q1 内联图像终点按 BI 字典算出的字节数判定（/L 或
+                  /W×/H×/BPC×/CS），不再扫第一个空白分隔的 ` EI `：
+                  样本含这两个字节时会被提前截断，余下位图字节回流成算子
+                · Q2 起点正则加两道限制：lookbehind 排除 `/`，且 BI 后必须是
+                  `/键名`；`/BI` 是名字不是图像开始
+                · Q3 对象流 /N 与实际对数不符时按实际对数读（旧代码按 /N 截断，
+                  页字典落在被截掉的 pair 里就整份漏测），并写一条 warning
+                · Q3 content_streams 新增 refs；objects 改回「实际找到的流数」，
+                  旧写法把 /Contents 引用数当 objects
+                · Q4 schema 补 refs 声明与描述，objects/decoded 描述改为实测语义
+                · Q5 A29 期望值改为手算常量字典，不再拿引擎自身产物当参考
+                · 算不出样本长度的内联图像（带 /F、/DP 或索引色）该流记未测，
+                  content_ops 可为 null——宁可说没测，不猜边界
+
+相对 r37 变更 : 新增 0 / 删除 0 / 修改 5 / 其余 53 个 sha256 不变
+                references/pipeline-contract.md
+                references/schemas/deliverable.schema.json
+                scripts/land_ai.py / scripts/land_craft.py / scripts/selftest.py
+
+实测证据      : r36 真机 X-1a print.pdf（195,684 B，sha256 07bc7172…）用新解析器重跑，
+                content_ops k=20 / K=1 / scn=1 / SCN=32，与 r37 记录逐键相同；
+                land_vc final.pdf（7,441 B）k=4 / K=1 同样不变。
+                重跑新冒烟 smoke_ai.py --run-id r38-real：status=ok，final.ai 53,881 B，
+                REAL_AI=1 复跑 selftest 46/0/0，A31 = ai(real:run-r38-real)。
+                证据见 04-QA/test-log-r38/r38-07-真机零漂移.txt 与 r38-00-gates.txt
+
+四道闸        : selftest --fixtures 46/0/0（A29 k=0/0 K=1/1 objects=1/1 refs=1/1
+                objstm=1/1 osN=1/1/w1 inline=1,0,dec1 iunk=None/0 bi=1/1 sub=None/0
+                ref=2/1/1 fixed=True craft=True undec=None/None keys=True）·
+                run_fixtures 24/24 · validate 0 error 0 warning ·
+                zip ↔ 基线 58/0/0/0 · 重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异自测      : 9 红 + 1 对照绿（数据见 04-QA/test-log-r38/r38-05-变异.json）
+                M1 终点改回扫 ' EI ' / M2b 恢复 r37 正则 / M3 算不出长度不置 None /
+                M4 ObjStm 按 /N 截断 / M5 不可界定仍计 decoded / M6 手写参考写错 /
+                M7 craft 删 refs / M8 objects 改用 /Contents 引用数 /
+                M9 sub-bit 丢掉行对齐候选 —— 全部只打红 A29；
+                M2a（只去 lookbehind、保留白名单）为对照，应绿且绿。还原后 46/0/0。
+                M8/M9 为第 29 轮 QA P3-1/P3-4 补守（断言存在但从未被证明会红）。
+
+已知限制      : 同 r37；另 _inline_length 只认未压缩的 /W /H /BPC /CS 与 /L，
+                带 /F、/DP 或索引色的内联图像一律记未测；sub-bit 深度两种读法
+                都落在合法 EI 上时判歧义、该流记未测；
+                「未测」只体现在 decoded < objects 与 content_ops=null，
+                没有单列 unmeasured 计数（只有 ObjStm 的 /N 不符会写 warning）；
+                A29 的 220 字符截断仍为硬编码
+
+独立 QA       : **第 29 轮：有条件签收 · 可推送**（P0=0 / P1=0 / P2×2 / P3×4）。
+                四闸由 QA 自跑 46/0/0、24/24、0 warning、58/0/0/0、三次独立重打
+                字节全等；QA 自造 PDF 17 例全过。
+                P2-1（pipeline-contract 的 warning 口径与代码不符）已按实描述改写；
+                P2-2（两份零漂移样本「不存在」）实测在 %TEMP%，已复制进
+                04-QA/test-log-r38/inputs/ 并写 sha256；
+                P3-1/P3-4 补 M8/M9 两项变异；P3-2 改为如实记未测；P3-3 清 __pycache__。
+                **增补复核：签收 · 可推送**（P0=0 / P1=0 / P2=0 / P3×3）。
+                QA 自跑 46/0/0、24/24、0/0、58/0/0/0、重打 ×2 == 发布包；自造 M8/M9
+                各 45/1 只红 A29；用包内 _content_ops 复算两份 inputs，读数与本节相同。
+                新记三条 P3（均不阻断）：sha256.txt 首部历史段无标注（已加注）、
+                pipeline-contract「三种情形」枚举不全（记 backlog，见已知限制）、
+                源码树 __pycache__ 跑测残留（已删，包内 58 成员本就不含）。
+
+已知限制      : 同 r37；另 _inline_length 只认未压缩的 /W /H /BPC /CS 与 /L，
+                带 /F、/DP 或索引色的内联图像一律记未测；sub-bit 深度两种读法
+                都落在合法 EI 上时判歧义、该流记未测；
+                「未测」只体现在 decoded < objects 与 content_ops=null，
+                没有单列 unmeasured 计数（只有 ObjStm 的 /N 不符会写 warning）；
+                pipeline-contract 的「三种情形」表只枚举了实现方已知的三类，
+                不支持的 /Filter（LZW/ASCII85/DCT 等）与声明长度越过流尾同样只
+                表现为 decoded<objects、不写 warning（QA29 P3-2，记 backlog，
+                本轮不改包）；
+                A29 的 220 字符截断仍为硬编码
 

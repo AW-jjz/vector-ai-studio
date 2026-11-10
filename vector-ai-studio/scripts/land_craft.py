@@ -91,7 +91,7 @@ def _pdf_text(blob):
                 .replace(b"\\(", b"(").replace(b"\\)", b")")).decode("latin1")
 
 
-def _pdf_facts(path):
+def _pdf_facts(path, warnings=None):
     raw = path.read_bytes()
     facts = {"bytes": len(raw), "pdf_header": raw[:8].decode("latin1")}
     for key in (b"/GTS_PDFXVersion", b"/OutputIntent", b"/OutputCondition",
@@ -113,7 +113,7 @@ def _pdf_facts(path):
     # Selection is land_ai's too: page /Contents refs plus /Subtype /Form
     # XObjects. Selecting differently per engine is how the same PDF ended up
     # with two different operator counts.
-    streams, n_objects = LA._page_streams(raw)
+    streams, n_refs, n_objects = LA._page_streams(raw, warnings)
     ops, decoded = LA._count_ops(streams)
     # None means "nothing decoded", and it must stay None. Filling zeros here
     # made an unmeasured page indistinguishable from a page with no colour
@@ -125,7 +125,7 @@ def _pdf_facts(path):
     # ICC profiles, font programs and CMaps are binary blobs that happen to
     # contain k/K bytes, and are not evidence of a CMYK operator.
     facts["content_ops_scope"] = "page /Contents refs + /Subtype /Form streams only"
-    facts["content_streams"] = {"objects": n_objects, "decoded": decoded}
+    facts["content_streams"] = {"objects": n_objects, "refs": n_refs, "decoded": decoded}
     facts["streams_decoded"] = decoded
     return facts
 
@@ -238,7 +238,12 @@ def main():
     }
     (out / "structure_readback.json").write_text(json.dumps(struct, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    pdf_facts = _pdf_facts(pdf) if pdf.is_file() else None
+    warnings = [
+        "VectorCraft writes its own /AIPrivateData1 rewrite stream (not Adobe's "
+        "proprietary editing data); clients requiring Adobe-native editing data "
+        "get SVG + PDF/X instead",
+    ]
+    pdf_facts = _pdf_facts(pdf, warnings) if pdf.is_file() else None
     ai_bytes = ai.read_bytes()
     observed = {
         "bytes": len(ai_bytes),
@@ -260,11 +265,6 @@ def main():
         observed["print_pdf"] = pdf_facts
 
     unverified = []
-    warnings = [
-        "VectorCraft writes its own /AIPrivateData1 rewrite stream (not Adobe's "
-        "proprietary editing data); clients requiring Adobe-native editing data "
-        "get SVG + PDF/X instead",
-    ]
     if args.pdf_standard != "none" and pdf_facts:
         if pdf_facts.get("GTS_PDFXVersion", 0) == 0 or pdf_facts.get("OutputIntent", 0) == 0:
             unverified.append("requested " + args.pdf_standard +

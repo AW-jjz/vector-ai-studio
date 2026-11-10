@@ -144,12 +144,20 @@ land_ai.py 的保存选项全部显式写入 `IllustratorSaveOptions`，不依�
 |---|---|
 | `profile` | 本次按哪一档交付 |
 | `save_options` | 本次**请求**的保存参数（不是实测值；实测值在 observed）。唯一例外 `output_intent`：读得到 print.pdf 的 `/OutputConditionIdentifier` 时它是读回值，请求值另存 `output_intent_requested` |
-| `observed` | 从文件字节实测：`pdf_compatible`、`has_ai_private`（= `has_aiprivatedata1_marker`）、`device_rgb` / `device_cmyk`、`output_intent` / `iccbased` / `output_condition`、`fonts` / `fonts_embedded`（嵌入字体程序数，一个 Type0 字体计 1 次，不按 `/BaseFont` 条目重复计）、`images`、`content_ops`（只数页面 `/Contents` 引用与 `/Subtype /Form` 流；ICC / 字体 / CMap 二进制不计入，内联图像 `BI…ID…EI` 之间的像素字节也不计入；三条引擎同一口径）、`content_streams`（`objects` 选中流数 / `decoded` 实际解码数，未压缩内容流算解码成功；**`decoded` 为 0 时 `content_ops` 写 null，表示未测，不写 0**——0 会被读成「测过，没有颜色算子」）、`artboard_pt` / `artboard_mm`、`sha256`；vectorcraft 另写 `print_pdf`（GTS_PDFXVersion / OutputIntent / 各 Box 计数与矩形 / 同一份 `content_ops`）、`paths`、`artboard_matches_viewBox` |
+| `observed` | 从文件字节实测：`pdf_compatible`、`has_ai_private`（= `has_aiprivatedata1_marker`）、`device_rgb` / `device_cmyk`、`output_intent` / `iccbased` / `output_condition`、`fonts` / `fonts_embedded`（嵌入字体程序数，一个 Type0 字体计 1 次，不按 `/BaseFont` 条目重复计）、`images`、`content_ops`（只数页面 `/Contents` 引用与 `/Subtype /Form` 流；ICC / 字体 / CMap 二进制不计入，内联图像 `BI…ID…EI` 之间的像素字节也不计入；三条引擎同一口径）、`content_streams`（`objects` 文件里**实际找到**的页面流数 / `refs` 页面 `/Contents` **引用**数 / `decoded` 实际解码并计过数的流数，未压缩内容流算解码成功；`refs > objects` 说明有引用指向读取器没解开的对象；`decoded < objects` 说明有流未测；**`decoded` 为 0 时 `content_ops` 写 null，表示未测，不写 0**——0 会被读成「测过，没有颜色算子」）、`artboard_pt` / `artboard_mm`、`sha256`；vectorcraft 另写 `print_pdf`（GTS_PDFXVersion / OutputIntent / 各 Box 计数与矩形 / 同一份 `content_ops`）、`paths`、`artboard_matches_viewBox` |
 | `structure` | 结构回读：`open_paths` / `reopen_paths` / `layers` / `reopen_layers` / `artboard` / `viewBox` |
 | `jsx_notes` | JSX 每步实际做了什么（如 `cmyk:objects=5:naive_no_icc`、`cropmarks:8`） |
 | `warnings` | 必须让客户知道的风险（第三方重存剥离 AIPrivateData、CMYK 未做色彩管理、无出血等） |
 | `unverified` | **要求了但没兑现**的项。例如要求转 CMYK 而 PDF 兼容层仍以 `rg` 算子写 RGB，此条会出现在这里，不会被静默略过 |
 | `verify_yourself` | 客户可自行执行的校验命令与 sha256 |
+
+流记「未测」的三种情形——**只有第三种写 `warnings`**，前两种只能从 `decoded` 与 `content_ops: null` 看出来：
+
+| 情形 | 表现 |
+|---|---|
+| 内联图像字典算不出样本长度（带 `/F`、`/DP`，或索引色空间） | 该流不计入 `decoded`，无 warning |
+| 1/2/4 bpc 的两种字节数（整体位流 / 行对齐）**都**落在合法 `EI` 上，无法判别 | 同上 |
+| 对象流 `/N` 与实际配对数不符 | 按实际对数读取，并写一条 `warning` |
 
 ### 交付清单的幂等口径
 
