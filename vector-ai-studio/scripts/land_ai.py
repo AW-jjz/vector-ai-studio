@@ -159,44 +159,115 @@ def _structure_doc(kv, sig, automation):
     }
 
 
+def _pdf_objects(raw):
+    """object number -> body. A segment ends at the next object header, never
+    at an `endobj` string that may occur inside compressed data."""
+    starts = [(int(m.group(1)), m.start(), m.end())
+              for m in re.finditer(rb"(?m)^(\d+)\s+0\s+obj\b", raw)]
+    out = {}
+    for i, (num, _start, body_start) in enumerate(starts):
+        end = starts[i + 1][1] if i + 1 < len(starts) else len(raw)
+        seg = raw[body_start:end]
+        cut = seg.rfind(b"endobj")
+        out[num] = seg[:cut] if cut >= 0 else seg
+    return out
+
+
+def _stream_payload(body):
+    m = re.search(rb"stream\r?\n", body)
+    if not m:
+        return None
+    end = body.rfind(b"endstream")
+    return body[m.end():end] if end >= m.end() else None
+
+
+def _inflate(blob):
+    """zlib.decompress() raises "incomplete" when the segment carries a
+    trailing CR/LF before endstream, which Illustrator's streams do.
+    decompressobj tolerates that. Using the strict call made every real
+    deliverable report "undecodable", so the measurement never happened."""
+    if blob is None:
+        return None
+    for attempt in (blob, blob.rstrip(b"\r\n")):
+        try:
+            return zlib.decompressobj().decompress(attempt)
+        except Exception:
+            continue
+    return None
+
+
+def _strip_strings(data):
+    data = re.sub(rb"\((?:\\.|[^\\()])*\)", b"()", data)
+    return re.sub(rb"<[0-9A-Fa-f\s]*>", b"<>", data)
+
+
+def _page_streams(raw):
+    """Only the streams that describe the page.
+
+    Counting every decodable stream inflates the count: ICC profiles, font
+    programs and CMaps are binary blobs that contain k/K bytes by accident,
+    and an embedded thumbnail is a picture of the page, not the page. The
+    scope is the /Contents of /Type /Page objects plus /Subtype /Form
+    XObjects -- the same scope land_craft.py uses, so the two engines report
+    comparable numbers.
+    """
+    objs = _pdf_objects(raw)
+    wanted = set()
+    for num, body in objs.items():
+        head = body.split(b"stream", 1)[0]
+        if re.search(rb"/Type\s*/Page\b", head):
+            for m in re.finditer(rb"/Contents\s+(\d+)\s+0\s+R", head):
+                wanted.add(int(m.group(1)))
+            arr = re.search(rb"/Contents\s*\[([^\]]*)\]", head)
+            if arr:
+                for m in re.finditer(rb"(\d+)\s+0\s+R", arr.group(1)):
+                    wanted.add(int(m.group(1)))
+        if re.search(rb"/Subtype\s*/Form\b", head):
+            wanted.add(num)
+    return [objs[n] for n in sorted(wanted) if n in objs], len(wanted)
+
+
+def _count_ops(streams):
+    """Colour operators in already-selected stream bodies."""
+    ops = {k: 0 for k in ("k", "K", "rg", "RG", "g", "G", "sc", "SC", "scn", "SCN")}
+    decoded = 0
+    for body in streams:
+        data = _inflate(_stream_payload(body))
+        if data is None:
+            continue
+        decoded += 1
+        data = _strip_strings(data)
+        for op in ops:
+            ops[op] += len(re.findall(rb"(?<![\w.])" + op.encode() + rb"(?![\w])", data))
+    return (ops if decoded else None), decoded
+
+
+def _font_programs(raw):
+    """Embedded font *programs*, not font entries.
+
+    Counting /BaseFont counted one Type0 font twice (the composite plus its
+    descendant CIDFont) and disagreed with both vectorcraft's `info` and
+    land_craft's fonts_embedded on the same file.
+    """
+    return (len(re.findall(rb"/FontFile(?![0-9])", raw))
+            + raw.count(b"/FontFile2") + raw.count(b"/FontFile3"))
+
+
 def _content_ops(raw):
-    """Count colour operators in the decodable PDF content streams.
+    """Colour operators in the page's own content streams.
 
     A resource dictionary saying /DeviceRGB tells you what the PDF *declares*;
     the content stream tells you what it *draws*. Both are worth measuring and
-    they can disagree. Some streams are Illustrator's own compressed blocks and
-    cannot be decoded here -- that is reported, not guessed at.
+    they can disagree. Streams that cannot be decoded are reported, not guessed.
 
-    Returns (ops, stats) where stats records how many streams were seen and how
-    many decoded.
+    Returns (ops, stats) where stats records how many page streams were
+    selected and how many decoded.
     """
-    ops = {"rg": 0, "RG": 0, "k": 0, "K": 0}
-    seen = decoded = 0
-    for m in re.finditer(rb"stream\r?\n", raw):
-        start = m.end()
-        end = raw.find(b"endstream", start)
-        if end < 0:
-            continue
-        seen += 1
-        # zlib.decompress() raises "incomplete" when the segment carries a
-        # trailing CR/LF before endstream, which Illustrator's streams do.
-        # decompressobj tolerates that. Using the strict call made this
-        # function report "undecodable" on every real deliverable, so the
-        # measurement it was supposed to provide never happened.
-        txt = None
-        for attempt in (raw[start:end], raw[start:end].rstrip(b"\r\n")):
-            try:
-                txt = zlib.decompressobj().decompress(attempt).decode("latin-1", "replace")
-                break
-            except Exception:
-                continue
-        if txt is None:
-            continue
-        decoded += 1
-        for op in ops:
-            ops[op] += len(re.findall(r"(?:^|[\s\]])" + op + r"(?=[\s]|$)", txt))
-    stats = {"streams": seen, "decoded": decoded}
-    return (ops if decoded else None), stats
+    streams, objects = _page_streams(raw)
+    ops, decoded = _count_ops(streams)
+    stats = {"objects": objects, "decoded": decoded,
+             "scope": "page /Contents refs + /Subtype /Form streams only"}
+    return ops, stats
 
 
 def _layer_count(text):
@@ -260,7 +331,10 @@ def _observe_ai(path):
         "device_cmyk": len(re.findall(r"/DeviceCMYK", t)),
         "output_intent": len(re.findall(r"/OutputIntent", t)),
         "iccbased": len(re.findall(r"/ICCBased", t)),
-        "fonts": len(re.findall(r"/BaseFont", t)),
+        # FontFile counts embedded font *programs*. Counting /BaseFont counted
+        # one Type0 font twice (the type plus its descendant CIDFont) and
+        # disagreed with both vectorcraft's `info` and land_craft.
+        "fonts": _font_programs(raw),
         "images": len(re.findall(r"/Subtype\s*/Image", t)),
         "artboard_pt": [w, h],
         "artboard_mm": [round(w * 25.4 / 72.0, 1), round(h * 25.4 / 72.0, 1)] if w else None,
@@ -298,8 +372,8 @@ def _deliverable(path, opts, obs, kv, engine="", engine_version="",
     measured = ("色彩模式判定 " + mode + "；/DeviceCMYK " + str(obs["device_cmyk"]) +
                 " 处、/DeviceRGB " + str(obs["device_rgb"]) + " 处")
     if ops:
-        measured += ("；可解码内容流 " + str(st.get("decoded", 0)) + "/" +
-                     str(st.get("streams", 0)) + " 段中，填充 rg=" + str(ops["rg"]) +
+        measured += ("；页面内容流 " + str(st.get("decoded", 0)) + "/" +
+                     str(st.get("objects", 0)) + " 段中，填充 rg=" + str(ops["rg"]) +
                      "、描边 RG=" + str(ops["RG"]) +
                      "、填充 k=" + str(ops["k"]) + "、描边 K=" + str(ops["K"]))
 

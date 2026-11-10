@@ -122,7 +122,8 @@
         },
         "fonts": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "embedded font programs counted by /FontFile, /FontFile2, /FontFile3; one Type0 font counts once, not once per /BaseFont entry"
         },
         "images": {
           "type": "integer",
@@ -156,19 +157,53 @@
             "K": {
               "type": "integer",
               "minimum": 0
+            },
+            "g": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "G": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sc": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "SC": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "scn": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "SCN": {
+              "type": "integer",
+              "minimum": 0
             }
           }
         },
         "content_streams": {
           "type": "object",
+          "description": "scope is the page /Contents refs plus /Subtype /Form streams; ICC profiles, font programs and CMaps are excluded",
           "properties": {
+            "objects": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "page-level stream objects selected for counting (all three engines write this key)"
+            },
             "streams": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "deprecated alias of objects, kept for older manifests"
             },
             "decoded": {
               "type": "integer",
               "minimum": 0
+            },
+            "scope": {
+              "type": "string"
             }
           }
         },

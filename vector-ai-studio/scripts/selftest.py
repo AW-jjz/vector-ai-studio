@@ -634,18 +634,55 @@ def main():
         payload = b"0.2 0.4 0.6 rg\n0 0 0 1 K\n"
         complete = zlib.compress(payload)
         truncated = complete[:-4]                      # drop adler32 -> incomplete
-        blob = b"%PDF-1.6\nstream\n" + truncated + b"\nendstream\n"
-        ops, stats = _mod._content_ops(blob)
+        body = b"stream\n" + truncated + b"\nendstream\n"
+        ops, decoded = _mod._count_ops([body])
 
-        junk = b"%PDF-1.6\nstream\n" + b"\x00\x01\x02\x03" + b"\nendstream\n"
-        ops_junk, stats_junk = _mod._content_ops(junk)
+        junk = b"stream\n" + b"\x00\x01\x02\x03" + b"\nendstream\n"
+        ops_junk, decoded_junk = _mod._count_ops([junk])
 
-        a29_ok = (ops == {"rg": 1, "RG": 0, "k": 0, "K": 1} and
-                  stats.get("decoded") == 1 and
-                  ops_junk is None and stats_junk.get("decoded") == 0)
+        # Scope guard: counting every decodable stream inflated the number ~40x
+        # on real files because ICC profiles and font programs contain k/K
+        # bytes. A page must only count its /Contents, so this fixture puts a
+        # decoy stream (20 k operators) in an object the page never references.
+        decoy = zlib.compress(b"0 0 0 1 k\n" * 20)
+        pdf = (b"%PDF-1.6\n"
+               b"1 0 obj\n<< /Type /Page /Contents 3 0 R >>\nendobj\n"
+               b"3 0 obj\n<< /Length 99 >>\n" + body[:-1] + b"endobj\n"
+               b"5 0 obj\n<< /Subtype /Image >>\nstream\n" + decoy +
+               b"\nendstream\nendobj\n")
+        scoped, scoped_stats = _mod._content_ops(pdf)
+
+        # The schema is the single source of truth for the operator key set.
+        # r36 widened the code from 4 keys to 10 while the schema still declared
+        # 4, and every gate stayed green because additionalProperties is open --
+        # the drift was invisible. Comparing the two makes it red instead.
+        _decl_doc = json.loads(
+            (ROOT / "references" / "schemas" / "deliverable.schema.json")
+            .read_text(encoding="utf-8"))
+        _decl_keys = set(
+            _decl_doc["properties"]["observed"]["properties"]["content_ops"]["properties"])
+
+        # One Type0 font is two /BaseFont entries (the composite and its
+        # descendant CIDFont) but a single embedded program. Counting entries
+        # made the manifest disagree with vectorcraft's `info` on the same file.
+        fonts = _mod._font_programs(
+            b"1 0 obj << /BaseFont /Stone-Bold /DescendantFonts [2 0 R] >> endobj\n"
+            b"2 0 obj << /BaseFont /Stone-Bold-CID /FontDescriptor 3 0 R >> endobj\n"
+            b"3 0 obj << /FontFile2 4 0 R >> endobj\n")
+
+        a29_ok = (ops["rg"] == 1 and ops["K"] == 1 and decoded == 1 and
+                  ops_junk is None and decoded_junk == 0 and
+                  scoped["k"] == 0 and scoped["K"] == 1 and scoped["rg"] == 1 and
+                  scoped_stats.get("objects") == 1 and
+                  scoped_stats.get("decoded") == 1 and fonts == 1 and
+                  set(scoped) == _decl_keys)
         a29_detail = ("incomplete_stream_ops=" + str(ops) +
-                      " decoded=" + str(stats.get("decoded")) +
-                      " junk_ops=" + str(ops_junk))
+                      " decoded=" + str(decoded) +
+                      " junk_ops=" + str(ops_junk) +
+                      " scoped_ops=" + str(scoped) +
+                      " objects=" + str(scoped_stats.get("objects")) +
+                      " fonts=" + str(fonts) +
+                      " keys_match_schema=" + str(set(scoped) == _decl_keys))
     except Exception as e:                      # noqa: BLE001 - report, do not crash
         a29_detail = type(e).__name__ + ": " + str(e)[:140]
     add("A29-content-ops-measurement", a29_ok, a29_detail)

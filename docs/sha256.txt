@@ -137,3 +137,60 @@ sha256        : 890be4fbce5ae42aa624560e549d54e74ccbd4ee4aece77922ff59b4def638c6
 远端状态      : 已推送，发布提交 **107ccb2**（父 2c6f875，2026-11-09 23:5x）。
                 回读校验：从远端 clone --depth 1，与 r35 发布包逐文件比 md5 —— 58/58 全等，
                 missing/extra/diff 均为空；docs 三件（发布说明 / sha256 / RELEASE-SOP）与本地同文。
+
+
+════════════════════════════════════════════════════════════════════
+r36（2026-11-10，版本 1.1.0，58 文件 / 186,379 B）— 当前候选
+════════════════════════════════════════════════════════════════════
+
+文件数        : 58
+字节数        : 186,379 B
+sha256        : b7e06a24e5b88a94d242658fbb154cf1a54e71571cf290ae5770e7bb04d0ddfe
+对应冻结基线  : 04-QA/test-log-r36/r36-00-freeze.txt（58 文件，
+                清单 sha256 5608685741baf48f…，以文件内为准）
+
+本版包含      : 第 26 轮 QA 的 P3-A 整改（跨引擎口径统一）
+                · land_ai.content_ops 由「统计所有可解码流」改为对象级：
+                  只数 /Type /Page 的 /Contents 引用与 /Subtype /Form 流；
+                  新增 _pdf_objects / _page_streams / _count_ops，算子键 4 → 10
+                  （补 g/G/sc/SC/scn/SCN，与 land_craft 同口径）
+                · land_vc 经 import land_ai as LA 复用 _observe_ai，一处改动两引擎同效
+                · fonts 由 /BaseFont 条目数改为 /FontFile* 嵌入字体程序数
+                  （一个 Type0 字体不再因后代 CIDFont 被计成 2）
+                · schema 补 content_ops 的 6 个算子键与 content_streams 的
+                  objects/scope，fonts 写明口径；pipeline-contract 同步
+                · A29 新增三条断言：诱饵流证明范围收窄、2×/BaseFont+1×/FontFile2
+                  断言 fonts=1、算子键集必须与 schema 声明完全相等
+
+相对 r35 变更 : 新增 0、删除 0、修改 4、未变 54
+                scripts/land_ai.py / scripts/selftest.py /
+                references/schemas/deliverable.schema.json /
+                references/pipeline-contract.md
+
+实测证据      : 同一份 X-1a print.pdf 由 land_ai 与 land_craft 两套实现分别解析，
+                10 个算子键完全相等（k=20 / K=1 / scn=1 / SCN=32）；
+                land_vc 产物 final.ai 亦相等（k=4 / K=1，objects=6 / decoded=6），
+                与第 26 轮 QA 独立解析的真实值一致，旧口径 k=5 的过计已消除。
+
+四道闸        : selftest --fixtures 46/46（A29 keys_match_schema=True，A46 schema=True）·
+                run_fixtures 24/24 · validate 0 error 0 warning ·
+                重打 ×2 byte-identical 且 == 发布包 sha256
+
+变异自测      : M1 改回「所有对象流」→ A29 红（45/1）；
+                M2 改回数 /BaseFont → A29 红（45/1）；
+                M3 把 schema 的 SCN 声明改名为 SCNX → A29 红（45/1）；基线 46/0。
+
+独立 QA       : **第 27 轮签收 · 可推送**（P0=0 / P1=0 / P2=0 / P3×6 记 backlog）。
+                QA 自写 PDF 解析器（含 ObjStm 展开、inline image 跳过、词法切词），
+                对 5 份真实产物与包内 _content_ops 10 键逐键全等；
+                自推 M1/M2 分别只打红 A29 的对应子句；还原后 46/0。
+                首轮签收记 P2-1（content_ops 键集 4→10 而 schema 只声明 4）；
+                推送前整改（schema 补 6 键 + A29 以 schema 为键集真源）并重打，
+                QA 增补复核：P2-1 闭合，P2=0，维持签收 · 可推送。
+
+已知限制      : 同 r35；另 _pdf_objects 只认裸 `N 0 obj`，对象流（ObjStm）里的页对象
+                不会被选中，content_ops 会归零（方向安全但失真，记 QA27 P3）；
+                A29 的键集断言要求 schema 与代码同步扩，schema 领先代码也会红
+
+远端状态      : 未推送（推送后补记提交号与 58/58 回读结果）
+
