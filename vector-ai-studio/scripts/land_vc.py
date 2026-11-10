@@ -225,8 +225,6 @@ def main():
 
 
 def _run(args, run_dir):
-    th = L.load_thresholds()
-    msg = th["messages"]
     prof = PROFILE_DEFAULTS[args.profile]
 
     svg = Path(args.svg) if args.svg else (run_dir / "final.svg")

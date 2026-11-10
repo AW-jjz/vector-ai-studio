@@ -225,11 +225,6 @@
               "minimum": 0,
               "description": "page /Contents references; exceeds objects when a reference points at an object the reader never unpacked"
             },
-            "streams": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "deprecated alias of objects, kept for older manifests"
-            },
             "decoded": {
               "type": "integer",
               "minimum": 0,
@@ -354,11 +349,6 @@
             "output_intent_objects": {
               "type": "integer",
               "minimum": 0
-            },
-            "streams_decoded": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "deprecated alias of content_streams.decoded, kept for older manifests"
             },
             "content_ops_scope": {
               "type": "string"

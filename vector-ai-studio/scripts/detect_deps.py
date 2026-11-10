@@ -59,11 +59,6 @@ def main():
                      "cairosvg importable" if importlib.util.find_spec("cairosvg")
                      else "cairosvg not installed",
                      "optional enhancement; builtin PNG fallback available", optional=True))
-    headless = next((b for b in ("chromium", "chrome", "msedge", "google-chrome")
-                     if shutil.which(b)), None)
-    deps.append(_dep("renderer_headless", "FOUND" if headless else "MISSING",
-                     (headless + " on PATH") if headless else "no headless browser on PATH",
-                     "optional enhancement; builtin PNG fallback available", optional=True))
 
     flag = os.environ.get(LLM_FLAG_ENV)
     if flag == "1":
@@ -76,14 +71,6 @@ def main():
     deps.append(_dep("host_llm_image_reading", llm[0], llm[1],
                      "L2: A/B = capability_missing status, human final review; C/D/F and H1-H4 still scored",
                      optional=True, counts=(llm[0] == "MISSING")))
-
-    deps.append(_dep("node", "FOUND" if shutil.which("node") else "MISSING",
-                     "node on PATH" if shutil.which("node") else "node not on PATH",
-                     "optional enhancement; not in the default chain", optional=True))
-    deps.append(_dep("svgo", "FOUND" if shutil.which("svgo") else "MISSING",
-                     "svgo on PATH" if shutil.which("svgo") else "svgo not on PATH",
-                     "optional enhancement; sanitize_svg.py builtin minimal implementation",
-                     optional=True))
 
     creds = L.assert_no_credentials()
     for name, present in creds.items():

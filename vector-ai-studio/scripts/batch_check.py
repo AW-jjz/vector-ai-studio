@@ -66,7 +66,6 @@ def _fs_record(rp, lv):
                 "draft_sha256": "", "generation_count": _run_generations(rp),
                 "missing": ["score.json"]}
     scores = sc.get("scores", {}) or {}
-    numeric = [v["score"] for v in scores.values() if isinstance(v, dict)]
     ad_scores = [scores.get(d) for d in ("A", "B", "C", "D")]
     ad_numeric = [v["score"] for v in ad_scores if isinstance(v, dict)]
     rate = (round(sum(1 for s in ad_numeric if s >= lv["pass"]) / len(ad_numeric), 6)

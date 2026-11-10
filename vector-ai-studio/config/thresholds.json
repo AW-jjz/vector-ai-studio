@@ -4,7 +4,6 @@
   "source": "需求说明书 7.2/7.3/7.4（定稿初值，主理人裁决 O2）",
   "score_levels": { "fail": 0, "pass": 1, "excellent": 2 },
   "A": {
-    "min_elements": 1,
     "hit_rate_pass": 1.0,
     "excellent_min_elements": 5,
     "excellent_attr_hit_rate": 0.8
@@ -85,8 +84,7 @@
   },
   "grade": {
     "pass_requires_dims": ["A", "B", "C", "D", "F"],
-    "excellent_requires": { "A": 2, "B": 2, "min_twos": 3 },
-    "e_applicable_min": 1
+    "excellent_requires": { "A": 2, "B": 2, "min_twos": 3 }
   },
   "iterate": { "K_max": 3 },
   "orchestration": {

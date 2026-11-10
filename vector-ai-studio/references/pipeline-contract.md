@@ -82,7 +82,6 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 | VectorCraft CLI 缺失 | L4：H1 不达标，仅 SVG + PNG；安装引擎或设 `VECTORCRAFT_CLI` |
 | PNG 渲染器全部 | 内置最小 SVG→PNG 兜底（真实 PNG，`renderer: builtin-fallback`，`degraded: true`） |
 | 宿主读图 | L2（detect_deps 列 MISSING + 替代）：A/B = N/A (capability_missing)，C/D/F 与 H1–H4 照常计分，人工终审，不伪造分数 |
-| Node / svgo | `../scripts/sanitize_svg.py` 内置最小实现 + warning |
 | 风格参考 | E = N/A（受限能力） |
 | 付费凭据 | 默认链路零凭据，不启用 L3 |
 

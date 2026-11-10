@@ -63,26 +63,9 @@ def viewbox_of(svg_path):
 
 def _run(cmd, timeout=1800):
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    rows = []
-    for line in (p.stdout or "").splitlines():
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            rows.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
     if p.returncode != 0:
         raise L.ToolError("E-RENDER", "craft failed: " +
                           (p.stderr or p.stdout or "")[-400:], L.EXIT_ERROR)
-    return rows
-
-
-def _step(rows, want, key="command"):
-    for r in rows:
-        if r.get(key) == want or r.get("step") == want:
-            return r
-    return {}
 
 
 def _pdf_text(blob):
@@ -126,7 +109,6 @@ def _pdf_facts(path, warnings=None):
     # contain k/K bytes, and are not evidence of a CMYK operator.
     facts["content_ops_scope"] = "page /Contents refs + /Subtype /Form streams only"
     facts["content_streams"] = {"objects": n_objects, "refs": n_refs, "decoded": decoded}
-    facts["streams_decoded"] = decoded
     return facts
 
 
@@ -244,7 +226,7 @@ def _land(args, out):
                 "--params", json.dumps({"path": str(pdf), "createLayers": True})]
 
     cmd += ["--export", str(ai), "--export", str(png), "--ppi", str(args.ppi)]
-    rows = _run(cmd)
+    _run(cmd)
 
     for f in (ai, png, svg_out):
         if not f.is_file() or f.stat().st_size == 0:
@@ -368,7 +350,7 @@ def _land(args, out):
                                     substitute=("inspect the source artboard/fonts; "
                                                 "the engine itself was found and ran")))
     return L.emit(SCRIPT, status="ok" if h1 else "degraded",
-                  code=0 if h1 else L.EXIT_FAIL, data={
+                  code=0 if h1 else L.EXIT_FAIL, run_id=args.run_id, data={
         "profile": args.profile, "pdf_standard": args.pdf_standard,
         "h1_pass": h1, "paths": paths, "raster": raster, "placed": placed,
         "artboard": [art[2] - art[0], art[3] - art[1]], "viewBox": vb,

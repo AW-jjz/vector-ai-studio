@@ -116,22 +116,22 @@
 
 ## 8 与 conformance / 账本的对接
 
-当前默认 `licenses_allowed` 为 `["own","cc0","public-domain","commercial"]`。建议改为显式许可名，废弃 `commercial`——它描述用途不是许可，会把 CC BY 4.0 与 CC0 混为一类。
+`licenses_allowed` 用显式许可名，默认集合为：
 
 ```
-own, cc0, public-domain, mit, isc, apache-2.0, cc-by-4.0, ofl-1.1, custom
+own, cc0, public-domain, mit, isc, apache-2.0, cc-by-4.0, ofl-1.1
 ```
 
-`custom` 仅用于 unDraw / iconmonstr / DrawKit 这类自造条款，必须同时给 `license_source`，由人判断是否落在允许用途内。
+不预置 `custom`。`commercial` 已废弃——它描述用途不是许可，会把 CC BY 4.0 与 CC0 混为一类。unDraw / iconmonstr / DrawKit 这类自造条款，要么先由人判定其条款可接受、再把对应许可名加入本项目的 `licenses_allowed`，要么不使用；脚本不替人判断条款文本。
 
-账本建议增加两字段：
+账本每条非 `own` 条目必须写两个字段：
 
-| 字段 | 含义 |
-|---|---|
-| `license_source` | 许可声明页 URL，不是素材下载 URL |
-| `license_verified_at` | 人核实日期，YYYY-MM-DD |
+| 字段 | 含义 | 检查 |
+|---|---|---|
+| `license_source` | 许可声明页 URL，不是素材下载 URL | `LICENSE-SOURCE`：非空 |
+| `license_verified_at` | 人核实日期，YYYY-MM-DD | `LICENSE-VERIFIED`：格式合法 |
 
-判定建议：`license` 在白名单内 **且** `license_source` 非空 **且** `license_verified_at` 一年内，三项齐才通过；缺任一项记为「未验证」，不是「通过」。
+两项都只校验「有没有、格式对不对」，不校验条款内容、URL 可达性与是否过期。过期复核是人的动作：判「是否过期」需要当天日期，同一输入一年后结果不同，不能做成闸门。`own` 条目豁免这两项——自产内容没有对外许可声明页，强制填 URL 只会逼人编造。
 
 ## 9 站点筛选标准（为什么是这些）
 

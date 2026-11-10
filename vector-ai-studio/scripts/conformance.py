@@ -121,7 +121,6 @@ def _measure(svg, canvas):
     total = float(canvas[0] * canvas[1])
     forbid = {k: 0 for k in FORBID_TAGS}
     for e in svg.iter():
-        t = _tag(e)
         for key, tag in FORBID_TAGS.items():
             if isinstance(tag, tuple):
                 if e.tag in tag:

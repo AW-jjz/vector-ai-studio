@@ -4,7 +4,7 @@
 
 ## 装好就能用
 
-默认链路只依赖 Python 3.13 标准库，零付费凭据、零联网、零额外组件。安装后先跑：
+默认链路只依赖 Python 3.12+ 标准库（本机实测 3.12.10），零付费凭据、零联网、零额外组件。安装后先跑：
 
 ```
 python scripts/detect_deps.py --json
@@ -51,8 +51,8 @@ python scripts/smoke_ai.py
 
 ## 需要什么
 
-- 必需：Python 3.13 标准库；VectorCraft CLI（`vectorcraft-cli`，格式底线；可用 `VECTORCRAFT_CLI` 指定路径）。
-- 可选增强：PNG 渲染器、Node / svgo、风格参考、商业生成端凭据。
+- 必需：Python 3.12+ 标准库；VectorCraft CLI（`vectorcraft-cli`，格式底线；可用 `VECTORCRAFT_CLI` 指定路径）。
+- 可选增强：PNG 渲染器（resvg / cairosvg）、宿主读图、风格参考、商业生成端凭据。
 - 引擎、渲染器、宿主读图三项一律先探测，缺失显式列出 `MISSING` 与替代方案并降级，不假设已装。不依赖 Adobe / COM。
 
 ## 边界

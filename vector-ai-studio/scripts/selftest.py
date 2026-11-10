@@ -297,8 +297,7 @@ def main():
     s_iso = _jread(iso_out)
     iso_equal = bool(s_iso) and s_iso.get("scores") == s1.get("scores")
     optional = {"cairosvg": importlib.util.find_spec("cairosvg") is not None,
-                "pyyaml": importlib.util.find_spec("yaml") is not None,
-                "svgo": shutil.which("svgo") is not None}
+                "pyyaml": importlib.util.find_spec("yaml") is not None}
     add("A8-dual-runtime-consistent",
         bool(s1) and s1.get("scores") == s2.get("scores") and iso_equal,
         "default_vs_isolated_equal=" + str(iso_equal) +
@@ -414,8 +413,8 @@ def main():
         rev.mkdir(parents=True, exist_ok=True)
         L.write_json_atomic(rev / "revision.json",
                             {"run_id": run_id, "from_round": 2, "change_only": ["C"]})
-    rc15, env15, _ = _call("batch_check.py",
-                           ["--runs-dir", str(iso), "--out", str(iso / "batch.json")], tmp)
+    rc15, _, _ = _call("batch_check.py",
+                       ["--runs-dir", str(iso), "--out", str(iso / "batch.json")], tmp)
     bd = _jread(iso / "batch.json")
     iso_ok = (rc15 == 0 and bd.get("f_data_isolated") is True and
               len(bd.get("f_source_runs", [])) == th["F"]["N_pass"] and
@@ -638,8 +637,8 @@ def main():
     sch_ok = False
     detail = "schema or acceptance missing"
     if schema_path.is_file() and acc_path.is_file():
-        rc_ok, env_ok, _ = _call("schema_check.py",
-                                 [str(schema_path), str(acc_path), "--json"], tmp)
+        rc_ok, _, _ = _call("schema_check.py",
+                            [str(schema_path), str(acc_path), "--json"], tmp)
         acc_doc = json.loads(acc_path.read_text(encoding="utf-8"))
 
         bad_dir = tmp / "schema-negative"
@@ -2502,7 +2501,8 @@ def main():
         _rc9, _d9 = _run_script("land_craft.py",
                                 ["--svg", str(_lc_svg), "--out", str(_lc_out),
                                  "--profile", "print", "--bleed-mm", "3",
-                                 "--pdf-standard", "pdfX1a", "--json"])
+                                 "--pdf-standard", "pdfX1a", "--run-id", "a46-craft",
+                                 "--json"])
         _x = _d9.get("data") or {}
         if _d9.get("errors") and any(e.get("code") == "E-CAPABILITY-MISSING"
                                     for e in _d9["errors"]):
@@ -2510,6 +2510,7 @@ def main():
         else:
             _px = _x.get("pdf_x") or {}
             _ok46 = (_rc9 == 0 and _x.get("h1_pass") is True
+                     and _d9.get("run_id") == "a46-craft"
                      and _x.get("raster") == 0 and _x.get("placed") == 0
                      and (_x.get("paths") or 0) > 0
                      and _px.get("gts_pdfx", 0) >= 1
@@ -2544,6 +2545,7 @@ def main():
                 "h1=" + str(_x.get("h1_pass")) + " paths=" + str(_x.get("paths"))
                 + " GTS=" + str(_px.get("gts_pdfx")) + " OI=" + str(_px.get("output_intents"))
                 + " cmyk=" + str(_px.get("cmyk_ops")) + " schema=" + str(_sch.returncode == 0)
+                + " run_id=" + str(_d9.get("run_id"))
                 + " undeclared=" + str(_ce or "-") + " typebad=" + str(_ct or "-")
                 + " nested=" + str(_cn or "-")
                 + " unverified=" + str(_x.get("unverified")))
