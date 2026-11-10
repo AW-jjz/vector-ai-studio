@@ -43,7 +43,7 @@ CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 # --fixtures. Declared rather than asserted-in-prose because two rounds lost
 # ten assertions to a bad block extraction and the only thing that noticed was
 # a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 62
+EXPECTED_ASSERTIONS = 63
 
 
 def _call(name, args, cwd, flags=()):
@@ -395,55 +395,71 @@ def _check_conformance(tmp, add):
         add("A61-inline-style-is-read-and-inherited", False,
             type(e).__name__ + ": " + str(e)[:140])
 
-    # ---- A62: a <style> sheet is counted and never applied -------------------
-    # r62 shipped measured.style_sheets with no assertion, so a change that
-    # stopped counting it -- or started applying it -- would have gone
-    # unnoticed. Three files: no sheet, one sheet, two sheets. The one-sheet
-    # file would fail STROKE-WIDTHS if any selector matching happened (the
-    # sheet says 10, the rule allows 2), so rc 1 with STYLE-SHEETS as the only
-    # failed check proves "counted, not applied" in a single run.
+    # ---- A62: a <style> sheet is applied, or refused whole -------------------
+    # r63 made any sheet a red flag; r65 interprets the stated subset instead.
+    # Four files: one sheet that must be applied (10 measured, not the 2 in the
+    # attribute), the same sheet against a 2-only rule (sheet wins over the
+    # attribute, so STROKE-WIDTHS fails at 10), a pseudo-class selector outside
+    # the subset (refused whole, widths stay 2 -- no partial application), and
+    # two sheets whose rule count must be both counted and applied.
     try:
         _d62 = tmp / "a62"
         _d62.mkdir()
-        _rules62 = _d62 / "rules.json"
+        _rules62 = _d62 / "rules-10.json"
         _rules62.write_text(json.dumps({
             "schema": "vector-ai-studio/conformance-v1",
             "colors_allowed": ["#111111"],
-            "stroke_widths_allowed": [2],
+            "stroke_widths_allowed": [10],
             "types_allowed": ["rect"],
             "elements": {"min": 1, "max": 1}}), encoding="utf-8")
+        _rules62b = _d62 / "rules-2.json"
+        _rules62b.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1",
+            "stroke_widths_allowed": [2]}), encoding="utf-8")
         _head62 = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
-        _rect62 = ('<rect x="20" y="20" width="200" height="200" fill="#111111"'
-                   ' stroke="#111111" stroke-width="2"/>')
+        _rect62 = ('<rect class="k" x="20" y="20" width="200" height="200"'
+                   ' fill="#111111" stroke="#111111" stroke-width="2"/>')
         _sheet62 = '<style>.k{stroke-width:10}</style>'
 
-        def _run62(name, body):
+        def _run62(name, body, rules=None):
             p = _d62 / (name + ".svg")
             p.write_text(_head62 + body + "</svg>", encoding="utf-8")
             rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
-                                                  str(_rules62), "--json"], tmp)
+                                                  str(rules or _rules62), "--json"], tmp)
             dat = env.get("data") or {}
+            chk = {c.get("id"): c for c in dat.get("checks") or []}
             bad = [c.get("id") for c in dat.get("checks") or [] if not c.get("ok")]
-            return rc, dat.get("measured") or {}, bad
+            return rc, dat.get("measured") or {}, chk, bad
 
-        _rc62a, _m62a, _bad62a = _run62("plain", _rect62)
-        _rc62b, _m62b, _bad62b = _run62("one-sheet", _sheet62 + _rect62)
-        _rc62c, _m62c, _bad62c = _run62("two-sheets", _sheet62 + _sheet62 + _rect62)
-        add("A62-style-sheets-are-counted-not-applied",
-            bool(_rc62a == 0 and not _bad62a and _m62a.get("style_sheets") == 0
-                 and _m62a.get("stroke_widths") == [2.0]
-                 and _rc62b == 1 and _bad62b == ["STYLE-SHEETS"]
-                 and _m62b.get("style_sheets") == 1
-                 and _m62b.get("stroke_widths") == [2.0]
+        _rc62a, _m62a, _chk62a, _bad62a = _run62("applied", _sheet62 + _rect62)
+        _rc62b, _m62b, _ch62b, _bad62b = _run62("beats-attribute",
+                                                _sheet62 + _rect62, _rules62b)
+        _rc62c, _m62c, _ch62c, _bad62c = _run62(
+            "pseudo", '<style>.k:hover{stroke-width:10}</style>' + _rect62, _rules62b)
+        _rc62d, _m62d, _ch62d, _bad62d = _run62(
+            "two-sheets", _sheet62 + '<style>rect{stroke-width:10}</style>' + _rect62)
+        add("A62-style-sheets-are-applied-or-refused",
+            bool(_rc62a == 0 and not _bad62a and _m62a.get("style_sheets") == 1
+                 and _m62a.get("style_rules") == 1
+                 and _m62a.get("stroke_widths") == [10.0]
+                 and _chk62a.get("STYLE-SHEETS", {}).get("ok") is True
+                 and _rc62b == 1 and _bad62b == ["STROKE-WIDTHS"]
+                 and _m62b.get("stroke_widths") == [10.0]
                  and _rc62c == 1 and _bad62c == ["STYLE-SHEETS"]
-                 and _m62c.get("style_sheets") == 2),
-            "plain_rc=" + str(_rc62a) + " sheets0=" + str(_m62a.get("style_sheets"))
-            + " one_rc=" + str(_rc62b) + " sheets1=" + str(_m62b.get("style_sheets"))
-            + " widths=" + str(_m62b.get("stroke_widths"))
-            + " one_bad=" + str(_bad62b)
-            + " sheets2=" + str(_m62c.get("style_sheets")))
+                 and _m62c.get("stroke_widths") == [2.0]
+                 and _rc62d == 0 and not _bad62d
+                 and _m62d.get("style_sheets") == 2
+                 and _m62d.get("style_rules") == 2
+                 and _m62d.get("stroke_widths") == [10.0]),
+            "applied_rc=" + str(_rc62a) + " widths=" + str(_m62a.get("stroke_widths"))
+            + " rules=" + str(_m62a.get("style_rules"))
+            + " attr_rc=" + str(_rc62b) + " attr_bad=" + str(_bad62b)
+            + " pseudo_rc=" + str(_rc62c) + " pseudo_bad=" + str(_bad62c)
+            + " pseudo_widths=" + str(_m62c.get("stroke_widths"))
+            + " two_sheets=" + str(_m62d.get("style_sheets"))
+            + " two_rules=" + str(_m62d.get("style_rules")))
     except Exception as e:                      # noqa: BLE001
-        add("A62-style-sheets-are-counted-not-applied", False,
+        add("A62-style-sheets-are-applied-or-refused", False,
             type(e).__name__ + ": " + str(e)[:140])
 
     # ---- A63: a rule the script cannot read is an error, not a pass ----------
@@ -503,6 +519,53 @@ def _check_conformance(tmp, add):
             + " nocanvas_bad=" + str(_bad63e))
     except Exception as e:                      # noqa: BLE001
         add("A63-unreadable-rules-fail-closed", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A64: the sheet follows the cascade, not just the first match --------
+    # Specificity (#id > .class > type), !important over inline, and the two
+    # combinators. Each case would pass if the implementation simply took the
+    # last matching declaration, so the four together pin the ordering.
+    try:
+        _d64 = tmp / "a64"
+        _d64.mkdir()
+        _rules64 = _d64 / "rules.json"
+        _rules64.write_text(json.dumps({"schema": "vector-ai-studio/conformance-v1"}),
+                            encoding="utf-8")
+        _head64 = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+        _rect64 = ('<rect id="i" class="k" x="20" y="20" width="200" height="200"'
+                   ' fill="#111111" stroke="#111111" stroke-width="2"/>')
+
+        def _run64(name, body):
+            p = _d64 / (name + ".svg")
+            p.write_text(_head64 + body + "</svg>", encoding="utf-8")
+            rc, env, _ = _call("conformance.py", ["--svg", str(p), "--rules",
+                                                  str(_rules64), "--json"], tmp)
+            dat = env.get("data") or {}
+            return rc, (dat.get("measured") or {}).get("stroke_widths")
+
+        _rc64a, _w64a = _run64(
+            "specificity",
+            "<style>rect{stroke-width:3} .k{stroke-width:7} #i{stroke-width:5}</style>"
+            + _rect64)
+        _rc64b, _w64b = _run64(
+            "important",
+            "<style>.k{stroke-width:5 !important}</style>"
+            + _rect64.replace('stroke-width="2"', 'stroke-width="2" style="stroke-width:2"'))
+        _rc64c, _w64c = _run64(
+            "child",
+            "<style>g > rect{stroke-width:9}</style><g><a>" + _rect64 + "</a></g>")
+        _rc64d, _w64d = _run64(
+            "descendant",
+            "<style>g rect{stroke-width:9}</style><g><a>" + _rect64 + "</a></g>")
+        add("A64-style-cascade-follows-specificity",
+            bool(_rc64a == 0 and _w64a == [5.0]
+                 and _rc64b == 0 and _w64b == [5.0]
+                 and _rc64c == 0 and _w64c == [2.0]
+                 and _rc64d == 0 and _w64d == [9.0]),
+            "spec=" + str(_w64a) + " important=" + str(_w64b)
+            + " child=" + str(_w64c) + " descendant=" + str(_w64d))
+    except Exception as e:                      # noqa: BLE001
+        add("A64-style-cascade-follows-specificity", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 

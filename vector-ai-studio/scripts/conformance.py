@@ -19,6 +19,7 @@ checks fail (E-CONFORMANCE), 2 bad usage or malformed rules (E-USAGE/E-SCHEMA).
 import argparse
 import json
 import math
+import re
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -106,6 +107,185 @@ def _colour(val):
     return v
 
 
+# ---------------------------------------------------------------- CSS subset
+# A <style> sheet is interpreted, but only over a subset small enough to state
+# here and to refuse everything else: type / class / id compounds, descendant
+# and child combinators, comma groups, and the declarations below. A sheet that
+# uses anything outside the subset fails the run instead of being half applied
+# -- a half-applied sheet reports numbers that were never rendered.
+CSS_PROPS = ("fill", "stroke", "stroke-width")
+CSS_DECLS_ALLOWED = {"fill", "stroke", "stroke-width", "stroke-linecap",
+                     "stroke-linejoin", "stroke-miterlimit", "fill-rule"}
+
+
+def _inline(el):
+    """style="" as {property: (value, important)}."""
+    out = {}
+    for part in (el.get("style") or "").split(";"):
+        if ":" not in part:
+            continue
+        k, _, v = part.partition(":")
+        val = v.strip()
+        imp = False
+        if val.lower().endswith("!important"):
+            imp = True
+            val = val[:-len("!important")].strip()
+        out[k.strip().lower()] = (val, imp)
+    return out
+
+
+def _compound(tok):
+    m = re.fullmatch(r"(\*|[A-Za-z_][A-Za-z0-9_-]*)?((?:[.#][A-Za-z0-9_-]+)*)", tok)
+    if not m:
+        raise ValueError("unsupported selector: " + tok)
+    ids, classes = [], []
+    for part in re.findall(r"[.#][A-Za-z0-9_-]+", m.group(2) or ""):
+        (ids if part[0] == "#" else classes).append(part[1:])
+    return (m.group(1) or "", tuple(classes), tuple(ids))
+
+
+def _selector(text):
+    toks = text.replace(">", " > ").split()
+    if not toks:
+        raise ValueError("empty selector")
+    chain, comb = [], " "
+    for tok in toks:
+        if tok == ">":
+            if comb == ">":
+                raise ValueError("dangling combinator")
+            comb = ">"
+            continue
+        if any(c in tok for c in "+~:|[]()"):
+            raise ValueError("unsupported selector: " + tok)
+        chain.append((comb, _compound(tok)))
+        comb = " "
+    if comb == ">":
+        raise ValueError("dangling combinator")
+    spec = (sum(len(c[1][2]) for c in chain),
+            sum(len(c[1][1]) for c in chain),
+            sum(1 for c in chain if c[1][0] and c[1][0] != "*"))
+    return chain, spec
+
+
+def _parse_sheet(text, order):
+    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+    text = text.replace("<![CDATA[", " ").replace("]]>", " ")
+    if "@" in text:
+        raise ValueError("at-rules are not supported")
+    out = []
+    for chunk in text.split("}"):
+        if not chunk.strip():
+            continue
+        if "{" not in chunk:
+            raise ValueError("malformed rule: " + chunk.strip()[:60])
+        pre, _, body = chunk.partition("{")
+        decls = {}
+        for part in body.split(";"):
+            if not part.strip():
+                continue
+            if ":" not in part:
+                raise ValueError("malformed declaration: " + part.strip()[:60])
+            k, _, v = part.partition(":")
+            key = k.strip().lower()
+            if key not in CSS_DECLS_ALLOWED:
+                raise ValueError("property not measured: " + key)
+            val = v.strip()
+            imp = False
+            if val.lower().endswith("!important"):
+                imp = True
+                val = val[:-len("!important")].strip()
+            decls[key] = (val, imp)
+        for sel in pre.split(","):
+            chain, spec = _selector(sel)
+            out.append((chain, spec, order, decls))
+            order += 1
+    return out, order
+
+
+def _sheets(svg):
+    """Parse every <style>, stopping at the first thing the subset cannot state."""
+    rules, order = [], 0
+    for e in svg.iter():
+        if _tag(e) != "style":
+            continue
+        typ = (e.get("type") or "text/css").strip().lower()
+        if typ not in ("", "text/css"):
+            raise ValueError("style type is not text/css: " + typ)
+        media = (e.get("media") or "all").strip().lower()
+        if media not in ("", "all"):
+            raise ValueError("media is not supported: " + media)
+        parsed, order = _parse_sheet("".join(e.itertext()), order)
+        rules.extend(parsed)
+    return rules
+
+
+def _match_compound(el, comp):
+    typ, classes, ids = comp
+    if typ and typ != "*" and _tag(el) != typ:
+        return False
+    if classes and not set(classes) <= set((el.get("class") or "").split()):
+        return False
+    if ids and el.get("id") not in ids:
+        return False
+    return True
+
+
+def _matches(el, chain, idx, parents):
+    if not _match_compound(el, chain[idx][1]):
+        return False
+    if idx == 0:
+        return True
+    p = parents.get(el)
+    if chain[idx][0] == ">":
+        return p is not None and _matches(p, chain, idx - 1, parents)
+    while p is not None:
+        if _matches(p, chain, idx - 1, parents):
+            return True
+        p = parents.get(p)
+    return False
+
+
+def _computed(svg, rules, parents):
+    """Computed fill / stroke / stroke-width per element.
+
+    The cascade is the real one: !important beats normal, inline beats the
+    sheet, the sheet beats the presentation attribute, and the attribute beats
+    inheritance. All three properties are inherited, so an undeclared value is
+    taken from the parent's computed value.
+    """
+    vals = {}
+    for el in svg.iter():
+        inline = _inline(el)
+        got = {}
+        for key in CSS_PROPS:
+            best = None
+            for chain, spec, order, decls in rules:
+                if key not in decls or not _matches(el, chain, len(chain) - 1, parents):
+                    continue
+                val, imp = decls[key]
+                rank = (1 if imp else 0, 1, spec, order)
+                if best is None or rank > best[0]:
+                    best = (rank, val)
+            if key in inline:
+                val, imp = inline[key]
+                rank = (1 if imp else 0, 2, (0, 0, 0), 10 ** 9)
+                if best is None or rank > best[0]:
+                    best = (rank, val)
+            attr = el.get(key)
+            if attr is not None:
+                rank = (0, 0, (-1, -1, -1), 0)
+                if best is None or rank > best[0]:
+                    best = (rank, attr)
+            got[key] = best[1] if best else None
+        parent = parents.get(el)
+        inherited = vals.get(parent, {}) if parent is not None else {}
+        for key in CSS_PROPS:
+            if got[key] is None:
+                got[key] = inherited.get(key)
+        vals[el] = got
+    return vals
+
+
 def _measure(svg, canvas):
     # Presentation attributes inherit: an icon library writes stroke and
     # stroke-width once on the root <svg> and every path reads them. Measuring
@@ -113,39 +293,28 @@ def _measure(svg, canvas):
     # such files, so a legal 2pt icon failed a 2pt rule.
     #
     # Inline style="" is read too, and it outranks the presentation attribute
-    # on the same element, which is the CSS cascade: style is author-level, the
-    # attribute is the lowest-priority hint. A <style> sheet is NOT applied --
-    # no selector matching happens here -- so its presence is counted and
-    # reported instead of being silently ignored.
+    # on the same element. A <style> sheet is interpreted over the subset at
+    # the top of this file; anything outside the subset refuses the whole
+    # sheet rather than letting a half-applied rule report wrong numbers.
     parents = {c: p for p in svg.iter() for c in p}
-
-    def inline(el):
-        out = {}
-        for part in (el.get("style") or "").split(";"):
-            if ":" in part:
-                k, _, v = part.partition(":")
-                out[k.strip().lower()] = v.strip()
-        return out
-
-    def prop(el, key):
-        cur = el
-        while cur is not None:
-            val = inline(cur).get(key)
-            if val is None:
-                val = cur.get(key)
-            if val is not None:
-                return val
-            cur = parents.get(cur)
-        return None
+    sheets = [e for e in svg.iter() if _tag(e) == "style"]
+    style_error, rules = "", []
+    if sheets:
+        try:
+            rules = _sheets(svg)
+        except ValueError as e:
+            style_error = str(e)[:120]
+    comp = _computed(svg, rules, parents)
 
     els = [e for e in svg.iter() if _tag(e) in SHAPES]
     colours, widths, per_colour, boxes = set(), set(), {}, []
     for e in els:
-        fill, stroke = _colour(prop(e, "fill")), _colour(prop(e, "stroke"))
+        vals = comp.get(e, {})
+        fill, stroke = _colour(vals.get("fill")), _colour(vals.get("stroke"))
         for c in (fill, stroke):
             if c:
                 colours.add(c)
-        width = _f(prop(e, "stroke-width"), 1.0)
+        width = _f(vals.get("stroke-width"), 1.0)
         if stroke:
             widths.add(width)
         owner = fill or stroke
@@ -172,7 +341,9 @@ def _measure(svg, canvas):
         "elements": len(els),
         "types": sorted({_tag(e) for e in els}),
         "colours": sorted(colours),
-        "style_sheets": sum(1 for e in svg.iter() if _tag(e) == "style"),
+        "style_sheets": len(sheets),
+        "style_rules": len(rules),
+        "style_error": style_error,
         "stroke_widths": sorted(widths),
         "area_ratio": {k: round(v / total, 4) for k, v in sorted(per_colour.items())},
         "bbox": [round(v, 2) for v in bbox] if bbox else None,
@@ -237,14 +408,15 @@ def main():
     def check(cid, ok, rule, measured):
         checks.append({"id": cid, "ok": bool(ok), "rule": rule, "measured": measured})
 
-    # A <style> sheet is counted, never interpreted: no selector matching
-    # happens in this script. That makes every number below possibly wrong for
-    # such a file -- a sheet setting stroke-width:10 while the rule allows 2
-    # would otherwise be measured as 2 and pass. Fail closed and say why.
+    # A <style> sheet is interpreted only inside the stated subset. Inside it,
+    # the measurement is the rendered one; outside it, the sheet is refused
+    # whole -- a half-applied sheet reports numbers that were never rendered,
+    # which is the failure this check exists to prevent.
     if m["style_sheets"]:
-        check("STYLE-SHEETS", False,
-              "stylesheets are not interpreted; inline the declarations",
-              "%d <style> element(s)" % m["style_sheets"])
+        check("STYLE-SHEETS", not m["style_error"],
+              "stylesheet inside the supported subset (fill/stroke/stroke-width)",
+              m["style_error"] or ("%d sheet(s), %d rule(s) applied"
+                                   % (m["style_sheets"], m["style_rules"])))
 
     vb = (root.get("viewBox") or "").split()
     if vb:
