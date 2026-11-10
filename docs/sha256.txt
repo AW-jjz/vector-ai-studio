@@ -417,6 +417,13 @@ sha256        : 4e59f47f8b8df6b364982c49822d98fa288496e109c7a193c6fa2e036dc170f7
                 · 154 行「decoded < objects 与 content_ops: null」应为「或」——
                   content_ops 只在 decoded==0 时为 null，两者是或非与
 
-远端状态      : 未推送
+远端状态      : 已推送，发布提交 **31398e2**（父 e732da8，3 files changed）。
+                回读校验：clone --depth 1 与发布包逐文件比 md5 ——
+                pkg=58 / remote=58，missing=0 / extra=0 / diff=0；
+                docs 三件与本地同 md5。证据：04-QA/test-log-r39/r39-08-远端回读.txt
+
+被替换的旧包  : r38 → 03-源码/_dev-logs/superseded/vector-ai-studio_r38-58files_SUPERSEDED_20261110-1226.zip
+                （193,956 B；第 29 轮增补复核签收并推送，发布提交 4a3c81d；只降级不删除）
+
 
 
