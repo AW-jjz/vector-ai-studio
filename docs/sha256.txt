@@ -1679,3 +1679,4 @@ sha256        : 7cae05c1000261287bdb1a115d1b2f033c549e9920822e154010c6662563511b
 
 校验方式      : python scripts/selftest.py 期望 58/58；带 --fixtures 期望 59/59
                 get-filehash 发布包应为 7cae05c1…511b（261,044 B）
+已推送发布提交 `e9cf14c`（父 `20a9834`）；回读 95/95 见 04-QA/test-log-r61/r61-06-readback.txt。
