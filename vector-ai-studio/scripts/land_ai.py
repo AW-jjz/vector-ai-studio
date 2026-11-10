@@ -161,7 +161,14 @@ def _structure_doc(kv, sig, automation):
 
 def _pdf_objects(raw):
     """object number -> body. A segment ends at the next object header, never
-    at an `endobj` string that may occur inside compressed data."""
+    at an `endobj` string that may occur inside compressed data.
+
+    Objects packed into an /ObjStm are unpacked too. Without that, a PDF whose
+    page dictionary was object-streamed shows no /Type /Page at all, so the file
+    reports "0 objects" and the colour measurement silently degrades to the
+    declared dictionary -- a miss that looks like a clean run. A direct object
+    wins over the packed copy, since an incremental update may redefine one.
+    """
     starts = [(int(m.group(1)), m.start(), m.end())
               for m in re.finditer(rb"(?m)^(\d+)\s+0\s+obj\b", raw)]
     out = {}
@@ -170,7 +177,35 @@ def _pdf_objects(raw):
         seg = raw[body_start:end]
         cut = seg.rfind(b"endobj")
         out[num] = seg[:cut] if cut >= 0 else seg
+    for num, body in _objstm_objects(out):
+        out.setdefault(num, body)
     return out
+
+
+def _objstm_objects(objs):
+    """(number, body) pairs unpacked from every /Type /ObjStm stream.
+
+    Layout: /N pairs of `num offset` in the header, then the bodies start at
+    /First; each body ends where the next one begins.
+    """
+    pairs = []
+    for body in list(objs.values()):
+        head = body.split(b"stream", 1)[0]
+        if not re.search(rb"/Type\s*/ObjStm\b", head):
+            continue
+        n = re.search(rb"/N\s+(\d+)", head)
+        first = re.search(rb"/First\s+(\d+)", head)
+        data = _inflate(_stream_payload(body))
+        if not n or not first or data is None:
+            continue
+        first_off = int(first.group(1))
+        nums = [int(x) for x in re.findall(rb"\d+", data[:first_off])]
+        table = list(zip(nums[0::2], nums[1::2]))[:int(n.group(1))]
+        for idx, (onum, off) in enumerate(table):
+            start = first_off + off
+            end = (first_off + table[idx + 1][1]) if idx + 1 < len(table) else len(data)
+            pairs.append((onum, data[start:end]))
+    return pairs
 
 
 def _stream_payload(body):
@@ -196,9 +231,52 @@ def _inflate(blob):
     return None
 
 
+def _decode_stream(body):
+    """Stream body -> decoded bytes, or None when this reader cannot decode it.
+
+    A PDF may store a content stream uncompressed. Assuming every stream is
+    Flate made a perfectly legal page report "0 of 1 decoded" and the colour
+    measurement never ran. Filters this reader does not implement (DCT, LZW,
+    ASCII85, ...) stay None: reported as undecoded, never guessed.
+    """
+    blob = _stream_payload(body)
+    if blob is None:
+        return None
+    head = body.split(b"stream", 1)[0]
+    m = re.search(rb"/Filter\s*(\[[^\]]*\]|/\w+)", head)
+    if not m:
+        return blob
+    names = re.findall(rb"/(\w+)", m.group(1))
+    if any(n in (b"FlateDecode", b"Fl") for n in names):
+        return _inflate(blob)
+    return None
+
+
 def _strip_strings(data):
+    """Blank out data that is not an operator.
+
+    Literal and hex strings first, then inline images: everything between
+    `BI ... ID` and `EI` is raw samples, and a k/K byte inside it used to be
+    counted as a fill/stroke operator. Skipping only () and <> left that hole.
+    """
     data = re.sub(rb"\((?:\\.|[^\\()])*\)", b"()", data)
-    return re.sub(rb"<[0-9A-Fa-f\s]*>", b"<>", data)
+    data = re.sub(rb"<[0-9A-Fa-f\s]*>", b"<>", data)
+    begin = re.compile(rb"(?<![\w.])BI(?=[\s/])")
+    data_id = re.compile(rb"(?<![\w.])ID\s")
+    data_ei = re.compile(rb"[\s\x00]EI(?=\s|$)")
+    out, pos = [], 0
+    for m in begin.finditer(data):
+        if m.start() < pos:
+            continue
+        idm = data_id.search(data, m.end())
+        eim = data_ei.search(data, idm.end()) if idm else None
+        if not eim:
+            break                          # truncated inline image: keep the rest
+        out.append(data[pos:m.start()])
+        out.append(b"BI ID EI")
+        pos = eim.end()
+    out.append(data[pos:])
+    return b"".join(out)
 
 
 def _page_streams(raw):
@@ -232,7 +310,7 @@ def _count_ops(streams):
     ops = {k: 0 for k in ("k", "K", "rg", "RG", "g", "G", "sc", "SC", "scn", "SCN")}
     decoded = 0
     for body in streams:
-        data = _inflate(_stream_payload(body))
+        data = _decode_stream(body)
         if data is None:
             continue
         decoded += 1

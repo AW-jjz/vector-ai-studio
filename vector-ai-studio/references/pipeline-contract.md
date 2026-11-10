@@ -143,8 +143,8 @@ land_ai.py 的保存选项全部显式写入 `IllustratorSaveOptions`，不依�
 | 字段 | 含义 |
 |---|---|
 | `profile` | 本次按哪一档交付 |
-| `save_options` | 本次**请求**的保存参数（不是实测值；实测值在 observed） |
-| `observed` | 从文件字节实测：`pdf_compatible`、`has_ai_private`（= `has_aiprivatedata1_marker`）、`device_rgb` / `device_cmyk`、`output_intent` / `iccbased` / `output_condition`、`fonts` / `fonts_embedded`（嵌入字体程序数，一个 Type0 字体计 1 次，不按 `/BaseFont` 条目重复计）、`images`、`content_ops`（只数页面 `/Contents` 引用与 `/Subtype /Form` 流；ICC / 字体 / CMap 二进制不计入，三条引擎同一口径）、`artboard_pt` / `artboard_mm`、`sha256` |
+| `save_options` | 本次**请求**的保存参数（不是实测值；实测值在 observed）。唯一例外 `output_intent`：读得到 print.pdf 的 `/OutputConditionIdentifier` 时它是读回值，请求值另存 `output_intent_requested` |
+| `observed` | 从文件字节实测：`pdf_compatible`、`has_ai_private`（= `has_aiprivatedata1_marker`）、`device_rgb` / `device_cmyk`、`output_intent` / `iccbased` / `output_condition`、`fonts` / `fonts_embedded`（嵌入字体程序数，一个 Type0 字体计 1 次，不按 `/BaseFont` 条目重复计）、`images`、`content_ops`（只数页面 `/Contents` 引用与 `/Subtype /Form` 流；ICC / 字体 / CMap 二进制不计入，内联图像 `BI…ID…EI` 之间的像素字节也不计入；三条引擎同一口径）、`content_streams`（`objects` 选中流数 / `decoded` 实际解码数，未压缩内容流算解码成功；**`decoded` 为 0 时 `content_ops` 写 null，表示未测，不写 0**——0 会被读成「测过，没有颜色算子」）、`artboard_pt` / `artboard_mm`、`sha256`；vectorcraft 另写 `print_pdf`（GTS_PDFXVersion / OutputIntent / 各 Box 计数与矩形 / 同一份 `content_ops`）、`paths`、`artboard_matches_viewBox` |
 | `structure` | 结构回读：`open_paths` / `reopen_paths` / `layers` / `reopen_layers` / `artboard` / `viewBox` |
 | `jsx_notes` | JSX 每步实际做了什么（如 `cmyk:objects=5:naive_no_icc`、`cropmarks:8`） |
 | `warnings` | 必须让客户知道的风险（第三方重存剥离 AIPrivateData、CMYK 未做色彩管理、无出血等） |

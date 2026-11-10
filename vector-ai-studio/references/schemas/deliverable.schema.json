@@ -59,6 +59,32 @@
         },
         "layers_from_groups": {
           "type": "boolean"
+        },
+        "pdf_standard": {
+          "type": "string",
+          "description": "vectorcraft-only: none | pdfX1a | pdfX3 | pdfX4"
+        },
+        "color_mode": {
+          "type": "string",
+          "description": "what this engine was asked to convert to"
+        },
+        "output_intent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "read back from the print PDF's /OutputConditionIdentifier when it exists, so this one entry is an observed value, not a request"
+        },
+        "output_intent_requested": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "the profile name that was asked for; null/absent when none was"
+        },
+        "printers_marks": {
+          "type": "boolean",
+          "description": "whether crop/registration marks were requested for the print master"
         }
       }
     },
@@ -140,7 +166,7 @@
             "object",
             "null"
           ],
-          "description": "页面内容流（/Contents 引用与 /Subtype /Form）里的颜色算子计数；ICC、字体程序、CMap 等二进制流不计入",
+          "description": "页面内容流（/Contents 引用与 /Subtype /Form）里的颜色算子计数；ICC、字体程序、CMap 等二进制流不计入，内联图像 BI…ID…EI 之间的像素字节不计入。解码数为 0 时为 null（未测），不是全 0（测过且为零）",
           "properties": {
             "rg": {
               "type": "integer",
@@ -224,6 +250,175 @@
         "color_mode": {
           "type": "string",
           "description": "verdict from the content-stream operators (cmyk|rgb|mixed|declared-only|unknown), not from the resource dictionary"
+        },
+        "paths": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "vectorcraft-only: Path + Compound Path objects reported by `info` after reopening the .ai"
+        },
+        "artboard_matches_viewBox": {
+          "type": "boolean",
+          "description": "vectorcraft-only: H1 half-clause, same comparison land_ai makes from the JSX readback"
+        },
+        "print_pdf": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "vectorcraft-only: facts read from the print master PDF; null/absent when no PDF was asked for",
+          "properties": {
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pdf_header": {
+              "type": "string"
+            },
+            "GTS_PDFXVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "OutputIntent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "OutputCondition": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "Trapped": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "TrimBox": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "BleedBox": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "MediaBox": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "DeviceCMYK": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "DeviceRGB": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ICCBased": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "trimbox_rect": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "bleedbox_rect": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "mediabox_rect": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "gts_pdfx_value": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "output_condition": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "output_intent_objects": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "streams_decoded": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "deprecated alias of content_streams.decoded, kept for older manifests"
+            },
+            "content_ops_scope": {
+              "type": "string"
+            },
+            "content_ops": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "description": "同 observed.content_ops；解码数为 0 时为 null（未测），不是全 0",
+              "properties": {
+                "rg": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "RG": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "k": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "K": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "g": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "G": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "sc": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "SC": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "scn": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "SCN": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content_streams": {
+              "type": "object",
+              "properties": {
+                "objects": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "decoded": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -341,7 +536,38 @@
         "object",
         "null"
       ],
-      "description": "what the engine said about the source before converting; null where the engine has no such phase"
+      "description": "what the engine said about the source before converting; null where the engine has no such phase",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "rc": {
+          "type": "integer",
+          "description": "present only when the probe failed; the CLI exit code"
+        },
+        "fonts": {
+          "type": "array",
+          "description": "per-font answer from the engine, carried verbatim"
+        },
+        "import_warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "objects": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "color_mode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     },
     "tool_warnings": {
       "type": "array",
@@ -349,6 +575,10 @@
         "type": "string"
       },
       "description": "warnings emitted by the engine during export, verbatim"
+    },
+    "h1_pass": {
+      "type": "boolean",
+      "description": "vectorcraft-only top-level copy of the H1 verdict; land_craft writes the same flag inside structure_readback.json"
     }
   }
 }

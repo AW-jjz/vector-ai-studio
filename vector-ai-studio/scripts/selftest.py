@@ -130,6 +130,76 @@ def _copy_if(src, dst):
     return False
 
 
+def _type_ok(val, spec):
+    t = spec.get("type")
+    if t is None:
+        return True
+    for n in ([t] if isinstance(t, str) else list(t)):
+        if n == "object" and isinstance(val, dict): return True
+        if n == "array" and isinstance(val, list): return True
+        if n == "string" and isinstance(val, str): return True
+        if n == "boolean" and isinstance(val, bool): return True
+        if n == "integer" and isinstance(val, int) and not isinstance(val, bool): return True
+        if n == "number" and isinstance(val, (int, float)) and not isinstance(val, bool): return True
+        if n == "null" and val is None: return True
+    return False
+
+
+# Dotted paths whose sub-objects are contract too. `observed.content_ops` sat
+# outside this list for a round: the top-level shape matched while six of its
+# ten keys were undeclared, and nothing was red.
+NESTED_PATHS = ("save_options", "observed", "structure", "source_probe",
+                "observed.content_ops", "observed.content_streams",
+                "observed.print_pdf", "observed.print_pdf.content_ops",
+                "observed.print_pdf.content_streams")
+
+# Declared once, written by one engine only. Declaring them is right -- they
+# exist in a real manifest -- so the other engine's diff must not call them
+# missing.
+CRAFT_ONLY_KEYS = ("h1_pass",)
+
+
+def _schema_props(schema, dotted):
+    node = schema
+    for part in dotted.split("."):
+        node = (node.get("properties") or {}).get(part) or {}
+    return node.get("properties") or {}
+
+
+def _schema_diff(doc, schema, check_missing=True, optional=()):
+    """Payload vs declaration, in both directions.
+
+    check_missing=False for an engine whose manifest legitimately omits fields
+    another engine owns; `optional` names the individual keys that are declared
+    once and written by only one engine (vectorcraft's h1_pass). Undeclared keys
+    are always checked: "the code emits something the contract does not
+    describe" has to be red on every engine, not only on whichever one happened
+    to be in the diff.
+    """
+    props = schema.get("properties") or {}
+    extra = sorted(set(doc) - set(props))
+    missing = (sorted(k for k in props if k not in doc and k not in optional)
+               if check_missing else [])
+    typebad = sorted(k for k in props if k in doc and not _type_ok(doc[k], props[k]))
+    nested = {}
+    for path in NESTED_PATHS:
+        sub = _schema_props(schema, path)
+        if not sub:
+            continue
+        val = doc
+        for part in path.split("."):
+            val = val.get(part) if isinstance(val, dict) else None
+        if val is None:
+            continue
+        if not isinstance(val, dict):
+            nested[path] = "not-an-object"
+            continue
+        nx = sorted(set(val) - set(sub))
+        if nx:
+            nested[path] = {"extra": nx}
+    return extra, missing, typebad, nested
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -634,11 +704,26 @@ def main():
         payload = b"0.2 0.4 0.6 rg\n0 0 0 1 K\n"
         complete = zlib.compress(payload)
         truncated = complete[:-4]                      # drop adler32 -> incomplete
-        body = b"stream\n" + truncated + b"\nendstream\n"
+        body = (b"<< /Length 99 /Filter /FlateDecode >>\nstream\n" +
+                truncated + b"\nendstream\n")
         ops, decoded = _mod._count_ops([body])
 
-        junk = b"stream\n" + b"\x00\x01\x02\x03" + b"\nendstream\n"
+        # Declared Flate, undecodable: None, not a guessed number.
+        junk = (b"<< /Length 4 /Filter /FlateDecode >>\nstream\n"
+                b"\x00\x01\x02\x03\nendstream\n")
         ops_junk, decoded_junk = _mod._count_ops([junk])
+
+        # Stored uncompressed, which the PDF format allows. This read as
+        # "decode failure" and the whole page went unmeasured.
+        plain = b"<< /Length 22 >>\nstream\n1 0 0 0 k\n0 0 0 1 K\nendstream\n"
+        ops_plain, dec_plain = _mod._count_ops([plain])
+
+        # Inline image samples are binary, not operators. The k/K/G bytes inside
+        # it used to be counted, inflating k and inventing a stroke G.
+        inline = (b"<< /Length 99 >>\nstream\n"
+                  b"0 0 0 1 k\nq BI /W 2 /H 1 /BPC 8 /CS /G ID \x00k K G\x00 EI Q\n"
+                  b"endstream\n")
+        ops_inline, dec_inline = _mod._count_ops([inline])
 
         # Scope guard: counting every decodable stream inflated the number ~40x
         # on real files because ICC profiles and font programs contain k/K
@@ -647,10 +732,57 @@ def main():
         decoy = zlib.compress(b"0 0 0 1 k\n" * 20)
         pdf = (b"%PDF-1.6\n"
                b"1 0 obj\n<< /Type /Page /Contents 3 0 R >>\nendobj\n"
-               b"3 0 obj\n<< /Length 99 >>\n" + body[:-1] + b"endobj\n"
+               b"3 0 obj\n" + body + b"endobj\n"
                b"5 0 obj\n<< /Subtype /Image >>\nstream\n" + decoy +
                b"\nendstream\nendobj\n")
         scoped, scoped_stats = _mod._content_ops(pdf)
+
+        # Page dictionary packed into an /ObjStm: there is no `N 0 obj` header
+        # for it, so the whole file used to read as "0 objects" -- a silent miss
+        # that looked exactly like a clean run.
+        inner = b"<< /Type /Page /Contents 7 0 R >>"
+        packed = b"6 0 " + inner                    # one pair: object 6 at 0
+        objstm = zlib.compress(packed)
+        pdf_os = (b"%PDF-1.6\n"
+                  b"5 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Length " +
+                  str(len(objstm)).encode() + b" /Filter /FlateDecode >>\nstream\n" +
+                  objstm + b"\nendstream\nendobj\n"
+                  b"7 0 obj\n<< /Length 13 >>\nstream\n0 0 0 1 K\nendstream\nendobj\n")
+        scoped_os, stats_os = _mod._content_ops(pdf_os)
+
+        # None means "nothing decoded". Normalise to empty so a real failure
+        # reports its numbers instead of dying on a subscript and hiding which
+        # clause broke.
+        ops = ops or {}
+        ops_plain = ops_plain or {}
+        ops_inline = ops_inline or {}
+        scoped = scoped or {}
+        scoped_os = scoped_os or {}
+        scoped_stats = scoped_stats if isinstance(scoped_stats, dict) else {}
+        stats_os = stats_os if isinstance(stats_os, dict) else {}
+
+        # The Craft path must report the same numbers on the same bytes: one
+        # reader, not two that agree until someone edits one of them.
+        a29_pdf = tmp / "a29.pdf"
+        a29_pdf.write_bytes(pdf)
+        _spec_lc = importlib.util.spec_from_file_location(
+            "land_craft_under_test", ROOT / "scripts" / "land_craft.py")
+        _lc = importlib.util.module_from_spec(_spec_lc)
+        _spec_lc.loader.exec_module(_lc)
+        craft_facts = _lc._pdf_facts(a29_pdf)
+
+        # A page whose streams cannot be decoded is "not measured", not "no
+        # colour operator". Craft used to fill zeros here while Illustrator
+        # reported null, so the same undecodable file read as "CMYK absent" on
+        # one engine and "unknown" on the other.
+        undec = (b"%PDF-1.6\n"
+                 b"1 0 obj\n<< /Type /Page /Contents 3 0 R >>\nendobj\n"
+                 b"3 0 obj\n<< /Length 4 /Filter /FlateDecode >>\nstream\n"
+                 b"\x00\x01\x02\x03\nendstream\nendobj\n")
+        a29_undec = tmp / "a29-undecodable.pdf"
+        a29_undec.write_bytes(undec)
+        ai_undec, ai_undec_stats = _mod._content_ops(undec)
+        craft_undec = _lc._pdf_facts(a29_undec)
 
         # The schema is the single source of truth for the operator key set.
         # r36 widened the code from 4 keys to 10 while the schema still declared
@@ -670,19 +802,40 @@ def main():
             b"2 0 obj << /BaseFont /Stone-Bold-CID /FontDescriptor 3 0 R >> endobj\n"
             b"3 0 obj << /FontFile2 4 0 R >> endobj\n")
 
-        a29_ok = (ops["rg"] == 1 and ops["K"] == 1 and decoded == 1 and
+        # .get() throughout: a missing key must read as "0", so the message says
+        # which clause is wrong instead of raising KeyError and hiding it.
+        a29_ok = (ops.get("rg") == 1 and ops.get("K") == 1 and decoded == 1 and
                   ops_junk is None and decoded_junk == 0 and
-                  scoped["k"] == 0 and scoped["K"] == 1 and scoped["rg"] == 1 and
+                  ops_plain.get("k") == 1 and ops_plain.get("K") == 1 and dec_plain == 1 and
+                  ops_inline.get("k") == 1 and ops_inline.get("G") == 0 and
+                  ops_inline.get("K") == 0 and dec_inline == 1 and
+                  scoped_os.get("k") == 0 and scoped_os.get("K") == 1 and
+                  stats_os.get("objects") == 1 and stats_os.get("decoded") == 1 and
+                  craft_facts["content_ops"] == scoped and
+                  craft_facts["content_streams"]["decoded"] == 1 and
+                  ai_undec is None and ai_undec_stats.get("decoded") == 0 and
+                  craft_undec["content_ops"] is None and
+                  craft_undec["content_streams"]["decoded"] == 0 and
+                  scoped.get("k") == 0 and scoped.get("K") == 1 and scoped.get("rg") == 1 and
                   scoped_stats.get("objects") == 1 and
                   scoped_stats.get("decoded") == 1 and fonts == 1 and
                   set(scoped) == _decl_keys)
-        a29_detail = ("incomplete_stream_ops=" + str(ops) +
-                      " decoded=" + str(decoded) +
-                      " junk_ops=" + str(ops_junk) +
-                      " scoped_ops=" + str(scoped) +
-                      " objects=" + str(scoped_stats.get("objects")) +
-                      " fonts=" + str(fonts) +
-                      " keys_match_schema=" + str(set(scoped) == _decl_keys))
+        # Short discriminating values first, then the long dictionary: add()
+        # truncates at 220 chars, and the tail used to be cut off exactly when
+        # a red assertion needed it (the whole dict fit, the verdict did not).
+        a29_detail = ("k=" + str(scoped.get("k")) + "/0 K=" + str(scoped.get("K")) + "/1" +
+                      " objects=" + str(scoped_stats.get("objects")) + "/1" +
+                      " decoded=" + str(scoped_stats.get("decoded")) + "/1" +
+                      " objstm=" + str(stats_os.get("objects")) + "/" +
+                      str(stats_os.get("decoded")) +
+                      " plain=" + str(ops_plain.get("k")) + "/" + str(dec_plain) +
+                      " inline=" + str(ops_inline.get("k")) + "," + str(ops_inline.get("G")) +
+                      ",dec" + str(dec_inline) +
+                      " fonts=" + str(fonts) + "/1" +
+                      " craft=" + str(craft_facts["content_ops"] == scoped) +
+                      " undec=" + str(ai_undec) + "/" + str(craft_undec["content_ops"]) +
+                      " keys=" + str(set(scoped) == _decl_keys) +
+                      " ops=" + str(scoped))
     except Exception as e:                      # noqa: BLE001 - report, do not crash
         a29_detail = type(e).__name__ + ": " + str(e)[:140]
     add("A29-content-ops-measurement", a29_ok, a29_detail)
@@ -783,44 +936,6 @@ def main():
         _schema = json.loads((ROOT / "references" / "schemas" /
                               "deliverable.schema.json").read_text(encoding="utf-8"))
 
-        def _type_ok(v, spec):
-            t = spec.get("type")
-            if t is None:
-                return True
-            names = [t] if isinstance(t, str) else list(t)
-            for n in names:
-                if n == "object" and isinstance(v, dict): return True
-                if n == "array" and isinstance(v, list): return True
-                if n == "string" and isinstance(v, str): return True
-                if n == "boolean" and isinstance(v, bool): return True
-                if n == "integer" and isinstance(v, int) and not isinstance(v, bool): return True
-                if n == "number" and isinstance(v, (int, float)) and not isinstance(v, bool): return True
-                if n == "null" and v is None: return True
-            return False
-
-        def _diff(doc, label):
-            props = _schema.get("properties") or {}
-            # Three dimensions, not one. Only checking `required` let three
-            # declared-but-never-written fields pass unnoticed for a whole round.
-            extra = sorted(set(doc) - set(props))
-            missing = sorted(k for k in props if k not in doc)          # declared, absent
-            typebad = sorted(k for k in props if k in doc and not _type_ok(doc[k], props[k]))
-            nested = {}
-            for obj in ("save_options", "observed", "structure", "source_probe"):
-                sub = (props.get(obj) or {}).get("properties")
-                if not sub:
-                    continue
-                val = doc.get(obj)
-                if val is None:
-                    continue
-                if not isinstance(val, dict):
-                    nested[obj] = "not-an-object"
-                    continue
-                nx = sorted(set(val) - set(sub))
-                if nx:
-                    nested[obj] = {"extra": nx}
-            return extra, missing, typebad, nested
-
         # --- Illustrator shape: built through the same constructor the real
         # path uses, so no Illustrator install is needed to check the contract.
         _obs = {"bytes": 1000, "sha256": "0" * 64, "pdf_compatible": True,
@@ -891,7 +1006,8 @@ def main():
             _real_missing = (os.environ.get("VECTOR_AI_STUDIO_REAL_AI") == "1")
             ai_doc = _la._deliverable(Path("final.ai"), _opts, _obs, _kv,
                                       engine="illustrator", engine_version="28.3.0")
-        ai_extra, ai_missing, ai_typebad, ai_nested = _diff(ai_doc, "ai")
+        ai_extra, ai_missing, ai_typebad, ai_nested = _schema_diff(
+            ai_doc, _schema, optional=CRAFT_ONLY_KEYS)
 
         # --- vectorcraft shape: the real thing, if the CLI is present.
         vc_extra = vc_missing = vc_typebad = vc_nested = []
@@ -918,7 +1034,8 @@ def main():
                                  "--out", str(vdir2), "--profile", "print",
                                  "--run-id", "a31", "--json"], tmp)
             vc_doc = json.loads((vdir2 / "deliverable.json").read_text(encoding="utf-8"))
-            vc_extra, vc_missing, vc_typebad, vc_nested = _diff(vc_doc, "vc")
+            vc_extra, vc_missing, vc_typebad, vc_nested = _schema_diff(
+                vc_doc, _schema, optional=CRAFT_ONLY_KEYS)
             # Requested real coverage and did not get it => red, not green.
             a31_ok = (not _real_missing) and not (
                           ai_extra or ai_missing or ai_typebad or ai_nested or
@@ -1679,10 +1796,22 @@ def main():
                  str(_lc_out / "deliverable.json"), "--json"],
                 capture_output=True, text=True)
             _ok46 = _ok46 and _sch.returncode == 0
+            # Passing the schema is not enough: it never forbade extra keys, so
+            # the Craft manifest could emit a whole block nobody declared (it
+            # did: h1_pass, print_pdf, five save_options) and still validate.
+            # Diff it here, where a real Craft manifest is already on disk.
+            _sj = json.loads((_lc_out / "deliverable.json").read_text(encoding="utf-8"))
+            _ce, _, _ct, _cn = _schema_diff(
+                _sj, json.loads((ROOT / "references" / "schemas" /
+                                 "deliverable.schema.json").read_text(encoding="utf-8")),
+                check_missing=False)
+            _ok46 = _ok46 and not (_ce or _ct or _cn)
             add("A46-craft-only-landing", _ok46,
                 "h1=" + str(_x.get("h1_pass")) + " paths=" + str(_x.get("paths"))
                 + " GTS=" + str(_px.get("gts_pdfx")) + " OI=" + str(_px.get("output_intents"))
                 + " cmyk=" + str(_px.get("cmyk_ops")) + " schema=" + str(_sch.returncode == 0)
+                + " undeclared=" + str(_ce or "-") + " typebad=" + str(_ct or "-")
+                + " nested=" + str(_cn or "-")
                 + " unverified=" + str(_x.get("unverified")))
     except Exception as e:                          # noqa: BLE001
         for _id in ("A42-delight-flattens-lighting",

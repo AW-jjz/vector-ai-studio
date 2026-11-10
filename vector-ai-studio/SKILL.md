@@ -185,7 +185,7 @@ python scripts/land_vc.py --svg path/to/final.svg --out path/to/run --profile pr
 | `print` | 先 `file.documentColorMode {mode:"cmyk",convert:true}`，再导出 `.ai` **与** `.pdf` |
 | `handoff` | 同 screen；SVG 的 `<g>` 自动成为命名图层 |
 
-**两条引擎是并行关系，不是替代**：产出同一套产物与同一份交付清单契约，`engine` 字段记录实际用的是哪一个，一条路出问题不会污染另一条。
+**三条引擎是并行关系，不是替代**：产出同一套产物与同一份交付清单契约（字段集因引擎能力不同略有增删，均已在 `references/schemas/deliverable.schema.json` 声明），`engine` 字段记录实际用的是哪一个，一条路出问题不会污染另一条。Illustrator / VectorCraft / 半自动邻居三条路共用同一个 PDF 解析器（`land_ai._pdf_objects`/`_page_streams`/`_count_ops`），同一份 PDF 上的算子计数不允许出现两个答案。
 
 实测差异（vectorcraft 0.22.0，2026-11-08）：
 
@@ -352,7 +352,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 ~/.vector-ai-studio/output/<run-id>/deliverable.json
 ```
 
-交付清单 deliverable.json 是**给客户的**，与验收日志分开：它不评价好坏，只记录物件本身的可核事实（色彩空间、ICC、出血、图层、字体、位图、画板 pt/mm、sha256）与必须说明的风险（第三方重存会剥离 AIPrivateData、CMYK 未做色彩管理等）。`observed` 段每一项都是从产物字节实测（含 print.pdf 的 /OutputConditionIdentifier）；`save_options` 段记录本次**请求**的保存参数，两者不混写。`unverified` 字段专门记录「要求了但没兑现」的条目——例如要求转 CMYK 而 PDF 兼容层仍写 RGB 时会出现在这里，而不是被略过。
+交付清单 deliverable.json 是**给客户的**，与验收日志分开：它不评价好坏，只记录物件本身的可核事实（色彩空间、ICC、出血、图层、字体、位图、画板 pt/mm、sha256）与必须说明的风险（第三方重存会剥离 AIPrivateData、CMYK 未做色彩管理等）。`observed` 段每一项都是从产物字节实测（含 print.pdf 的 /OutputConditionIdentifier）；`save_options` 段记录本次**请求**的保存参数，两者不混写——唯一例外是 `save_options.output_intent`：没有 PDF 可读回时它记请求值，读得到时它记读回值（请求值另存 `output_intent_requested`），因为「按请求写的」与「文件里真的这么写」是两件事，混在一起就无法区分。`unverified` 字段专门记录「要求了但没兑现」的条目——例如要求转 CMYK 而 PDF 兼容层仍写 RGB 时会出现在这里，而不是被略过。
 
 - final.ai 由 Illustrator `saveAs()` 产出，附重开回读计数；final.svg 与它同源；preview.png 为真实可解析 PNG；acceptance.json 含 A–F 各项分数、轮次记录、H1–H4 与降级标记。
 - 阈值、分档、降级文案的唯一事实源是 `config/thresholds.json`；`calibration_policy` 登记可校准白名单与审批流，判据定义类一律锁定，任何放宽必须标 `loosening: true` 且带裁决引用。

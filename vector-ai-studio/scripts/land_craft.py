@@ -34,11 +34,11 @@ import re
 import shutil
 import subprocess
 import sys
-import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import land_ai as LA           # one PDF reader for all three engines
 from trace_ref import require_cli, find_cli  # single source of truth for the CLI locator
 
 SCRIPT = "land_craft.py"
@@ -85,43 +85,6 @@ def _step(rows, want, key="command"):
     return {}
 
 
-def _pdf_objects(raw):
-    """object number -> body. A segment ends at the next object header, never
-    at an `endobj` string that may occur inside compressed data."""
-    starts = [(int(m.group(1)), m.start(), m.end())
-              for m in re.finditer(rb"(?m)^(\d+)\s+0\s+obj\b", raw)]
-    out = {}
-    for i, (num, _start, body_start) in enumerate(starts):
-        end = starts[i + 1][1] if i + 1 < len(starts) else len(raw)
-        seg = raw[body_start:end]
-        cut = seg.rfind(b"endobj")
-        out[num] = seg[:cut] if cut >= 0 else seg
-    return out
-
-
-def _stream_bytes(body):
-    m = re.search(rb"stream\r?\n", body)
-    if not m:
-        return None
-    end = body.rfind(b"endstream")
-    return body[m.end():end] if end >= m.end() else None
-
-
-def _inflate(blob):
-    try:
-        return zlib.decompress(blob)
-    except zlib.error:
-        try:
-            return zlib.decompressobj().decompress(blob)
-        except zlib.error:
-            return None
-
-
-def _strip_strings(data):
-    data = re.sub(rb"\((?:\\.|[^\\()])*\)", b"()", data)
-    return re.sub(rb"<[0-9A-Fa-f\s]*>", b"<>", data)
-
-
 def _pdf_text(blob):
     # PDF literal strings escape ( ) and \; undo that before reporting
     return (blob.replace(b"\\\\", b"\\")
@@ -147,36 +110,22 @@ def _pdf_facts(path):
     facts["output_condition"] = _pdf_text(m.group(1)) if m else None
     facts["output_intent_objects"] = len(re.findall(rb"/Type\s*/OutputIntent\b", raw))
 
-    objs = _pdf_objects(raw)
-    wanted = set()
-    for num, body in objs.items():
-        head = body.split(b"stream", 1)[0]
-        if re.search(rb"/Type\s*/Page\b", head):
-            for mm in re.finditer(rb"/Contents\s+(\d+)\s+0\s+R", head):
-                wanted.add(int(mm.group(1)))
-            arr = re.search(rb"/Contents\s*\[([^\]]*)\]", head)
-            if arr:
-                for mm in re.finditer(rb"(\d+)\s+0\s+R", arr.group(1)):
-                    wanted.add(int(mm.group(1)))
-        if re.search(rb"/Subtype\s*/Form\b", head):
-            wanted.add(num)
-    ops = {k: 0 for k in ("k", "K", "rg", "RG", "g", "G", "sc", "SC", "scn", "SCN")}
-    decoded = 0
-    for num in sorted(wanted):
-        blob = _stream_bytes(objs.get(num, b""))
-        data = _inflate(blob) if blob is not None else None
-        if data is None:
-            continue
-        decoded += 1
-        data = _strip_strings(data)
-        for op in ops:
-            ops[op] += len(re.findall(rb"(?<![\w.])" + op.encode() + rb"(?![\w])", data))
+    # Selection is land_ai's too: page /Contents refs plus /Subtype /Form
+    # XObjects. Selecting differently per engine is how the same PDF ended up
+    # with two different operator counts.
+    streams, n_objects = LA._page_streams(raw)
+    ops, decoded = LA._count_ops(streams)
+    # None means "nothing decoded", and it must stay None. Filling zeros here
+    # made an unmeasured page indistinguishable from a page with no colour
+    # operator, so a caller could assert "no CMYK in this file" from a
+    # measurement that never happened. land_ai already reports null on this
+    # path; the two engines have to agree on the difference.
     facts["content_ops"] = ops
     # Only the page content streams and Form XObjects are page description;
     # ICC profiles, font programs and CMaps are binary blobs that happen to
     # contain k/K bytes, and are not evidence of a CMYK operator.
     facts["content_ops_scope"] = "page /Contents refs + /Subtype /Form streams only"
-    facts["content_streams"] = {"objects": len(wanted), "decoded": decoded}
+    facts["content_streams"] = {"objects": n_objects, "decoded": decoded}
     facts["streams_decoded"] = decoded
     return facts
 
@@ -322,10 +271,14 @@ def main():
                               " but /GTS_PDFXVersion or /OutputIntent is absent")
         if not pdf_facts.get("trimbox_rect") or not pdf_facts.get("bleedbox_rect"):
             unverified.append("TrimBox / BleedBox missing from the print PDF")
-        if args.pdf_standard == "pdfX1a":
-            if pdf_facts["content_ops"]["k"] + pdf_facts["content_ops"]["K"] == 0:
+        _ops = pdf_facts.get("content_ops")
+        if _ops is None:
+            unverified.append("print PDF content streams could not be decoded: "
+                              "colour operators were not measured")
+        elif args.pdf_standard == "pdfX1a":
+            if _ops["k"] + _ops["K"] == 0:
                 unverified.append("print PDF has no CMYK content operators")
-        elif not sum(pdf_facts["content_ops"].values()):
+        elif not sum(_ops.values()):
             unverified.append("print PDF has no colour operators in its page content")
         if args.pdf_standard == "pdfX1a" and pdf_facts.get("DeviceRGB", 0) > 0:
             unverified.append("PDF/X-1a still declares DeviceRGB")
@@ -382,9 +335,11 @@ def main():
                   "output_condition": (pdf_facts or {}).get("output_condition"),
                   "trimbox": (pdf_facts or {}).get("trimbox_rect"),
                   "bleedbox": (pdf_facts or {}).get("bleedbox_rect"),
-                  "cmyk_ops": (pdf_facts or {}).get("content_ops", {}).get("k", 0) +
-                              (pdf_facts or {}).get("content_ops", {}).get("K", 0),
-                  "colour_ops": sum((pdf_facts or {}).get("content_ops", {}).values())},
+                  # null when nothing decoded: 0 would read as "measured, none".
+                  "cmyk_ops": None if (pdf_facts or {}).get("content_ops") is None
+                              else pdf_facts["content_ops"].get("k", 0) + pdf_facts["content_ops"].get("K", 0),
+                  "colour_ops": None if (pdf_facts or {}).get("content_ops") is None
+                                else sum(pdf_facts["content_ops"].values())},
         "unverified": unverified,
         "bytes": {"ai": ai.stat().st_size, "pdf": pdf.stat().st_size if pdf.is_file() else 0},
     }, warnings=warnings, artifacts={"ai": ai.name, "print_pdf": pdf.name,
