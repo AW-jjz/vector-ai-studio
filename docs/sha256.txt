@@ -1937,8 +1937,8 @@ r68（2026-11-11）　一份 style 解析、包内 changelog、仓库 CI
 ────────────────────────────────────────────────────────────
 版本          : r68（SKILL.md 1.2.0）
 文件数        : 96
-字节数        : 274384
-sha256        : 783c7607de558b4d0bd2acb6ba6032ca2e2078492797e45a5d3dcbcf1ef577a7
+字节数        : 274563
+sha256        : d27f016889096da7b9f670b252874479e7c49b272b4259dd3c4d531667355ca3
 冻结时刻      : 2026-11-11（04-QA/test-log-r68/00-freeze-r68-manifest.txt，96 文件逐件 md5）
 
 相对 r67 变更 : 5 个文件（1 新增）
@@ -1946,33 +1946,36 @@ sha256        : 783c7607de558b4d0bd2acb6ba6032ca2e2078492797e45a5d3dcbcf1ef577a7
                 SKILL.md                 bb0e0f27220356207713553cc8aac6f3007ee2291c0fa62c5396ad8d547f0a9b
                 scripts/conformance.py   4e677a154e74624ceab9761361174f592fa66048e6d29f31adb790b3f45a9f6f
                 scripts/lib_common.py    f61dfa0ebc42c9e7c5f2d9a6fa5abe4da9bd038d4c656a649c769c5ed7e1ce89
-                scripts/selftest.py      e097b6ac2c8c919b9260191faa0bca33dfb84ac4e70de1f467822baecf620ae6
+                scripts/selftest.py      1e3497ff4c058474f7930d2ae757d2b65fb1211baf43c19620becdccac10572e
 
 内容          : 1) lib_common.parse_style 成为唯一的内联 style 解析实现；conformance 的
                    级联与结构读取共用它，!important 不再两套语义
                 2) A71 锁定解析 API 与它喂给的级联；EXPECTED_ASSERTIONS 69 → 70
                 3) 包内新增 CHANGELOG.md；SKILL.md 版本 1.1.0 → 1.2.0（两处镜像同步）
                 4) 仓库根新增 GitHub Actions CI（不入包）：push / PR 跑 selftest
-                   两种模式与 run_fixtures
-                5) CI 暴露并修掉：断言失败兜底引用未定义变量 a；Pillow 缺失被误报成
-                   E-INTERNAL；A45 在无 vectorcraft-cli 的机器上误判红
+                   两种模式与 run_fixtures；checkout / setup-python 用 v7
+                5) CI 暴露并修掉四处：断言失败兜底引用未定义变量 a；Pillow 缺失被
+                   误报成 E-INTERNAL；A45 在无 vectorcraft-cli 的机器上误判红；
+                   A53 在无 Pillow 的机器上把「无法测量」记成失败
 
 实测证据      : selftest 70/0/70（--fixtures 71/71）
                 变异 忽略 !important → A71 单红
+                屏蔽 Pillow 复跑：partial / code 3 / failed 0 / skipped 6
+                （A53、A42-A46），无 E-INTERNAL（r68-08-nopil.json）
                 run_fixtures 24/24；validate 0 error / 0 warning
-                双打包 ×2 字节一致（96 文件 / 274384 B / 783c7607…77a7）
+                双打包 ×2 字节一致（96 文件 / 274563 B / d27f0168…5ca3）
                 zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
-                smoke --print：PDF/X-1:2001、195855 B、output_intent=1、
+                smoke --print：PDF/X-1:2001、195922 B、output_intent=1、
                 intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
-                CI run 42931072048：success，3.10 与 3.12 两个 job 全绿
-                （前两次 42930275364 / 42930828243 的失败与修法见 r68-07-ci.txt）
+                CI run 42932307332：success，3.10 与 3.12 两个 job 全绿
+                （r68 期间 6 次运行，2 红 4 绿；失败与修法见 r68-07-ci.txt）
                 证据目录 04-QA/test-log-r68/
 
 已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
                 2) path 的描边墨量不可测，判 unmeasurable 而不是 0
                 3) 接缝、端帽、曲线段按直线 / 近似计，误差已写明
-                4) CI 的 Linux job 有 3 个 skip（A30 / A31 / A46）：无 vectorcraft-cli，
-                   记 skipped 而不是 passed
+                4) 无 Pillow 的机器上 A42-A46 与 A53 记 skipped（exit 3）；
+                   Linux CI 另有 A30 / A31 / A46 因无 vectorcraft-cli 而 skip
 
 校验方式      : python scripts/selftest.py 期望 70/70；带 --fixtures 期望 71/71
-                get-filehash 发布包应为 783c7607…77a7（274,384 B）
+                get-filehash 发布包应为 d27f0168…5ca3（274,563 B）
