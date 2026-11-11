@@ -19,8 +19,12 @@ jobs:
       - name: optional dependency for the print route
         run: python -m pip install --disable-pip-version-check pillow
       - name: selftest (pure script)
-        run: python vector-ai-studio/scripts/selftest.py --json
+        run: |
+          python vector-ai-studio/scripts/selftest.py --json > "$RUNNER_TEMP/selftest.json" || true
+          python -c "import json,os,sys; d=json.load(open(os.path.join(os.environ['RUNNER_TEMP'],'selftest.json'))); x=d.get('data') or {}; sys.exit(0 if d.get('code') in (0,3) and x.get('failed')==0 else 1)"
       - name: selftest (with fixtures)
-        run: python vector-ai-studio/scripts/selftest.py --json --fixtures
+        run: |
+          python vector-ai-studio/scripts/selftest.py --json --fixtures > "$RUNNER_TEMP/selftest-fixtures.json" || true
+          python -c "import json,os,sys; d=json.load(open(os.path.join(os.environ['RUNNER_TEMP'],'selftest-fixtures.json'))); x=d.get('data') or {}; sys.exit(0 if d.get('code') in (0,3) and x.get('failed')==0 else 1)"
       - name: fixture regression
         run: python vector-ai-studio/scripts/run_fixtures.py --json

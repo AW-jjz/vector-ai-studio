@@ -1664,11 +1664,21 @@ def _stage_print_route(tmp, add):
                            ("trace_ref.py", ["--in", str(_corrupt), "--out", str(tmp / "a45-t.ai")])):
             _rc, _env = _run_script(_nm, _argv + ["--json"])
             _err_codes = [x.get("code") for x in _env.get("errors", [])]
-            _envs.append((_nm, _rc == L.EXIT_ERROR, _env.get("code") == L.EXIT_ERROR,
-                          any(c in ("E-INTERNAL", "E-TRACE") for c in _err_codes)))
-        _env_ok = all(a and b and c for _, a, b, c in _envs)
+            if _nm == "trace_ref.py" and _orig() is None:
+                # Without the tracing engine the capability gate fires before
+                # the file is opened, so E-CAPABILITY-MISSING / exit 3 is the
+                # correct envelope here. Demanding E-TRACE made this assertion
+                # depend on the machine rather than on the code.
+                _case_ok = (_rc == L.EXIT_MISSING
+                            and _env.get("code") == L.EXIT_MISSING
+                            and "E-CAPABILITY-MISSING" in _err_codes)
+            else:
+                _case_ok = (_rc == L.EXIT_ERROR and _env.get("code") == L.EXIT_ERROR
+                            and any(c in ("E-INTERNAL", "E-TRACE") for c in _err_codes))
+            _envs.append((_nm, _case_ok))
+        _env_ok = all(ok for _, ok in _envs)
         add("A45-uniform-error-envelope", _env_ok,
-            ";".join("%s:%s%s%s" % (n, a, b, c) for n, a, b, c in _envs))
+            ";".join("%s:%s" % (n, ok) for n, ok in _envs))
 
         # A46: the Craft-only landing path must really produce a PDF/X master
         # with an output intent, bleed boxes and CMYK content -- not just claim
