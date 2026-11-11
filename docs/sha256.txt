@@ -1931,3 +1931,44 @@ sha256        : a0d04e825b95ab466382cd47a179ad42045f92e523e76f94f94ed909f3d73952
 
 校验方式      : python scripts/selftest.py 期望 69/69；带 --fixtures 期望 70/70
                 get-filehash 发布包应为 a0d04e82…3952（272,213 B）
+
+────────────────────────────────────────────────────────────
+r68（2026-11-11）　一份 style 解析、包内 changelog、仓库 CI
+────────────────────────────────────────────────────────────
+版本          : r68（SKILL.md 1.2.0）
+文件数        : 96
+字节数        : 274110
+sha256        : 81187863bda5dd3000ec6729e9ac32f9a9e745440e0504cdb52ddc2a7051cd92
+冻结时刻      : 2026-11-11（04-QA/test-log-r68/00-freeze-r68-manifest.txt，96 文件逐件 md5）
+
+相对 r67 变更 : 5 个文件（1 新增）
+                CHANGELOG.md             d9866cb72209dea06ed121aaf9e54d1855478796741de151e01fceb3a48032c0
+                SKILL.md                 bb0e0f27220356207713553cc8aac6f3007ee2291c0fa62c5396ad8d547f0a9b
+                scripts/conformance.py   4e677a154e74624ceab9761361174f592fa66048e6d29f31adb790b3f45a9f6f
+                scripts/lib_common.py    f61dfa0ebc42c9e7c5f2d9a6fa5abe4da9bd038d4c656a649c769c5ed7e1ce89
+                scripts/selftest.py      1bc130d6cb0cbea8d22650845311564e2a9162e8846a49690c8d87fc726e816f
+
+内容          : 1) lib_common.parse_style 成为唯一的内联 style 解析实现；conformance 的
+                   级联与结构读取共用它，!important 不再两套语义
+                2) A71 锁定解析 API 与它喂给的级联；EXPECTED_ASSERTIONS 69 → 70
+                3) 包内新增 CHANGELOG.md；SKILL.md 版本 1.1.0 → 1.2.0（两处镜像同步）
+                4) 仓库根新增 GitHub Actions CI（不入包）：push / PR 跑 selftest
+                   两种模式与 run_fixtures
+
+实测证据      : selftest 70/0/70（--fixtures 71/71）
+                变异 忽略 !important → A71 单红
+                run_fixtures 24/24；validate 0 error / 0 warning
+                双打包 ×2 字节一致（96 文件 / 274110 B / 81187863…1cd92）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                smoke --print：PDF/X-1:2001、195237 B、output_intent=1、
+                intent 对象 1、DeviceRGB 0、CMYK 21、unverified 空
+                证据目录 04-QA/test-log-r68/
+                CI 已提交，本地无法执行 workflow；首次结果以 GitHub Actions 为准
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) path 的描边墨量不可测，判 unmeasurable 而不是 0
+                3) 接缝、端帽、曲线段按直线 / 近似计，误差已写明
+                4) CI 尚未在 GitHub 上产生一次真实运行记录
+
+校验方式      : python scripts/selftest.py 期望 70/70；带 --fixtures 期望 71/71
+                get-filehash 发布包应为 81187863…1cd92（274,110 B）

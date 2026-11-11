@@ -49,7 +49,7 @@ python <toolkit>/scripts/package_skill.py  --platform workbuddy --channel market
 repo-vector-ai-studio/
 ├ README.md  LICENSE  .gitattributes  .gitignore
 ├ docs/                ← 本目录的三份文档
-└ vector-ai-studio/    ← 技能本体，95 个文件放这里
+└ vector-ai-studio/    ← 技能本体，96 个文件放这里
 ```
 
 所以同步命令的目标是 `repo-vector-ai-studio\vector-ai-studio`，**不是仓库根**。
@@ -63,8 +63,8 @@ r61 我在仓库根上跑了 `robocopy /MIR`，`/MIR` 会删除目标端多余�
 ## 三、发布前的四道闸，缺一不可
 
 ```
-selftest.py --fixtures    期望 70/70（不带 --fixtures 为 69/69；条数随断言增加，以实际清单为准）
-run_fixtures.py           期望 24/24（r67 实测 24 passed / 0 failed）
+selftest.py --fixtures    期望 71/71（不带 --fixtures 为 70/70；条数随断言增加，以实际清单为准）
+run_fixtures.py           期望 24/24（r68 实测 24 passed / 0 failed）
 validate_skill.py         期望 0 error / 0 warning
 zip ↔ 冻结基线 双向 md5   期望缺失 0 / 多余 0 / 差异 0
 ```
