@@ -1,6 +1,6 @@
 vector-ai-studio 发布校验留痕
 
-【本段为 r29 历史读数，最新版本见文件末尾 r42 段】
+【本段为 r29 历史读数，最新版本见文件末尾 r69 段】
 文件数        : 54
 字节数        : 161934
 sha256        : 30855c2b58d8e05366b59811cdc7d0f6d0c2b4e520cda2e898e54100e99f0e79
@@ -1979,3 +1979,63 @@ sha256        : d27f016889096da7b9f670b252874479e7c49b272b4259dd3c4d531667355ca3
 
 校验方式      : python scripts/selftest.py 期望 70/70；带 --fixtures 期望 71/71
                 get-filehash 发布包应为 d27f0168…5ca3（274,563 B）
+
+────────────────────────────────────────────────────────────
+r69（2026-11-11）　conformance 崩溃 / 假绿 / 假红修复，跳过与包完整性守卫
+────────────────────────────────────────────────────────────
+版本          : r69（SKILL.md 1.3.0）
+文件数        : 96
+字节数        : 280600
+sha256        : 20469f7b61727fceb561b4c45c9b7da808fb602450ced70efb28ae5b8b65d564
+冻结时刻      : 2026-11-11（04-QA/test-log-r69/00-freeze-r69-manifest.txt，96 文件逐件 md5）
+
+相对 r68 变更 : 12 个文件（0 新增 / 0 删除）
+                CHANGELOG.md                     ab9ed8c6671ecbd0f71a631c72eee4b791a9fcb9072bcce37cd50d82b8fce4ff
+                README.md                        7080fb05c113e8732168862165d4733f6ef5dd7db1767e1319bc98167af059df
+                SKILL.md                         142a123da88e13cb8b9a8bdfef32140a8d8114f5fe778918034e6a9d39d5fb3c
+                examples/01-bookshop/final.svg   07976d5508dc1de507de5e4efff5f6e7797b6489fee9cd3e583d1fe5fbce7843
+                examples/02-coffee/final.svg     1e4e89a4eeede52f17084c13545d3f2d7a81535b0d63c6000128c69f14546637
+                examples/03-devtool/final.svg    19b1701526995923ac4ae2993637a8c4aaf432117cefec9393c6917863a4e402
+                references/pipeline-contract.md  f8ae2c885d46d48870531252dd093b0fc0439022914f90c63ca31d7f1cdd03dc
+                scripts/aggregate_log.py         c328702f4f157a09c98da194cf53b37d90afc0259e194615a24560185c51838c
+                scripts/conformance.py           81f54bb329dda48d2e53d53cffdca87fc8f277666882229d07c13d91139029c9
+                scripts/run_fixtures.py          0f3d37ada9932789c6c21c5e3d14b4d3d4b72205e2e42d196488cafa8501ce59
+                scripts/selftest.py              9d709ffa9a8fa9e791409d0b95c1503e738b69025465534d91fd6213b9f8abc2
+                tests/fixtures/fixtures.json     a3e92ed2cacd114ccda264e861c1e5526326a5c4f741c9d980aef6e7bf284222
+
+内容          : 1) conformance 崩溃修复：clip-path 属性不再 KeyError；空格分隔 points 不再
+                   IndexError；规则文件里的非数值改为 E-SCHEMA / exit 2（原 E-INTERNAL / exit 4）
+                2) 长度：% 与 em 判 unmeasurable（不再当 0）；px / pt / mm / cm / in 换算；
+                   声明但读不出的 stroke-width 判 STROKE-WIDTHS 失败（不再按默认 1.0 计）
+                3) 颜色：统一过 lib_common.normalize_color（#F00、rgb() 与 hex 规则等价）；
+                   未声明 fill 记 #000000（<line> 无内部，不计填充）；fill-opacity="0%" 记零墨
+                4) SVG 语法：逗号 viewBox、"240px" 根尺寸、空格 points、clip-path 属性均按实测处理
+                5) selftest：新增 A72-A75；A76 只允许 CAPABILITY_SKIPS 内的断言跳过；
+                   A60 增加 id 唯一性。EXPECTED_ASSERTIONS 70 → 75
+                6) run_fixtures：fixtures.json 声明 cases_expected=24，截断即 E-SCHEMA
+                   （原 0/0 全绿）
+                7) aggregate_log：H3 的可跳过清单改从 selftest 日志 capability_skips 读取，
+                   不再维护第二份列表
+                8) 示例与文案：咖啡环 r=77（内径 144，与 brief 一致）、书店脊缝 8px（≤4%）、
+                   折线穿柱顶并伸出末柱；README / SKILL / 发布说明顶部的 Adobe/COM/land_ai
+                   旧内容与计数更正
+                9) 行尾：conformance.py 由混行归一为 LF
+
+实测证据      : selftest 75/0/75（--fixtures 76/76）
+                变异 删除 A24 并复制 A25（条数不变）→ A60 单红
+                变异 A53 移出 CAPABILITY_SKIPS 且遮蔽 Pillow → A76 单红
+                遮蔽 Pillow 复跑：partial / code 3 / passed 69 / failed 0 / skipped 6
+                （A53、A42-A46），无 E-INTERNAL（r69-08-nopil.json）
+                run_fixtures 24/24；validate 0 error / 0 warning
+                双打包 ×2 字节一致（96 文件 / 280600 B / 20469f7b…d564）
+                zip ↔ 冻结清单：missing 0 / extra 0 / diff 0
+                证据目录 04-QA/test-log-r69/
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) path 的面积与描边墨量不可测，判 unmeasurable 而不是 0
+                3) 颜色名（black 等）与 hex 不做等价映射，只归一并等价 #rgb/#rrggbb/rgb()
+                4) 无 Pillow 的机器上 A42-A46 与 A53 记 skipped（exit 3）；
+                   Linux CI 另有 A30 / A31 因无 vectorcraft-cli 而 skip
+
+校验方式      : python scripts/selftest.py 期望 75/75；带 --fixtures 期望 76/76
+                get-filehash 发布包应为 20469f7b…d564（280,600 B）
