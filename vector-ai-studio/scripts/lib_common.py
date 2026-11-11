@@ -283,15 +283,32 @@ def is_neutral(color):
     return False
 
 
+def parse_style(style):
+    """Inline style attribute as {property: (value, important)}.
+
+    One parser for the whole toolkit: the structure reader and conformance's
+    cascade used to split on ";" separately and only one of them understood
+    !important. Later declarations win, as in CSS.
+    """
+    out = {}
+    for part in (style or "").split(";"):
+        if ":" not in part:
+            continue
+        key, _, raw = part.partition(":")
+        key = key.strip().lower()
+        if not key:
+            continue
+        val = raw.strip()
+        imp = False
+        if val.lower().endswith("!important"):
+            imp = True
+            val = val[:-len("!important")].strip()
+        out[key] = (val, imp)
+    return out
+
+
 def _style_attrs(elem):
-    attrs = {}
-    style = elem.get("style")
-    if style:
-        for part in style.split(";"):
-            if ":" in part:
-                k, v = part.split(":", 1)
-                attrs[k.strip().lower()] = v.strip()
-    return attrs
+    return {k: v for k, (v, _) in parse_style(elem.get("style")).items()}
 
 
 def parse_path_points(d):

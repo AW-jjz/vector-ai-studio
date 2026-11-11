@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: selftest (pure script)
+        run: python vector-ai-studio/scripts/selftest.py --json
+      - name: selftest (with fixtures)
+        run: python vector-ai-studio/scripts/selftest.py --json --fixtures
+      - name: fixture regression
+        run: python vector-ai-studio/scripts/run_fixtures.py --json

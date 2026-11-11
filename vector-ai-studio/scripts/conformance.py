@@ -189,19 +189,8 @@ def _resolve(colour, vals):
 
 
 def _inline(el):
-    """style="" as {property: (value, important)}."""
-    out = {}
-    for part in (el.get("style") or "").split(";"):
-        if ":" not in part:
-            continue
-        k, _, v = part.partition(":")
-        val = v.strip()
-        imp = False
-        if val.lower().endswith("!important"):
-            imp = True
-            val = val[:-len("!important")].strip()
-        out[k.strip().lower()] = (val, imp)
-    return out
+    """style="" as {property: (value, important)}; one parser, in lib_common."""
+    return L.parse_style(el.get("style"))
 
 
 def _compound(tok):

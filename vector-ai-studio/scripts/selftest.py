@@ -43,7 +43,7 @@ CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 # --fixtures. Declared rather than asserted-in-prose because two rounds lost
 # ten assertions to a bad block extraction and the only thing that noticed was
 # a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 69
+EXPECTED_ASSERTIONS = 70
 
 
 def _call(name, args, cwd, flags=()):
@@ -216,7 +216,7 @@ def _schema_diff(doc, schema, check_missing=True, optional=()):
 
 
 def _check_conformance(tmp, add):
-    """A56, A59, A61-A70: the mechanical half of brief conformance.
+    """A56, A59, A61-A71: the mechanical half of brief conformance.
 
     Extracted from main() so this block can be read and changed without
     scrolling past two thousand lines of unrelated assertions. It owns no
@@ -834,6 +834,40 @@ def _check_conformance(tmp, add):
             " ".join(_rows) + (" bad=" + str(_bad70) if _bad70 else ""))
     except Exception as e:                      # noqa: BLE001
         add("A70-shipped-examples-pass-their-rules", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A71: one inline-style parser for the whole toolkit ------------------
+    # lib_common's structure reader and conformance's cascade each carried their
+    # own split(";") loop; only conformance understood !important. Both now use
+    # L.parse_style, so this pins the API and the cascade it feeds.
+    try:
+        _d71 = tmp / "a71"
+        _d71.mkdir()
+        _svg71 = _d71 / "important.svg"
+        _rules71 = _d71 / "rules.json"
+        _svg71.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<rect x="20" y="20" width="200" height="200" fill="#c8362c"'
+            ' style="fill:#111111 !important"/></svg>', encoding="utf-8")
+        _rules71.write_text(json.dumps({
+            "schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240],
+            "colors_allowed": ["#111111"]}), encoding="utf-8")
+        _rc71, _env71, _ = _call("conformance.py", ["--svg", str(_svg71),
+                                                    "--rules", str(_rules71),
+                                                    "--json"], tmp)
+        _m71 = (_env71.get("data") or {}).get("measured") or {}
+        _bad71 = [c.get("id") for c in (_env71.get("data") or {}).get("checks") or []
+                  if not c.get("ok")]
+        _api71 = L.parse_style("fill:#111; stroke: #c8362c !important; fill:#222")
+        add("A71-one-inline-style-parser",
+            bool(_api71 == {"fill": ("#222", False),
+                            "stroke": ("#c8362c", True)}
+                 and _rc71 == 0 and not _bad71
+                 and _m71.get("colours") == ["#111111"]),
+            "api=" + str(_api71) + " rc=" + str(_rc71)
+            + " colours=" + str(_m71.get("colours")) + " bad=" + str(_bad71))
+    except Exception as e:                      # noqa: BLE001
+        add("A71-one-inline-style-parser", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
