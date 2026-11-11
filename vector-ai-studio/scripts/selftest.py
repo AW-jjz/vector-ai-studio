@@ -1803,14 +1803,20 @@ def _stage_legibility(tmp, add):
                     ("a53-low", _disk53((208, 208, 208)), 1, "LOW-CONTRAST"),
                     ("a53-mud", _grid53, 1, "MUD"),
                     ("a53-ring", _ring53, 1, "COLLAPSED")]
+        try:
+            import PIL  # noqa: F401
+            _has53 = True
+        except ImportError:
+            _has53 = False
         _bad53 = []
-        for _n53, _paint53, _want_rc53, _want53 in _cases53:
-            _p53 = _png53(_n53, _paint53)
-            _rc53, _env53, _ = _call("legibility.py", ["--png", str(_p53), "--json"], tmp)
-            _ids53 = {v.get("id") for v in
-                      ((_env53.get("data") or {}).get("verdicts") or [])}
-            if _rc53 != _want_rc53 or _want53 not in _ids53:
-                _bad53.append(_n53 + ":rc" + str(_rc53) + ":" + str(sorted(_ids53)))
+        if _has53:
+            for _n53, _paint53, _want_rc53, _want53 in _cases53:
+                _p53 = _png53(_n53, _paint53)
+                _rc53, _env53, _ = _call("legibility.py", ["--png", str(_p53), "--json"], tmp)
+                _ids53 = {v.get("id") for v in
+                          ((_env53.get("data") or {}).get("verdicts") or [])}
+                if _rc53 != _want_rc53 or _want53 not in _ids53:
+                    _bad53.append(_n53 + ":rc" + str(_rc53) + ":" + str(sorted(_ids53)))
 
         _spec53 = importlib.util.spec_from_file_location("legibility_a53",
                                                          SCRIPTS / "legibility.py")
@@ -1843,10 +1849,19 @@ def _stage_legibility(tmp, add):
             _env53d = {}
         _deg53 = (_rc53d == L.EXIT_MISSING and _env53d.get("status") == "degraded"
                   and "E-RENDERER-MISSING" in _codes(_env53d))
-        add("A53-legibility-fails-what-the-eye-misses",
-            bool(not _bad53 and _deg53),
-            "cases=" + str([c[0] for c in _cases53]) + " bad=" + str(_bad53)
-            + " degraded=" + str(_deg53))
+        if _has53:
+            add("A53-legibility-fails-what-the-eye-misses",
+                bool(not _bad53 and _deg53),
+                "cases=" + str([c[0] for c in _cases53]) + " bad=" + str(_bad53)
+                + " degraded=" + str(_deg53))
+        else:
+            # The four measurement cases need Pillow to read the PNGs. Without
+            # it they cannot run, and calling that a failure is wrong: the
+            # dependency-free promise is about the test suite, not about
+            # legibility.py. The degraded path is still exercised and reported.
+            add("A53-legibility-fails-what-the-eye-misses", False,
+                "Pillow missing; measurement cases not evaluated; degraded="
+                + str(_deg53), skipped=True)
     except Exception as e:                      # noqa: BLE001
         add("A53-legibility-fails-what-the-eye-misses", False,
             type(e).__name__ + ": " + str(e)[:140])
