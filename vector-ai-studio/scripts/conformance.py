@@ -35,7 +35,10 @@ FORBID_TAGS = {"image": NS + "image", "text": NS + "text",
                "gradient": (NS + "linearGradient", NS + "radialGradient"),
                "filter": NS + "filter", "clipPath": NS + "clipPath",
                "mask": NS + "mask", "use": NS + "use"}
-FORBID_ATTRS = ("filter", "clip-path", "mask")
+# Attribute -> the forbid key it counts against. clip-path used to be its own
+# key here while `forbid` was initialised from FORBID_TAGS, so a clip-path
+# attribute raised KeyError and the whole run crashed with E-INTERNAL.
+FORBID_ATTRS = {"filter": "filter", "clip-path": "clipPath", "mask": "mask"}
 # Every key the script understands. A key it does not know used to be ignored
 # silently, so a typo ("stroke_width_allowed") looked like an enforced rule and
 # an invented forbid name ("texts") produced a check that could never fail.
@@ -48,15 +51,50 @@ def _tag(el):
     return el.tag.replace(NS, "")
 
 
-def _f(v, default=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return default
+_UNIT_PX = {"": 1.0, "px": 1.0, "pt": 96.0 / 72.0, "mm": 96.0 / 25.4,
+            "cm": 96.0 / 2.54, "in": 96.0}
+
+
+def _len(v):
+    """Absolute length in user units, or None when it is not absolute.
+
+    A percentage needs the viewport it resolves against and an em needs a font
+    size; neither is modelled here. Returning 0.0 for them (and for any typo)
+    made a 50%-wide rect measure as empty and a 2px stroke as 1.0 -- the
+    default width -- so a cap passed on a number that was never rendered.
+    Callers must treat None as unmeasurable, never as zero.
+    """
+    m = re.fullmatch(r"([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s*([a-z]*)",
+                     str(v).strip().lower())
+    if not m or m.group(2) not in _UNIT_PX:
+        return None
+    return float(m.group(1)) * _UNIT_PX[m.group(2)]
+
+
+def _dim(el, key):
+    """A geometry attribute as user units; a missing one is 0, as in SVG."""
+    v = el.get(key)
+    return 0.0 if v is None else _len(v)
+
+
+def _points(el):
+    """`points` as [(x, y), ...], or None when a pair is not two numbers.
+
+    SVG allows "10,20 30,40" and "10 20 30 40" and any mix; splitting on commas
+    alone raised IndexError on the space form. A percent or a unit makes the
+    pair non-absolute, so the geometry is unmeasurable rather than zero.
+    """
+    raw = el.get("points") or ""
+    nums = [float(t) for t in re.findall(
+        r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?", raw)]
+    rest = re.sub(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?", "", raw)
+    if rest.strip(" ,\t\r\n") or len(nums) % 2:
+        return None
+    return [(nums[i], nums[i + 1]) for i in range(0, len(nums), 2)]
 
 
 def _geom(el):
-    """(fill area, perimeter) of a shape; (None, None) when not computable.
+    """(fill area, perimeter) of a shape; None where not computable.
 
     The perimeter exists so a stroke can be measured as ink (perimeter x
     width) instead of being reported as its fill area -- r66 found the old
@@ -65,20 +103,30 @@ def _geom(el):
     """
     t = _tag(el)
     if t == "rect":
-        w, h = _f(el.get("width")), _f(el.get("height"))
+        w, h = _dim(el, "width"), _dim(el, "height")
+        if w is None or h is None:
+            return None, None
         return w * h, 2.0 * (w + h)
     if t == "circle":
-        r = _f(el.get("r"))
+        r = _dim(el, "r")
+        if r is None:
+            return None, None
         return math.pi * r * r, 2.0 * math.pi * r
     if t == "ellipse":
-        a, b = _f(el.get("rx")), _f(el.get("ry"))
+        a, b = _dim(el, "rx"), _dim(el, "ry")
+        if a is None or b is None:
+            return None, None
         per = math.pi * (3.0 * (a + b) - math.sqrt((3.0 * a + b) * (a + 3.0 * b)))
         return math.pi * a * b, per
     if t == "line":
-        return 0.0, math.hypot(_f(el.get("x2")) - _f(el.get("x1")),
-                               _f(el.get("y2")) - _f(el.get("y1")))
+        x1, y1, x2, y2 = (_dim(el, k) for k in ("x1", "y1", "x2", "y2"))
+        if None in (x1, y1, x2, y2):
+            return None, None
+        return 0.0, math.hypot(x2 - x1, y2 - y1)
     if t in ("polygon", "polyline"):
-        pts = [tuple(map(float, p.split(","))) for p in (el.get("points") or "").split()]
+        pts = _points(el)
+        if pts is None:
+            return None, None
         if len(pts) < 2:
             return 0.0, 0.0
         edges = sum(math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])
@@ -96,19 +144,28 @@ def _bbox(el, expand, has_stroke):
     t = _tag(el)
     pad = expand / 2.0 if has_stroke else 0.0
     if t == "rect":
-        x, y = _f(el.get("x")), _f(el.get("y"))
-        box = (x, y, x + _f(el.get("width")), y + _f(el.get("height")))
+        x, y = _dim(el, "x"), _dim(el, "y")
+        w, h = _dim(el, "width"), _dim(el, "height")
+        if None in (x, y, w, h):
+            return None
+        box = (x, y, x + w, y + h)
     elif t == "circle":
-        cx, cy, r = _f(el.get("cx")), _f(el.get("cy")), _f(el.get("r"))
+        cx, cy, r = _dim(el, "cx"), _dim(el, "cy"), _dim(el, "r")
+        if None in (cx, cy, r):
+            return None
         box = (cx - r, cy - r, cx + r, cy + r)
     elif t == "ellipse":
-        cx, cy = _f(el.get("cx")), _f(el.get("cy"))
-        box = (cx - _f(el.get("rx")), cy - _f(el.get("ry")),
-               cx + _f(el.get("rx")), cy + _f(el.get("ry")))
+        cx, cy = _dim(el, "cx"), _dim(el, "cy")
+        a, b = _dim(el, "rx"), _dim(el, "ry")
+        if None in (cx, cy, a, b):
+            return None
+        box = (cx - a, cy - b, cx + a, cy + b)
     elif t == "line":
-        box = (_f(el.get("x1")), _f(el.get("y1")), _f(el.get("x2")), _f(el.get("y2")))
+        box = tuple(_dim(el, k) for k in ("x1", "y1", "x2", "y2"))
+        if None in box:
+            return None
     else:
-        pts = [tuple(map(float, p.split(","))) for p in (el.get("points") or "").split()]
+        pts = _points(el)
         if not pts:
             return None
         box = (min(p[0] for p in pts), min(p[1] for p in pts),
@@ -117,10 +174,19 @@ def _bbox(el, expand, has_stroke):
 
 
 def _colour(val):
+    """Normalized paint, or None when nothing is painted.
+
+    normalize_color is the toolkit's one colour normalizer, so #F00,
+    rgb(255,0,0) and #ff0000 compare equal to each other and to the rules file.
+    currentColor stays literal here so _resolve can substitute the computed
+    color instead of dropping the fill.
+    """
     v = (val or "").strip().lower()
     if not v or v in ("none", "transparent") or v.startswith("url("):
         return None
-    return v
+    if v == "currentcolor":
+        return v
+    return L.normalize_color(v)
 
 
 # ---------------------------------------------------------------- CSS subset
@@ -132,7 +198,8 @@ def _colour(val):
 CSS_PROPS = ("fill", "stroke", "stroke-width", "color", "visibility",
              "fill-opacity", "stroke-opacity")
 CSS_DECLS_ALLOWED = {"fill", "stroke", "stroke-width", "stroke-linecap",
-                     "stroke-linejoin", "stroke-miterlimit", "fill-rule"}
+                     "stroke-linejoin", "stroke-miterlimit", "fill-rule",
+                     "color", "visibility", "fill-opacity", "stroke-opacity"}
 # Definitions are declared but never painted, and a display:none subtree is
 # equally absent from the picture. Counting either one inflates colours,
 # element count and colour area, so both are excluded from measurement.
@@ -148,10 +215,21 @@ def _own(el, key):
 
 
 def _is_zero(val):
-    try:
-        return float(str(val).strip()) == 0.0
-    except (TypeError, ValueError):
+    """0, 0.0, 0% and 0px are all zero; anything unparseable is not.
+
+    "0%" used to fall through the float() attempt and count as non-zero, so a
+    fully transparent fill-opacity="0%" still counted as ink.
+    """
+    if val is None:
         return False
+    s = str(val).strip().lower()
+    if s.endswith("%"):
+        s = s[:-1]
+        try:
+            return float(s) == 0.0
+        except ValueError:
+            return False
+    return _len(s) == 0.0
 
 
 def _chain(el, parents, pred):
@@ -374,10 +452,19 @@ def _measure(svg, canvas):
     els = [e for e in svg.iter() if _tag(e) in SHAPES and _visible(e)]
     colours, widths, per_colour, boxes = set(), set(), {}, []
     area_unknown, bbox_unknown, painted_shapes = {}, "", 0
+    widths_unknown = False
     for e in els:
         vals = comp.get(e, {})
-        fill, stroke = _colour(vals.get("fill")), _colour(vals.get("stroke"))
-        fill, stroke = _resolve(fill, vals), _resolve(stroke, vals)
+        raw_fill = vals.get("fill")
+        # An undeclared fill is black, not absent: a rect without a fill
+        # attribute is a black rect. Reading it as unpainted failed PAINTED and
+        # dropped the colour, while every renderer painted black. Spelled as hex
+        # because the rules files and the rest of the measurement use hex.
+        fill = _colour("#000000" if raw_fill is None else raw_fill)
+        if _tag(e) == "line":
+            fill = None          # a line has no interior; its fill never paints
+        stroke = _resolve(_colour(vals.get("stroke")), vals)
+        fill = _resolve(fill, vals)
         if fill and _is_zero(vals.get("fill-opacity")):
             fill = None
         if stroke and _is_zero(vals.get("stroke-opacity")):
@@ -385,25 +472,35 @@ def _measure(svg, canvas):
         for c in (fill, stroke):
             if c:
                 colours.add(c)
-        width = _f(vals.get("stroke-width"), 1.0)
-        if stroke:
-            widths.add(width)
+        raw_width = vals.get("stroke-width")
+        width = 1.0 if raw_width is None else _len(raw_width)
         moved = _transformed(e, parents)
         fill_area, perimeter = _geom(e)
+        # A path and a non-absolute length are both unmeasurable, but for
+        # different reasons; say which one instead of reporting "path" for a
+        # rect that declared width="50%".
+        why = "path" if _tag(e) == "path" else "unit"
         if fill:
             if fill_area is None:
-                area_unknown[fill] = "path"
+                area_unknown[fill] = why
             else:
                 painted = fill_area
-                if stroke and perimeter is not None:
+                if stroke and perimeter is not None and width is not None:
                     # Half the stroke band lies over the fill, so only the half
                     # outside adds painted area to the fill colour.
                     painted = max(0.0, fill_area - perimeter * width / 2.0)
                 per_colour[fill] = per_colour.get(fill, 0.0) + painted
         if stroke:
-            if perimeter is None:
-                area_unknown[stroke] = "path"
+            if width is None:
+                # A declared width the script cannot read (percent, em) must
+                # not silently become 1.0 and pass a 2pt rule.
+                widths_unknown = True
+                area_unknown[stroke] = "stroke-width"
+            elif perimeter is None:
+                area_unknown[stroke] = why
+                widths.add(width)
             else:
+                widths.add(width)
                 per_colour[stroke] = per_colour.get(stroke, 0.0) + perimeter * width
         if fill or stroke:
             painted_shapes += 1
@@ -413,7 +510,10 @@ def _measure(svg, canvas):
                 if c:
                     area_unknown[c] = "transform"
             continue
-        box = _bbox(e, width, bool(stroke))
+        if stroke and width is None:
+            bbox_unknown = bbox_unknown or "stroke-width"
+            continue
+        box = _bbox(e, width or 0.0, bool(stroke))
         if box:
             boxes.append(box)
         else:
@@ -433,9 +533,9 @@ def _measure(svg, canvas):
                     forbid[key] += 1
             elif e.tag == tag:
                 forbid[key] += 1
-        for attr in FORBID_ATTRS:
+        for attr, key in FORBID_ATTRS.items():
             if e.get(attr):
-                forbid["filter" if attr == "filter" else attr] += 1
+                forbid[key] += 1
     return {
         "elements": len(els),
         "painted": painted_shapes,
@@ -445,6 +545,7 @@ def _measure(svg, canvas):
         "style_rules": len(rules),
         "style_error": style_error,
         "stroke_widths": sorted(widths),
+        "stroke_widths_unmeasured": widths_unknown,
         "area_ratio": {k: round(v / total, 4) for k, v in sorted(per_colour.items())},
         "area_unmeasured": area_unknown,
         "bbox_unmeasured": bbox_unknown,
@@ -497,8 +598,51 @@ def main():
         if bad_span:
             raise L.ToolError("E-SCHEMA", "unknown elements keys: " + ", ".join(bad_span),
                               L.EXIT_USAGE)
+        for span_key in ("min", "max"):
+            if span_key in span_rules:
+                v = span_rules[span_key]
+                if isinstance(v, bool) or not isinstance(v, int):
+                    raise L.ToolError(
+                        "E-SCHEMA", "rules.elements.%s must be an integer" % span_key,
+                        L.EXIT_USAGE)
 
-    canvas = rules.get("canvas") or [240, 240]
+    # A malformed number used to raise ValueError while the checks were being
+    # built, and the CLI reported the crash as E-INTERNAL (exit 4). A bad rules
+    # file is a usage error: name the key and exit 2 before measuring anything.
+    def _num_ok(v):
+        return not isinstance(v, bool) and isinstance(v, (int, float))
+
+    def _need_num(key, values):
+        if not all(_num_ok(v) for v in values):
+            raise L.ToolError("E-SCHEMA", "rules.%s must be numeric" % key, L.EXIT_USAGE)
+
+    canvas = rules.get("canvas")
+    if canvas is None:
+        canvas = [240, 240]
+    if not (isinstance(canvas, list) and len(canvas) == 2):
+        raise L.ToolError("E-SCHEMA", "rules.canvas must be [width, height]", L.EXIT_USAGE)
+    _need_num("canvas", canvas)
+    if rules.get("colors_max") is not None:
+        cm = rules["colors_max"]
+        if isinstance(cm, bool) or not isinstance(cm, int) or cm < 0:
+            raise L.ToolError("E-SCHEMA", "rules.colors_max must be a non-negative integer",
+                              L.EXIT_USAGE)
+    if rules.get("area_ratio_max") is not None:
+        if not isinstance(rules["area_ratio_max"], dict):
+            raise L.ToolError("E-SCHEMA", "rules.area_ratio_max must be an object",
+                              L.EXIT_USAGE)
+        _need_num("area_ratio_max", list(rules["area_ratio_max"].values()))
+    if rules.get("stroke_widths_allowed") is not None:
+        if not isinstance(rules["stroke_widths_allowed"], list):
+            raise L.ToolError("E-SCHEMA", "rules.stroke_widths_allowed must be a list",
+                              L.EXIT_USAGE)
+        _need_num("stroke_widths_allowed", rules["stroke_widths_allowed"])
+    if rules.get("bbox_margin_min") is not None:
+        _need_num("bbox_margin_min", [rules["bbox_margin_min"]])
+    for list_key in ("colors_allowed", "types_allowed"):
+        if rules.get(list_key) is not None and not isinstance(rules[list_key], list):
+            raise L.ToolError("E-SCHEMA", "rules.%s must be a list" % list_key, L.EXIT_USAGE)
+
     try:
         root = ET.fromstring(svg_path.read_text(encoding="utf-8"))
     except Exception as e:                      # noqa: BLE001
@@ -526,9 +670,12 @@ def main():
     if not m["painted"]:
         check("PAINTED", False, "at least one visible shape", "no visible ink")
 
-    vb = (root.get("viewBox") or "").split()
+    # viewBox allows commas and any whitespace between the four numbers, and a
+    # comma form used to collapse into one unparseable token and go red.
+    vb = [t for t in re.split(r"[\s,]+", (root.get("viewBox") or "").strip()) if t]
     if vb:
-        check("CANVAS", [round(_f(x), 2) for x in vb] == [0.0, 0.0, float(canvas[0]), float(canvas[1])],
+        want_vb = [0.0, 0.0, float(canvas[0]), float(canvas[1])]
+        check("CANVAS", [_len(x) for x in vb] == want_vb,
               "viewBox 0 0 %d %d" % (canvas[0], canvas[1]), " ".join(vb))
     else:
         # The rule is written as a viewBox. Without one the canvas cannot be
@@ -536,10 +683,13 @@ def main():
         check("CANVAS", False, "viewBox 0 0 %d %d" % (canvas[0], canvas[1]), "no viewBox")
     for key in ("width", "height"):
         if root.get(key):
-            check("CANVAS-" + key.upper(), _f(root.get(key)) == float(canvas[0 if key == "width" else 1]),
+            want = float(canvas[0 if key == "width" else 1])
+            check("CANVAS-" + key.upper(), _len(root.get(key)) == want,
                   str(canvas[0 if key == "width" else 1]), root.get(key))
 
-    allowed = {c.lower() for c in rules.get("colors_allowed", [])}
+    # Colors compare after normalization, the same one _measure applies, so a
+    # #F00 fill matches a #ff0000 rule instead of failing on spelling.
+    allowed = {c for c in (_colour(x) for x in rules.get("colors_allowed", [])) if c}
     if allowed:
         extra = sorted(set(m["colours"]) - allowed)
         check("COLOUR-ALLOWED", not extra, "colours within " + ",".join(sorted(allowed)),
@@ -548,8 +698,9 @@ def main():
         check("COLOUR-COUNT", len(m["colours"]) <= int(rules["colors_max"]),
               "<= %d colours" % int(rules["colors_max"]), str(len(m["colours"])))
     for colour, cap in (rules.get("area_ratio_max") or {}).items():
-        got = m["area_ratio"].get(colour.lower(), 0.0)
-        why = m["area_unmeasured"].get(colour.lower(), "")
+        key = _colour(colour) or str(colour).strip().lower()
+        got = m["area_ratio"].get(key, 0.0)
+        why = m["area_unmeasured"].get(key, "")
         if why:
             # A cap on a colour whose coverage this script cannot compute is
             # not a pass. Reporting 0.0 here was the worst false green found in
@@ -562,8 +713,15 @@ def main():
                   "%s area <= %.4f" % (colour.lower(), float(cap)), "%.4f" % got)
     if rules.get("stroke_widths_allowed") is not None:
         want = sorted({float(v) for v in rules["stroke_widths_allowed"]})
-        check("STROKE-WIDTHS", m["stroke_widths"] == want,
-              "stroke widths " + str(want), str(m["stroke_widths"]))
+        if m["stroke_widths_unmeasured"]:
+            # A declared width in % or em used to be read as the SVG default of
+            # 1.0, so a 2px stroke measured as 1 and failed a 2pt rule while a
+            # 1pt rule passed. Unmeasurable is a failure, not a guess.
+            check("STROKE-WIDTHS", False, "stroke widths " + str(want),
+                  "unmeasurable: a declared stroke-width is not absolute")
+        else:
+            check("STROKE-WIDTHS", m["stroke_widths"] == want,
+                  "stroke widths " + str(want), str(m["stroke_widths"]))
     if rules.get("types_allowed") is not None:
         want = sorted(rules["types_allowed"])
         check("ELEMENT-TYPES", m["types"] == want, "types " + str(want), str(m["types"]))

@@ -1,6 +1,7 @@
 {
   "schema": "vector-ai-studio/fixtures-v1",
   "note": "Good cases exercise the pure-script chain and compliant acceptance-log samples; bad cases must hit the expected E-* codes. JSON samples labelled non-real-machine are validator regression inputs, never proof of a real pass. @F@ = fixtures dir, @OUT@ = temp out dir.",
+  "cases_expected": 24,
   "cases": [
     {
       "id": "good-freeze-spec",

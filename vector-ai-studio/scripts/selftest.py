@@ -43,7 +43,22 @@ CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 # --fixtures. Declared rather than asserted-in-prose because two rounds lost
 # ten assertions to a bad block extraction and the only thing that noticed was
 # a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 70
+EXPECTED_ASSERTIONS = 75
+
+# Assertions that may skip on a machine without an optional capability:
+# vectorcraft-cli (A30, A31) and Pillow (A42-A46, A53). A skip is honest only
+# where one of those two is genuinely absent; anything else skipping is a bug
+# stepping out of sight, so A76 turns an undeclared skip red.
+CAPABILITY_SKIPS = {
+    "A30-vectorcraft-chain-h1-h2",
+    "A31-deliverable-schema-no-drift",
+    "A42-delight-flattens-lighting",
+    "A43-export-print-dimensions",
+    "A44-trace-ref-contract",
+    "A45-uniform-error-envelope",
+    "A46-craft-only-landing",
+    "A53-legibility-fails-what-the-eye-misses",
+}
 
 
 def _call(name, args, cwd, flags=()):
@@ -216,7 +231,7 @@ def _schema_diff(doc, schema, check_missing=True, optional=()):
 
 
 def _check_conformance(tmp, add):
-    """A56, A59, A61-A71: the mechanical half of brief conformance.
+    """A56, A59, A61-A75: the mechanical half of brief conformance.
 
     Extracted from main() so this block can be read and changed without
     scrolling past two thousand lines of unrelated assertions. It owns no
@@ -225,7 +240,9 @@ def _check_conformance(tmp, add):
     _check_failed_dimension and _check_empty_review_sheet, and only their
     execution order (A54, A55, then this) puts them next to each other.
     A68-A70 are the r67 additions: stroke ink, a picture with no ink, and
-    the three shipped examples.
+    the three shipped examples. A72-A75 are the r69 additions: unmeasurable
+    lengths, colour identity and default fill, SVG syntax variants, and
+    malformed rule numbers.
     """
     # ---- A56: brief conformance is checked, and unchecked rules stay visible --
     # The review sheet cannot judge need-fit (no brief is shown to reviewers), so
@@ -868,6 +885,187 @@ def _check_conformance(tmp, add):
             + " colours=" + str(_m71.get("colours")) + " bad=" + str(_bad71))
     except Exception as e:                      # noqa: BLE001
         add("A71-one-inline-style-parser", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A72: a length the script cannot read is not zero --------------------
+    # The old _f() returned 0.0 for "50%" and the default 1.0 for "2px", so a
+    # half-canvas rect passed a 1% area cap and a 2px stroke failed a 2pt rule.
+    # A percentage stays unmeasurable (and fails a cap); px and the absolute CSS
+    # units convert; an unreadable declared width fails the width rule.
+    try:
+        _d72 = tmp / "a72"
+        _d72.mkdir()
+
+        def _run72(name, attrs, body, rules):
+            _svg = _d72 / (name + ".svg")
+            _rp = _d72 / (name + ".json")
+            _svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" ' + attrs + ">"
+                            + body + "</svg>", encoding="utf-8")
+            _rp.write_text(json.dumps(rules), encoding="utf-8")
+            _rc, _env, _ = _call("conformance.py", ["--svg", str(_svg), "--rules",
+                                                    str(_rp), "--json"], tmp)
+            _dat = _env.get("data") or {}
+            return (_rc, _dat.get("measured") or {},
+                    [c.get("id") for c in _dat.get("checks") or [] if not c.get("ok")])
+        _b72 = {"schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240]}
+        _rc72a, _m72a, _bad72a = _run72(
+            "percent", 'viewBox="0 0 240 240"',
+            '<rect x="0" y="0" width="50%" height="100%" fill="#111111"/>',
+            dict(_b72, area_ratio_max={"#111111": 0.01}))
+        _rc72b, _m72b, _bad72b = _run72(
+            "px", 'viewBox="0 0 240 240"',
+            '<rect x="20" y="20" width="200" height="200" fill="none"'
+            ' stroke="#111111" stroke-width="2px"/>',
+            dict(_b72, stroke_widths_allowed=[2]))
+        _rc72c, _m72c, _bad72c = _run72(
+            "em", 'viewBox="0 0 240 240"',
+            '<rect x="20" y="20" width="200" height="200" fill="none"'
+            ' stroke="#111111" stroke-width="2em"/>',
+            dict(_b72, stroke_widths_allowed=[2]))
+        add("A72-unmeasurable-length-is-not-zero",
+            bool(_rc72a == 1 and _bad72a == ["AREA-111111"]
+                 and _m72a.get("area_unmeasured") == {"#111111": "unit"}
+                 and _rc72b == 0 and not _bad72b
+                 and _m72b.get("stroke_widths") == [2.0]
+                 and _rc72c == 1 and _bad72c == ["STROKE-WIDTHS"]
+                 and _m72c.get("stroke_widths_unmeasured") is True),
+            "percent_rc=" + str(_rc72a) + " why=" + str(_m72a.get("area_unmeasured"))
+            + " px_rc=" + str(_rc72b) + " widths=" + str(_m72b.get("stroke_widths"))
+            + " em_rc=" + str(_rc72c) + " em_bad=" + str(_bad72c))
+    except Exception as e:                      # noqa: BLE001
+        add("A72-unmeasurable-length-is-not-zero", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A73: colour identity, default fill, and 0% opacity ------------------
+    # #F00 and rgb(255,0,0) are the same paint as #ff0000 and used to fail an
+    # allowed-set written in hex. An undeclared fill is black, not absent, and
+    # fill-opacity="0%" is zero ink. A <line> has no interior, so its default
+    # fill must not add a colour a renderer would never show.
+    try:
+        _d73 = tmp / "a73"
+        _d73.mkdir()
+
+        def _run73(name, body, rules):
+            _svg = _d73 / (name + ".svg")
+            _rp = _d73 / (name + ".json")
+            _svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+                            + body + "</svg>", encoding="utf-8")
+            _rp.write_text(json.dumps(rules), encoding="utf-8")
+            _rc, _env, _ = _call("conformance.py", ["--svg", str(_svg), "--rules",
+                                                    str(_rp), "--json"], tmp)
+            _dat = _env.get("data") or {}
+            return (_rc, _dat.get("measured") or {},
+                    [c.get("id") for c in _dat.get("checks") or [] if not c.get("ok")])
+        _b73 = {"schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240]}
+        _rc73a, _m73a, _bad73a = _run73(
+            "short-hex", '<rect x="20" y="20" width="200" height="200" fill="#F00"/>',
+            dict(_b73, colors_allowed=["#ff0000"]))
+        _rc73b, _m73b, _bad73b = _run73(
+            "rgb", '<rect x="20" y="20" width="200" height="200" fill="rgb(255, 0, 0)"/>',
+            dict(_b73, colors_allowed=["#ff0000"]))
+        _rc73c, _m73c, _bad73c = _run73(
+            "default-fill", '<rect x="20" y="20" width="200" height="200"/>',
+            dict(_b73, colors_allowed=["#000000"]))
+        _rc73d, _m73d, _bad73d = _run73(
+            "zero-percent", '<rect x="20" y="20" width="200" height="200"'
+                            ' fill="#111111" fill-opacity="0%"/>', dict(_b73))
+        _rc73e, _m73e, _bad73e = _run73(
+            "line", '<line x1="20" y1="120" x2="220" y2="120" stroke="#111111"'
+                    ' stroke-width="4"/>',
+            dict(_b73, colors_allowed=["#111111"], colors_max=1))
+        add("A73-colour-identity-and-default-fill",
+            bool(_rc73a == 0 and not _bad73a and _m73a.get("colours") == ["#ff0000"]
+                 and _rc73b == 0 and not _bad73b and _m73b.get("colours") == ["#ff0000"]
+                 and _rc73c == 0 and not _bad73c and _m73c.get("colours") == ["#000000"]
+                 and _m73c.get("painted") == 1
+                 and _rc73d == 1 and _bad73d == ["PAINTED"] and _m73d.get("painted") == 0
+                 and _rc73e == 0 and not _bad73e and _m73e.get("colours") == ["#111111"]),
+            "hex=" + str(_m73a.get("colours")) + " rgb=" + str(_m73b.get("colours"))
+            + " default=" + str(_m73c.get("colours"))
+            + " zero_rc=" + str(_rc73d) + " zero_bad=" + str(_bad73d)
+            + " line=" + str(_m73e.get("colours")) + " " + str(_bad73e))
+    except Exception as e:                      # noqa: BLE001
+        add("A73-colour-identity-and-default-fill", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A74: the syntax variants a real file uses ---------------------------
+    # Space-separated points crashed with IndexError; a comma viewBox and a
+    # "240px" root size went red on a legal file; a clip-path attribute raised
+    # KeyError in the forbid counter. Percent pairs are unmeasurable, not zero.
+    try:
+        _d74 = tmp / "a74"
+        _d74.mkdir()
+
+        def _run74(name, attrs, body, rules):
+            _svg = _d74 / (name + ".svg")
+            _rp = _d74 / (name + ".json")
+            _svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" ' + attrs + ">"
+                            + body + "</svg>", encoding="utf-8")
+            _rp.write_text(json.dumps(rules), encoding="utf-8")
+            _rc, _env, _ = _call("conformance.py", ["--svg", str(_svg), "--rules",
+                                                    str(_rp), "--json"], tmp)
+            _dat = _env.get("data") or {}
+            return (_rc, _dat.get("measured") or {},
+                    [c.get("id") for c in _dat.get("checks") or [] if not c.get("ok")])
+        _b74 = {"schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240]}
+        _rc74a, _m74a, _bad74a = _run74(
+            "points-space", 'viewBox="0 0 240 240"',
+            '<polygon points="20 20 220 20 220 220" fill="#111111"/>',
+            dict(_b74, colors_allowed=["#111111"], bbox_margin_min=10))
+        _rc74b, _m74b, _bad74b = _run74(
+            "comma-px", 'viewBox="0,0,240,240" width="240px" height="240px"',
+            '<rect x="20" y="20" width="200" height="200" fill="#111111"/>', dict(_b74))
+        _rc74c, _m74c, _bad74c = _run74(
+            "clip-path-attr", 'viewBox="0 0 240 240"',
+            '<rect x="20" y="20" width="200" height="200" fill="#111111"'
+            ' clip-path="url(#c)"/>', dict(_b74, forbid=["clipPath"]))
+        _rc74d, _m74d, _bad74d = _run74(
+            "points-percent", 'viewBox="0 0 240 240"',
+            '<polygon points="10%,20% 30%,40% 50%,20%" fill="#111111"/>',
+            dict(_b74, area_ratio_max={"#111111": 0.5}))
+        add("A74-syntax-variants-are-measured",
+            bool(_rc74a == 0 and not _bad74a
+                 and _m74a.get("area_ratio") == {"#111111": 0.3472}
+                 and _rc74b == 0 and not _bad74b
+                 and _rc74c == 1 and _bad74c == ["FORBID-CLIPPATH"]
+                 and _rc74d == 1 and _bad74d == ["AREA-111111"]),
+            "space=" + str(_m74a.get("area_ratio")) + " " + str(_bad74a)
+            + " comma=" + str(_rc74b) + " " + str(_bad74b)
+            + " clip=" + str(_bad74c) + " pct=" + str(_bad74d))
+    except Exception as e:                      # noqa: BLE001
+        add("A74-syntax-variants-are-measured", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+    # ---- A75: a malformed rule number is a usage error, not a crash ----------
+    # int("two") inside the check builder raised ValueError, which the CLI
+    # reported as E-INTERNAL (exit 4). A bad rules file must name the key and
+    # exit 2, the same as every other rules-schema failure.
+    try:
+        _d75 = tmp / "a75"
+        _d75.mkdir()
+        _svg75 = _d75 / "ok.svg"
+        _svg75.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">'
+            '<rect x="20" y="20" width="200" height="200" fill="#111111"'
+            ' stroke="#111111" stroke-width="2"/></svg>', encoding="utf-8")
+
+        def _run75(name, extra):
+            _rp = _d75 / (name + ".json")
+            _doc = {"schema": "vector-ai-studio/conformance-v1", "canvas": [240, 240]}
+            _doc.update(extra)
+            _rp.write_text(json.dumps(_doc), encoding="utf-8")
+            _rc, _env, _ = _call("conformance.py", ["--svg", str(_svg75), "--rules",
+                                                    str(_rp), "--json"], tmp)
+            return _rc, _codes(_env)
+        _c75 = [_run75("colors_max", {"colors_max": "two"}),
+                _run75("cap", {"area_ratio_max": {"#111111": "lots"}}),
+                _run75("width", {"stroke_widths_allowed": ["thick"]}),
+                _run75("span", {"elements": {"min": "2"}})]
+        add("A75-malformed-rule-numbers-exit-2",
+            all(rc == 2 and "E-SCHEMA" in codes for rc, codes in _c75),
+            "runs=" + str(_c75))
+    except Exception as e:                      # noqa: BLE001
+        add("A75-malformed-rule-numbers-exit-2", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
@@ -3380,14 +3578,27 @@ def main():
         add("A13-fixtures-regression", frc == 0 and fenv.get("data", {}).get("all_ok") is True,
             "exit=" + str(frc))
 
+    # A76: a skip is only honest for a declared capability. CI accepts exit 3
+    # (capability missing), so an assertion that starts skipping for any other
+    # reason would otherwise hide behind a green run; this names it.
+    _skips = [x["id"] for x in a if x.get("skipped")]
+    _extra_skips = sorted(set(_skips) - CAPABILITY_SKIPS)
+    add("A76-capability-skips-are-declared", not _extra_skips,
+        "skipped=" + (",".join(_skips) or "none")
+        + (" undeclared=" + ",".join(_extra_skips) if _extra_skips else ""))
+
     # A60: the suite must not silently lose an assertion. This counts itself,
     # so the declared number and the observed one are compared on equal terms:
     # a dropped block, a duplicated block or a stale EXPECTED_ASSERTIONS all
-    # land here instead of in a human's head.
+    # land here instead of in a human's head. Counting alone missed the
+    # delete-one-duplicate-another case (r69 audit), so ids must also be unique.
     _expected = EXPECTED_ASSERTIONS + (1 if args.fixtures else 0)
     _ran = len(a) + 1
-    add("A60-assertion-count-declared", _ran == _expected,
-        "declared=" + str(_expected) + " ran=" + str(_ran))
+    _ids = [r["id"] for r in a]
+    _dup = sorted({i for i in _ids if _ids.count(i) > 1})
+    add("A60-assertion-count-declared", _ran == _expected and not _dup,
+        "declared=" + str(_expected) + " ran=" + str(_ran)
+        + (" duplicated=" + ",".join(_dup) if _dup else ""))
 
     passed = sum(1 for x in a if x["ok"] is True)
     skipped = [x["id"] for x in a if x.get("skipped")]
@@ -3403,6 +3614,7 @@ def main():
         "status": "fail" if failed else ("partial" if skipped else "ok"),
         "run_id": rid,
         "passed": passed, "failed": len(failed), "skipped": skipped,
+        "capability_skips": sorted(CAPABILITY_SKIPS),
         "partial": bool(skipped),
         "assertions": a,
         "chain": chain,

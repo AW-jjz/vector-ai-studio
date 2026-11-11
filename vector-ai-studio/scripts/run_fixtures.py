@@ -37,6 +37,17 @@ def main():
         raise L.ToolError("E-SCHEMA", "malformed fixtures.json: " + str(e), L.EXIT_USAGE)
     if fx.get("schema") != FIX_SCHEMA or not isinstance(fx.get("cases"), list):
         raise L.ToolError("E-SCHEMA", "fixtures.json schema/cases invalid", L.EXIT_USAGE)
+    # A truncated definition used to report total=0, all_ok=true and exit 0 --
+    # a green run over no cases. The expected count is declared in the file
+    # (like EXPECTED_ASSERTIONS in selftest.py) so a shrink is visible.
+    want_total = fx.get("cases_expected")
+    if isinstance(want_total, bool) or not isinstance(want_total, int):
+        raise L.ToolError("E-SCHEMA", "fixtures.json must declare cases_expected",
+                          L.EXIT_USAGE)
+    if len(fx["cases"]) != want_total:
+        raise L.ToolError(
+            "E-SCHEMA", "fixtures.json has %d cases, declared %d"
+            % (len(fx["cases"]), want_total), L.EXIT_USAGE)
 
     fdir = fx_path.parent
     tmp = Path(tempfile.mkdtemp(prefix="vector-ai-fixtures-"))

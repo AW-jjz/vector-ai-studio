@@ -382,14 +382,17 @@ def main():
     h3_reason = "no selftest.json next to the run artifacts"
     # Assertions that legitimately may not run on a given machine. A skip in
     # anything NOT listed here means a guard silently did not run, which must
-    # not be able to pass as H3. Keep this list explicit: a policy that lives
-    # inside a counting formula cannot be reviewed.
+    # not be able to pass as H3. The list is declared once, in selftest.py
+    # (CAPABILITY_SKIPS), and travels in its log as capability_skips; a log
+    # without that field allows no skip at all, which fails closed instead of
+    # forcing this file to keep a second copy of the policy in sync.
     #
     # Registration condition: the capability itself is optional (an engine or an
-    # external binary that may legitimately be absent). Never add an assertion
-    # here to make a run go green -- that turns a guard into decoration.
-    OPTIONAL_ASSERTIONS = ("A30-vectorcraft-chain-h1-h2",
-                           "A31-deliverable-schema-no-drift")
+    # external library that may legitimately be absent). Never add an assertion
+    # to selftest.CAPABILITY_SKIPS to make a run go green -- that turns a guard
+    # into decoration.
+    _logged = selftest_log if isinstance(selftest_log, dict) else {}
+    OPTIONAL_ASSERTIONS = tuple(_logged.get("capability_skips") or ())
     if isinstance(selftest_log, dict):
         n_pass = selftest_log.get("passed")
         n_fail = selftest_log.get("failed")

@@ -4,6 +4,30 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.3.0 — 2026-11-11 [r69]
+
+- Second audit round, run by independent subagents against the shipped
+  package. `scripts/conformance.py` no longer crashes on a `clip-path`
+  attribute or on space-separated `points`, and a malformed rules number exits
+  2 with `E-SCHEMA` instead of 4 with `E-INTERNAL`.
+- Lengths: `%` and `em` are unmeasurable instead of 0, `px`/`pt`/`mm`/`cm`/`in`
+  convert to user units, and an unreadable declared `stroke-width` fails
+  `STROKE-WIDTHS` instead of being read as the 1.0 default.
+- Colours are normalized through `lib_common.normalize_color`, so `#F00` and
+  `rgb()` match a hex rule; an undeclared fill counts as `#000000`;
+  `fill-opacity="0%"` is zero ink; a `<line>` never contributes a fill colour.
+- SVG syntax: comma `viewBox`, `"240px"` root sizes, space-separated `points`
+  and a `clip-path` attribute are measured instead of going red or crashing.
+- `scripts/selftest.py`: A72-A75 pin the above, A76 allows skips only for
+  declared capabilities, and A60 also rejects duplicate assertion ids.
+- `scripts/run_fixtures.py`: the declared `cases_expected` makes a truncated
+  definition fail with `E-SCHEMA` instead of reporting a clean empty run.
+- `scripts/aggregate_log.py`: H3 reads the allowed skip list from the selftest
+  log (`capability_skips`) instead of keeping a second, stale copy.
+- Examples: the coffee ring is r=77 (inner diameter 144, as the brief states),
+  the bookshop spine is 8px (under the 4% cap), and the devtool trend line
+  passes through the tops of the four columns and extends past the last one.
+
 ## 1.2.0 — 2026-11-11 [r68]
 
 - One inline-style parser: `lib_common.parse_style` is now the only

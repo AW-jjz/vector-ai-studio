@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.2.0
+version: 1.3.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.2.0"
+  version: "1.3.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -99,7 +99,7 @@ python scripts/deal.py --spec path/to/run/spec.json --out path/to/run/deal.json 
 python scripts/sanitize_svg.py --in path/to/round/draft.svg --out path/to/round/sanitized.svg
 ```
 
-确定性检出位图、XML 错误、禁用构造、退化路径并计数语义分组。违规即显式报错退回重生成，不擅自删改语义元素（删改会破坏 A 项命中，语义改稿归 LLM）。带 `--prev` 时比对通过项结构，改动则输出 `E-REGRESSION` 并要求重生成。
+确定性检出位图、XML 错误、禁用构造、退化路径并计数语义分组。违规即显式报错退回重生成，不擅自删改语义元素（删改会破坏 A 项命中，语义改稿归 LLM）。带 `--prev` 时比对通过项结构；改动只在 `warnings` 里写 `E-REGRESSION` 并要求重生成，不改变退出码（净化本身已通过）。
 
 ### 步 4 渲染预览（C2 / C3）
 
@@ -132,7 +132,7 @@ python scripts/conformance.py --svg path/to/round/sanitized.svg \
 
 判定只看规则文件里写了的项，没写的进 `unchecked`，不把「没检查」显示成「通过」。有任一检查失败即 `E-CONFORMANCE` 退出 1，逐条列出 id 与实测值。语义层（「不要画咖啡豆」到底画没画）它判不了，仍归人。
 
-**素材走两条通道，都不建库。** 参考素材（风格、构图、质感参照）只进账本、不进产物；要进产物的构件必须有 URL、许可、许可声明页与核实日期，外加对应元素 id，账本模板是 `templates/source-ledger.json`。规则文件里加 `source_ledger` 指向账本、`licenses_allowed` 列可接受许可后，脚本会查五件事：带 `data-source` 的元素必须在账本里有条目、产出条目的许可必须在白名单内、账本写的元素 id 必须真的存在于 SVG、非 `own` 条目必须给出 `license_source`（许可声明页，不是素材下载页）、`license_verified_at` 必须是合法 `YYYY-MM-DD`。
+**素材走两条通道，都不建库。** 参考素材（风格、构图、质感参照）只进账本、不进产物；要进产物的构件必须有 URL、许可、许可声明页与核实日期，外加对应元素 id，账本模板是 `templates/source-ledger.json`。规则文件里加 `source_ledger` 指向账本、`licenses_allowed` 列可接受许可后，脚本会查六件事：每个条目必须具备 `channel`/`license`/`fetched`/`use` 四个字段、带 `data-source` 的元素必须在账本里有条目、产出条目的许可必须在白名单内、账本写的元素 id 必须真的存在于 SVG、非 `own` 条目必须给出 `license_source`（许可声明页，不是素材下载页）、`license_verified_at` 必须是合法 `YYYY-MM-DD`。
 
 `licenses_allowed` 用显式许可名（cc0、mit、cc-by-4.0、ofl-1.1 …），不要写 `commercial`——那是用途不是许可，会把需署名与免署名混成一类。`own` 条目豁免后两项：自产内容没有对外许可声明页，强制填 URL 只会逼人编造。过期复核不进脚本：判「是否过期」需要当天日期，同一输入一年后结果不同，那是人的复核动作，不是闸门。站点选择与核实方法见 `references/sources-whitelist.md`。
 
@@ -335,7 +335,7 @@ python scripts/conformance.py --svg path/to/round/sanitized.svg \
   --rules path/to/brief/conformance.json --out path/to/round/conformance.json
 ```
 
-`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过；反过来，写了但脚本不认识的键也不忽略——拼错的键名、编造的 `forbid` 构造名、`elements` 里的多余子键一律报 `E-SCHEMA` 退出 2，画板缺 `viewBox`、或图上没有可测量几何时对应规则判失败而不是跳过。只量真正会画出来的东西：`<defs>` / `<symbol>` 等定义、`display="none"` 子树、`visibility:hidden`、`opacity="0"`、`fill-opacity="0"` 一律不计入颜色、面积与图元数。`currentColor` 按 `color` 解析，未声明 `color` 时保留字面量。面积与留白遇到算不出的几何——`path` 的面积、带 `transform` 的位置——判「unmeasurable」并写明原因，不拿 0 或未变换坐标冒充结果；`area_unmeasured` / `bbox_unmeasured` 记录原因。颜色与描边按 CSS 继承取值：写在根 `<svg>` 上的 presentation attribute 与内联 `style=""` 都会向下继承，同元素上 `style` 压过属性，显式 `none` 终止继承。`<style>` 样式表按一套写明的最小 CSS 子集真正生效：选择器限类型 / 类 / ID 的组合，加后代与子代组合；声明限 `fill` / `stroke` / `stroke-width`（另放行四个不参与测量的描边属性）；级联顺序为 `!important` > 内联 `style` > 样式表 > presentation attribute，三个属性都向下继承。子集之外的任何写法——伪类、属性选择器、`@` 规则、`media`、未放行的属性——整份表拒绝并判 `STYLE-SHEETS` 失败，不半套应用：半套应用量出来的是没渲染过的数。命中规则数记在 `measured.style_rules`。描边按墨量计：`周长 × stroke-width`；同元素填充与描边并存时，填充色扣掉描边带压在填充上的内侧半幅（`周长 × width / 2`），接缝与端帽不计，椭圆周长用 Ramanujan 近似，`path` 仍判 unmeasurable。整张图没有任何可见墨量（`measured.painted == 0`，例如全透明）判 `PAINTED` 失败。
+`scripts/deal.py` 与 `scripts/legibility.py` 都不画画也不打分：前者从原型 / 色板 / 构图上发牌并排除最近两轮，后者读 PNG 报 `LOW-CONTRAST` / `COLLAPSED` / `MUD` 三条硬门。两者都带 `--json` 标准信封，退出码沿用 0/1/3 约定。`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过；反过来，写了但脚本不认识的键也不忽略——拼错的键名、编造的 `forbid` 构造名、`elements` 里的多余子键一律报 `E-SCHEMA` 退出 2，画板缺 `viewBox`、或图上没有可测量几何时对应规则判失败而不是跳过。只量真正会画出来的东西：`<defs>` / `<symbol>` 等定义、`display="none"` 子树、`visibility:hidden`、`opacity="0"`、`fill-opacity="0"` 一律不计入颜色、面积与图元数。`currentColor` 按 `color` 解析，未声明 `color` 时保留字面量。面积与留白遇到算不出的几何——`path` 的面积、带 `transform` 的位置——判「unmeasurable」并写明原因，不拿 0 或未变换坐标冒充结果；`area_unmeasured` / `bbox_unmeasured` 记录原因。颜色与描边按 CSS 继承取值：写在根 `<svg>` 上的 presentation attribute 与内联 `style=""` 都会向下继承，同元素上 `style` 压过属性，显式 `none` 终止继承。`<style>` 样式表按一套写明的最小 CSS 子集真正生效：选择器限类型 / 类 / ID 的组合，加后代与子代组合；声明限 `fill` / `stroke` / `stroke-width`（另放行四个不参与测量的描边属性）；级联顺序为 `!important` > 内联 `style` > 样式表 > presentation attribute，三个属性都向下继承。子集之外的任何写法——伪类、属性选择器、`@` 规则、`media`、未放行的属性——整份表拒绝并判 `STYLE-SHEETS` 失败，不半套应用：半套应用量出来的是没渲染过的数。命中规则数记在 `measured.style_rules`。描边按墨量计：`周长 × stroke-width`；同元素填充与描边并存时，填充色扣掉描边带压在填充上的内侧半幅（`周长 × width / 2`），接缝与端帽不计，椭圆周长用 Ramanujan 近似，`path` 仍判 unmeasurable。长度按绝对单位读：无单位、`px`、`pt`、`mm`、`cm`、`in` 换算成用户单位；`%` 与 `em` 判 unmeasurable 而不是 0，声明了却读不出的 `stroke-width` 判 `STROKE-WIDTHS` 失败，不按默认 1.0 计。颜色先归一再比较（`#F00`、`rgb(255,0,0)`、`#ff0000` 等价）；未声明 `fill` 按 `#000000` 计（`<line>` 没有内部，不计填充）；`fill-opacity="0%"` 按 0 计。`viewBox` 接受逗号分隔，根 `width`/`height` 接受带单位写法。规则文件里的非数值（`colors_max: "two"`、面积上限写成字符串）报 `E-SCHEMA` 退出 2，不再以 `E-INTERNAL` 崩溃。整张图没有任何可见墨量（`measured.painted == 0`，例如全透明）判 `PAINTED` 失败。
 
 ### 判读、打分与收敛
 
@@ -385,7 +385,7 @@ python scripts/export_print.py --in art.ai --out print.jpg --height-mm 300 --dpi
 - **出血是内容延展，不是四边填白。** 默认 `--bleed-mode extend` 把边缘像素镜像出去，
   满版稿裁切后不会露白线；白底 logo 用 `--bleed-mode white` 才是纯白边。
   误用 white 会在非白底稿四周留下白线，这是第 23 轮 QA 查出来的真问题。
-- **三个新脚本与既有 14 个脚本同契约**：统一 `L.run_cli`，损坏输入返回
+- **全部 26 个脚本同契约**：统一 `L.run_cli`，损坏输入返回
   `code=4` 的 JSON envelope，不吐 traceback（`delight`/`export_print` 报 `E-INTERNAL`，`trace_ref` 报 `E-TRACE`）。
 
 ### 路线 C：只用 VectorCraft（默认推荐，不依赖 Adobe）
@@ -427,7 +427,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 
 ## 输出规范
 
-四件产物落在运行期目录，**默认在技能包之外**：`~/.vector-ai-studio/output/<run-id>/`，可用环境变量 `VECTOR_AI_STUDIO_OUT` 覆盖。包内不留任何运行期文件，打 zip 不会带出测试残留。
+五件产物落在运行期目录，**默认在技能包之外**：`~/.vector-ai-studio/output/<run-id>/`，可用环境变量 `VECTOR_AI_STUDIO_OUT` 覆盖。包内不留任何运行期文件，打 zip 不会带出测试残留。
 
 ```
 ~/.vector-ai-studio/output/<run-id>/final.ai
@@ -448,7 +448,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 
 ## 降级与边界
 
-- L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），仍按 §7.3 机械比较得出「不达标」、不引入额外档位；强制 degraded / needs_human_review / reason 为 capability_missing、首行「语义 / 构图判读未取证，需人工终审」；四件产物含原生 `.ai` 照常落盘、交付不阻断；L3 商业增强需用户自行提供凭据；L4 依赖缺失；L5 无风格参考时 E 记 N/A。
+- L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），仍按 §7.3 机械比较得出「不达标」、不引入额外档位；强制 degraded / needs_human_review / reason 为 capability_missing、首行「语义 / 构图判读未取证，需人工终审」；五件产物含原生 `.ai` 照常落盘、交付不阻断；L3 商业增强需用户自行提供凭据；L4 依赖缺失；L5 无风格参考时 E 记 N/A。
 - VectorCraft CLI 缺失：L4 全自动降级，H1 判不达标，仅交付净化 SVG 与 PNG 并标注「非原生 `.ai`」，`substitute` 写明安装方式或 `VECTORCRAFT_CLI`。不存在半自动兜底路径（r45 起移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
 
 ## 注意事项

@@ -7,7 +7,7 @@
     <rect x="192" y="60" width="28" height="132" fill="#111111"/>
   </g>
   <g id="trend-line">
-    <line x1="62" y1="126" x2="206" y2="54" stroke="#1f4fd8" stroke-width="4"/>
+    <line x1="62" y1="132" x2="226" y2="50" stroke="#1f4fd8" stroke-width="4"/>
   </g>
   <g id="base-rule">
     <rect x="48" y="204" width="172" height="4" fill="#111111"/>

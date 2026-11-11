@@ -126,7 +126,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 
 ## 阈值校准白名单与审批流
 
-- 可校准（仅限几何 / 统计类，需真机样本）：B.whitespace_*、B.centroid_offset_*、C.max_colors_*、C.max_stroke_widths_*、C.group_reuse_excellent、D.anchor_count_excellent、D.min_groups；其余判据定义类（A.*、E.jaccard_*、E.palette_jaccard_excellent、F.N_*、F.h1_pass_rate、F.ad_pass_rate_*、grade.*、iterate.K_max、H1–H4）一律不可校准。
+- 可校准（仅限几何 / 统计类，需真机样本）：B.whitespace_*、B.centroid_offset_*、C.max_colors_*、C.max_stroke_widths_*、C.group_reuse_excellent、D.short_segment_ratio_max、D.tangent_reversal_max、D.min_groups；其余判据定义类（A.*、E.jaccard_*、E.palette_jaccard_excellent、F.N_*、F.h1_pass_rate、F.ad_pass_rate_*、grade.*、iterate.K_max、H1–H4）一律不可校准。
 - 审批流：QA 申请（真实样本日志 + 前后值 + 理由 + 样本数）→ 主理人复核批准 → 改 config 并写 `calibration_log`（含裁决引用 `ruling_ref`）→ 重测。收紧可留痕自行；任何放宽必须标 `loosening: true` 且有裁决引用，否则 `../scripts/selftest.py` 判失败。`../scripts/aggregate_log.py` 另做 `after` 与当前值一致性断言（`E-CALIB-MISMATCH`）与真机日志引用断言（`E-CALIB-NO-LOG`）。
 
 ## 交付档位与交付清单（v1.1 新增）

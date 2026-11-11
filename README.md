@@ -38,8 +38,8 @@ python vector-ai-studio/scripts/run_fixtures.py
 
 | 环境 | `selftest --fixtures` | `run_fixtures` |
 |---|---|---|
-| 装了 VectorCraft CLI | **54/54**，`status=ok`，**exit 0** | **24/24**，exit 0 |
-| 没装 | A30/A31 两条转 skipped，`status=partial`，**exit 3** | 24/24，exit 0 |
+| 装了 VectorCraft CLI | **76/76**（含 `--fixtures` 的 A13），`status=ok`，**exit 0** | **24/24**，exit 0 |
+| 没装 | 依赖引擎或 Pillow 的断言转 skipped，`status=partial`，**exit 3** | 24/24，exit 0 |
 
 **`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。
 两条都不依赖 Adobe，纯脚本层就能跑通；如果这里就失败，先别往下走。
@@ -140,7 +140,7 @@ C 维以前只有 `len(colors) <= N` 一条：一张全用同一支灰的画，�
 ## 仓库结构
 
 ```
-vector-ai-studio/     技能本体（55 文件，与发布基线逐字节一致）
+vector-ai-studio/     技能本体（96 文件，与发布基线逐字节一致）
 docs/                 发布说明、发布纪律、校验留痕
 ```
 
