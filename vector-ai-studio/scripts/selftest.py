@@ -1462,7 +1462,19 @@ def _stage_print_route(tmp, add):
     # lighting, a vector has no physical size, and the tracer hides its settings
     # one level down and punches highlights out if told to ignore white.
     try:
-        from PIL import Image as _Im
+        try:
+            from PIL import Image as _Im
+        except ImportError:
+            # Pillow is optional (render_png / delight use it when present). The
+            # print route cannot be exercised without it, so say "not evaluated"
+            # instead of turning a missing optional dep into five red assertions.
+            for _id in ("A42-delight-flattens-lighting",
+                        "A43-export-print-dimensions",
+                        "A44-trace-ref-contract",
+                        "A45-uniform-error-envelope",
+                        "A46-craft-only-landing"):
+                add(_id, False, "Pillow not installed", skipped=True)
+            return
 
         def _run_script(name, argv):
             _p = subprocess.run([sys.executable, str(ROOT / "scripts" / name)] + argv,
@@ -1725,7 +1737,7 @@ def _stage_print_route(tmp, add):
                     "A44-trace-ref-contract",
                     "A45-uniform-error-envelope",
                     "A46-craft-only-landing"):
-            if not any(x["id"] == _id for x in a):
+            if _id not in add.seen:
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])
 
 
@@ -2362,7 +2374,7 @@ def _stage_p2_survivors(tmp, add):
                     "A39-font-probe-carried",
                     "A40-failed-landing-clears-stale-evidence",
                     "A41-brand-reference-jaccard"):
-            if not any(x["id"] == _id for x in a):
+            if _id not in add.seen:
                 add(_id, False, type(e).__name__ + ": " + str(e)[:140])
 
 
@@ -3308,7 +3320,9 @@ def main():
         # ok, and ok=true on an assertion that never ran.
         a.append({"id": aid, "ok": (None if skipped else bool(ok)),
                   "detail": str(detail)[:220], "skipped": bool(skipped)})
+        add.seen.add(aid)
 
+    add.seen = set()
     w1, _, chain, optional = _stage_pure_chain(tmp, add, th)
     budget = _stage_grading(tmp, add, th, w1)
     _stage_contract_registry(tmp, add, w1)
