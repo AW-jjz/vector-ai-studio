@@ -1,0 +1,64 @@
+{
+  "schema": "vector-ai-studio/batch-v1",
+  "quick": false,
+  "f_verified": true,
+  "f_data_isolated": true,
+  "isolation_problems": [],
+  "N": 3,
+  "generation_count": 3,
+  "F": {
+    "score": 1,
+    "measured": {
+      "N": 3,
+      "h1_pass_rate": 1.0,
+      "ad_pass_rate": 0.8333,
+      "palette_consistent": true
+    },
+    "threshold": {},
+    "degraded": false
+  },
+  "f_source_runs": [
+    {
+      "run_id": "run-1",
+      "draft_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "run_id": "run-2",
+      "draft_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "run_id": "run-3",
+      "draft_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "c2_revisions": [],
+  "per_run": [
+    {
+      "run": "run-1",
+      "h1_pass": true,
+      "ad_pass_rate": 0.85,
+      "palette": [
+        "#111",
+        "#eee"
+      ]
+    },
+    {
+      "run": "run-2",
+      "h1_pass": true,
+      "ad_pass_rate": 0.85,
+      "palette": [
+        "#111",
+        "#eee"
+      ]
+    },
+    {
+      "run": "run-3",
+      "h1_pass": true,
+      "ad_pass_rate": 0.85,
+      "palette": [
+        "#111",
+        "#eee"
+      ]
+    }
+  ]
+}

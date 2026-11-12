@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import lib_pdf  # r70 #2: byte-only H1 probe, no engine subprocess
 
 SCRIPT = "aggregate_log.py"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -132,6 +133,147 @@ def _isolation_problems(a):
     if a.get("f_data_isolated") is False:
         problems.append("f_data_isolated flag is false")
     return problems
+
+
+def _derive_grade(evidence, th):
+    """Single source of truth for EVERY graded verdict field (r70, #5).
+
+    Pure function: no I/O, no wall-clock, does not mutate `evidence`, and never
+    reads the declared ``grade`` / ``tier`` / ``internal_excellent`` -- those
+    are outputs, not inputs. Both ``main()`` (which assembles `evidence` from
+    the run artifacts) and ``_validate_acceptance()`` (which passes the
+    acceptance-shaped case straight in) call THIS function, so a consumer can
+    re-derive the verdict from evidence fields alone and compare it with the
+    declared values. That is what closes the "judgement fields may self-attest"
+    hole the r69 audit found.
+
+    Boundary: the whole former inline grading block -- landing-only / L2 /
+    L1+quick+L4 / pass + internal_excellent -- plus the degraded-delivery
+    override and the tier derivation. All tier words, the dimension list and
+    the score levels come from `th`; nothing is hardcoded here (O2). Returns
+    the eight verdict fields plus ``degradation_add`` / ``degradation_front``
+    so main() can build the evidence chain without a second judgement branch.
+    """
+    msg = th["messages"]
+    lv = th["score_levels"]
+    scores = evidence.get("scores") or {}
+    gates = evidence.get("hard_gates") or {}
+    entered = evidence.get("grading_entered", True)
+    f_verified = evidence.get("f_verified") is True
+    f_data_isolated = evidence.get("f_data_isolated") is True
+    quick = evidence.get("quick") is True
+
+    def _gate(name, top_key):
+        g = gates.get(name)
+        if isinstance(g, dict) and "pass" in g:
+            return g.get("pass") is True
+        return evidence.get(top_key) is True
+
+    h1_ok = _gate("H1", "h1")
+    h2_ok = _gate("H2", "h2")
+    h3_ok = _gate("H3", "h3")
+    h4_ok = _gate("H4", "h4")
+    hard_all_pass = bool(h1_ok and h2_ok and h3_ok and h4_ok and f_data_isolated)
+
+    cap = L.capability_missing_value(th)
+    l2 = (evidence.get("capability_missing") is True
+          or evidence.get("reason") == msg["reason_capability_missing"]
+          or scores.get("A") == cap or scores.get("B") == cap)
+
+    # Initial degraded state comes from the already-accumulated evidence chain
+    # (e.g. the builtin-fallback PNG L4 entry). L2 / L4 / L1 branches may raise
+    # it; the pass branch keeps it. Never mutate the caller's list.
+    degraded_flag = bool(evidence.get("degraded")) or bool(evidence.get("degradation"))
+
+    grade = msg["grade_fail"]
+    headline = msg["l1_headline"]
+    status = "fail"
+    internal_excellent = False
+    needs_human_review = True
+    reason = msg["reason_quality_fail"]
+    tier = None
+    degradation_add = None
+    degradation_front = False
+
+    if not entered:
+        # H1-only evidence track: no tier, no gate bool, no score claim.
+        grade = None
+        headline = ("H1 取证专用：原生 .ai 结构回读通过，未进入评级" if h1_ok
+                    else "H1 取证专用：原生 .ai 结构回读未通过")
+        status = "ok" if h1_ok else "fail"
+        degraded_flag = False
+        needs_human_review = False
+        reason = None
+    elif l2:
+        grade = msg["l2_grade"]
+        headline = msg["l2_headline"]
+        status = "degraded"
+        degraded_flag = True
+        needs_human_review = True
+        reason = msg["reason_capability_missing"]
+        degradation_add = {"level": "L2",
+                           "reason": "host LLM cannot read rendered PNG",
+                           "note": "A/B capability_missing, human final review required; delivery not blocked"}
+        degradation_front = True
+    else:
+        dims = th["grade"]["pass_requires_dims"]
+        vals = [scores.get(d) for d in dims]
+        numeric = [v["score"] for v in vals if isinstance(v, dict)]
+        no_zero = all(v != lv["fail"] for v in numeric) and len(numeric) == len(dims)
+        e_val = scores.get("E")
+        e_ok = (e_val == "N/A" or (isinstance(e_val, dict) and e_val["score"] >= lv["pass"]))
+        passed = hard_all_pass and no_zero and e_ok and f_verified and not quick
+        if passed:
+            grade = msg["grade_pass"]
+            headline = "已达质量阈值，可进入人工终审（可选）"
+            status = "ok"
+            needs_human_review = False
+            reason = msg["reason_none"]
+            er = th["grade"]["excellent_requires"]
+            twos = sum(1 for v in scores.values()
+                       if isinstance(v, dict) and v["score"] == lv["excellent"])
+            a_val, b_val = scores.get("A"), scores.get("B")
+            internal_excellent = bool(
+                isinstance(a_val, dict) and a_val["score"] == er["A"] and
+                isinstance(b_val, dict) and b_val["score"] == er["B"] and
+                twos >= er["min_twos"])
+        elif quick:
+            grade = msg["grade_fail"]
+            headline = th["orchestration"]["quick_mode"]["headline"]
+        elif not h2_ok or not h1_ok:
+            headline = "L4 降级：" + msg["l4_note"] + "，需人工终审"
+            degradation_add = {"level": "L4", "reason": "native .ai not produced",
+                               "note": msg["l4_note"]}
+            degraded_flag = True
+        else:
+            degradation_add = {"level": "L1", "reason": "quality below threshold",
+                               "note": th["degradation_levels"]["L1"]}
+            degraded_flag = True
+
+    # A degraded delivery must never auto-close human review. The fallback-PNG
+    # case is the sharp one: a numeric "pass" reached through a low-fidelity
+    # preview cannot be presented as a clean pass. (former lines 571-579)
+    if entered and degraded_flag:
+        needs_human_review = True
+        if grade == msg["grade_pass"]:
+            headline = "已达质量阈值，但存在降级，需人工终审"
+
+    if entered:
+        tier = "pass" if grade == msg["grade_pass"] else "not-pass"
+
+    return {
+        "grade": grade, "tier": tier, "headline": headline, "status": status,
+        "degraded": degraded_flag, "needs_human_review": needs_human_review,
+        "reason": reason, "internal_excellent": internal_excellent,
+        "degradation_add": degradation_add,
+        "degradation_front": degradation_front,
+    }
+
+
+# Verdict fields the validator re-derives and compares field-by-field (R-1-a:
+# internal_excellent is included, never excluded to let a sample through).
+_VERDICT_FIELDS = ("grade", "tier", "headline", "status", "degraded",
+                   "needs_human_review", "reason", "internal_excellent")
 
 
 def _validate_acceptance(a, th):
@@ -259,6 +401,32 @@ def _validate_acceptance(a, th):
         if a.get("grade") == msg["grade_pass"] or a.get("grade") == "优秀":
             problems.append(L.err("E-QUICK-UNVERIFIED",
                                   "unverified F (quick mode) must not claim a pass"))
+
+    # ---- #5: consumer re-derives the verdict from evidence alone (r70) -------
+    # Only for a full-track log that declares the complete new-shape judgement
+    # block (mode=full + grading_entered=true) and has passed every contract
+    # check above. That gate is deliberate:
+    #   * V1/V2/V3/V7/V8/V9 (declared 达标 or internal_excellent=true with
+    #     contradictory evidence) pass the old field/budget/isolation checks,
+    #     so this is the ONLY check that can reject them -> E-GRADE-MISMATCH.
+    #   * V4/V5/V6 and all pre-v1.2 samples (no `mode`, or an existing
+    #     E-BUDGET-EXCEEDED / E-QUICK-UNVERIFIED / E-NO-SCORE) keep their
+    #     original single rejection code, so the exact go/want match holds.
+    #   * landing-only / grading_entered=false never reaches here (the
+    #     166-188 early-return above), so grade=null is never misjudged.
+    # Every field of _VERDICT_FIELDS is compared -- notably
+    # internal_excellent, which is what makes the rebuilt V9 a real negative.
+    if (not problems and a.get("mode") == "full"
+            and a.get("grading_entered") is True):
+        rederived = _derive_grade(a, th)
+        bad = [f for f in _VERDICT_FIELDS
+               if a.get(f) != rederived[f]]
+        if bad:
+            problems.append(L.err(
+                "E-GRADE-MISMATCH",
+                "declared verdict disagrees with evidence-derived verdict on " +
+                ", ".join(f + ": " + repr(a.get(f)) + "!=" + repr(rederived[f])
+                          for f in bad)))
     return problems
 
 
@@ -307,21 +475,41 @@ def main():
           bool((score_doc or {}).get("capability_missing")) or
           "A" in degraded_dims or "B" in degraded_dims)
 
-    # ---- H1: real-machine structure readback ----
+    # ---- H1: real-machine structure readback + independent byte probe ----
+    # r70 #2: the readback alone can be hand-written. Reopen final.ai's OWN
+    # bytes here (pure lib_pdf.ai_h1_probe, no engine subprocess) and AND the
+    # result onto the existing raster/placed/paths/artboard/ok gate (QA-03 /
+    # C-5). The probe writes only booleans + small ints into hard_gates.H1 --
+    # never a sha256 or /CreationDate, which would break byte idempotency.
     sr = _load_optional(run_dir / "structure_readback.json")
     final_ai = run_dir / "final.ai"
     ai_ok = final_ai.is_file() and final_ai.stat().st_size > 0
+    probe = lib_pdf.ai_h1_probe(final_ai) if ai_ok else {
+        "pdf_ok": False, "page_count": 0, "image_count": 0}
+    probe_pdf_ok = probe["pdf_ok"]
+    probe_pages_ok = probe["page_count"] >= 1
+    probe_images_ok = (isinstance(sr, dict) and probe["image_count"] == sr.get("raster"))
+    probe_bytes_ok = probe_pdf_ok and probe_pages_ok and probe_images_ok
     h1_ok, h1_status, h1_reason = False, "unverified", "no structure readback in this run"
     if isinstance(sr, dict) and ai_ok:
         raster, placed, paths = sr.get("raster"), sr.get("placed"), sr.get("paths")
         dims_ok = sr.get("artboard_matches_viewBox") is True
-        h1_ok = (raster == 0 and placed == 0 and isinstance(paths, int)
-                 and paths > 0 and dims_ok and sr.get("ok") is True)
+        readback_ok = (raster == 0 and placed == 0 and isinstance(paths, int)
+                       and paths > 0 and dims_ok and sr.get("ok") is True)
+        h1_ok = readback_ok and probe_bytes_ok
         h1_status = "pass" if h1_ok else "fail"
         # The reason must follow the verdict: a fixed "raster/placed=0..." line
         # reads like a pass even when the readback failed.
         if h1_ok:
-            h1_reason = "readback: raster/placed=0, paths>0, artboard==viewBox"
+            h1_reason = "readback: raster/placed=0, paths>0, artboard==viewBox; byte probe: %PDF-, >=1 Page, images==raster"
+        elif not probe_pdf_ok:
+            h1_reason = "H1 byte probe: final.ai is not a %PDF- container"
+        elif not probe_pages_ok:
+            h1_reason = "H1 byte probe: final.ai has no /Type /Page object"
+        elif not probe_images_ok:
+            h1_reason = ("H1 byte probe: embedded image count " +
+                         str(probe["image_count"]) + " != structure_readback.raster " +
+                         str(sr.get("raster")))
         elif sr.get("stale") is True:
             h1_reason = "stale readback from an earlier run; this run has no readback"
         else:
@@ -348,15 +536,21 @@ def main():
     if fallback and png is not None:
         degradation.append({"level": "L4", "reason": "PNG renderer candidates MISSING, builtin fallback used",
                             "renderer": "builtin-fallback", "note": msg["fallback_png_note"]})
-    # A fallback PNG cannot support A/B image reading -> L2 status, never faked scores.
-    # Fail-closed: a fallback preview that does not positively declare itself
-    # "faithful" counts as limited, so omitting preview.meta.json.fidelity can
-    # never buy a free pass on semantic / composition scoring.
+    # r70 #1: fidelity evidence is DECOUPLED from renderer identity.
+    # A/B semantic / composition reading needs (a) the preview to positively
+    # declare itself "faithful" and (b) a readable judge. Both must be explicit.
+    # The old gate keyed on `fallback`: deleting preview.meta.json made
+    # renderer default to "unknown" -> fallback=False -> the whole L2 check was
+    # skipped, so removing evidence bought a free pass (report P0-2). Now the
+    # ABSENCE of meta / fidelity / a readable judge is itself a fail-closed L2,
+    # for every renderer (unknown, resvg+limited, builtin, ...). `full` is a
+    # display enum in pipeline-contract, NOT the判据 -- the code-实存 value is
+    # "faithful" (render_png._builtin_fidelity / A18 both use it).
     judge = _load_optional(run_dir / "judge.json")
     fidelity = str(preview_meta.get("fidelity", "") or "").lower()
-    judge_unreadable = not (isinstance(judge, dict) and judge.get("readable") is True)
-    if grading_entered and fallback and png is not None and (
-            fidelity != "faithful" or judge_unreadable):
+    judge_readable = isinstance(judge, dict) and judge.get("readable") is True
+    fidelity_ok = (fidelity == "faithful" and judge_readable)
+    if grading_entered and png is not None and not fidelity_ok:
         if "A" not in degraded_dims:
             degraded_dims.append("A")
         if "B" not in degraded_dims:
@@ -380,20 +574,25 @@ def main():
                 break
     h3_status = "unverified"
     h3_reason = "no selftest.json next to the run artifacts"
-    # Assertions that legitimately may not run on a given machine. A skip in
-    # anything NOT listed here means a guard silently did not run, which must
-    # not be able to pass as H3. The list is declared once, in selftest.py
-    # (CAPABILITY_SKIPS), and travels in its log as capability_skips; a log
-    # without that field allows no skip at all, which fails closed instead of
-    # forcing this file to keep a second copy of the policy in sync.
+    # r70 #3: the allowed-skip whitelist comes from the SINGLE shared constant
+    # L.CAPABILITY_SKIPS, NEVER from the log being validated. A self-written
+    # `capability_skips` in selftest.json used to be trusted and could declare
+    # its own guards optional (report P0-3). That field is now display/audit
+    # only: if it disagrees with L, we emit a warning candidate, not a verdict.
     #
-    # Registration condition: the capability itself is optional (an engine or an
-    # external library that may legitimately be absent). Never add an assertion
-    # to selftest.CAPABILITY_SKIPS to make a run go green -- that turns a guard
-    # into decoration.
-    _logged = selftest_log if isinstance(selftest_log, dict) else {}
-    OPTIONAL_ASSERTIONS = tuple(_logged.get("capability_skips") or ())
+    # Registration condition: the capability itself is optional (an engine or
+    # an external library that may legitimately be absent). Never add an
+    # assertion to L.CAPABILITY_SKIPS to make a run go green -- that turns a
+    # guard into decoration.
+    OPTIONAL_ASSERTIONS = frozenset(L.CAPABILITY_SKIPS)
+    self_whitelist_warning = ""  # candidate signal only; QA/human adjudicates
     if isinstance(selftest_log, dict):
+        declared_skips = selftest_log.get("capability_skips")
+        if (isinstance(declared_skips, list)
+                and set(declared_skips) != set(OPTIONAL_ASSERTIONS)):
+            self_whitelist_warning = (
+                "selftest.json.capability_skips differs from the shared "
+                "L.CAPABILITY_SKIPS policy (display-only; judgment uses L)")
         n_pass = selftest_log.get("passed")
         n_fail = selftest_log.get("failed")
         n_all = len(selftest_log.get("assertions") or [])
@@ -408,17 +607,30 @@ def main():
         optional_only = all(x in OPTIONAL_ASSERTIONS for x in skipped_ids)
         status_ok = ((selftest_log.get("status") == "ok" and n_skip == 0) or
                      (selftest_log.get("status") == "partial" and optional_only))
-        if status_ok and consistent and n_fail == 0 and n_pass >= 1:
+        # Assertion-count lower bound: a hand-written "1/1 ok" log (report
+        # §5.3) can never stand in for a real full self-test.
+        count_ok = n_all >= L.EXPECTED_ASSERTIONS
+        # Bind the log to THIS run: both ids are content-derived
+        # (L.sha_run_id), never a nonce / timestamp / signature, so the
+        # judgment JSON stays byte-idempotent. An empty --run-id fails closed.
+        bound = bool(args.run_id) and selftest_log.get("run_id") == args.run_id
+        if status_ok and consistent and n_fail == 0 and n_pass >= 1 and count_ok and bound:
             h3_status = "pass"
             h3_reason = ("selftest " + str(n_pass) + "/" + str(n_all) +
                          (" (+" + str(n_skip) + " optional skipped)" if n_skip else "") +
-                         " from " + Path(h3_source).name)
+                         " from " + Path(h3_source).name + " [run_id bound]")
         else:
             h3_status = "fail"
             why = ""
             if not status_ok and selftest_log.get("status") == "partial":
                 why = " skipped=" + ",".join(x for x in skipped_ids
                                              if x not in OPTIONAL_ASSERTIONS) + " (not optional)"
+            if not count_ok:
+                why += (" assertions=" + str(n_all) + " < expected " +
+                        str(L.EXPECTED_ASSERTIONS))
+            if not bound:
+                why += (" run_id mismatch: log=" + repr(selftest_log.get("run_id")) +
+                        " expected=" + repr(args.run_id))
             h3_reason = ("selftest log present but not a clean pass: status=" +
                          str(selftest_log.get("status")) + " passed=" + str(n_pass) +
                          " failed=" + str(n_fail) + " skipped=" + str(n_skip) +
@@ -500,87 +712,43 @@ def main():
                 scores[d] = "N/A"
     scores_missing = [d for d in ("A", "B", "C", "D", "F") if scores.get(d) in (None, "")]
 
-    # ---- grading (L2 still uses the 7.3 mechanical comparison; no third tier) ----
-    hard_all_pass = bool(h1_ok and h2_ok and h3_status == "pass" and h4_ok and f_data_isolated)
-    grade = msg["grade_fail"]
-    headline = msg["l1_headline"]
-    status = "fail"
-    degraded_flag = bool(degradation)
-    internal_excellent = False
-    needs_human_review = True
-    reason = msg["reason_quality_fail"]
-
-    if not grading_entered:
-        # H1-only evidence track: no tier, no gate bool, no score claim.
-        grade = None
-        tier = None
-        headline = ("H1 取证专用：原生 .ai 结构回读通过，未进入评级" if h1_ok
-                    else "H1 取证专用：原生 .ai 结构回读未通过")
-        status = "ok" if h1_ok else "fail"
-        degraded_flag = False
-        needs_human_review = False
-        reason = None
-    elif l2:
-        grade = msg["l2_grade"]
-        headline = msg["l2_headline"]
-        status = "degraded"
-        degraded_flag = True
-        needs_human_review = True
-        reason = msg["reason_capability_missing"]
-        degradation.insert(0, {"level": "L2",
-                               "reason": "host LLM cannot read rendered PNG",
-                               "note": "A/B capability_missing, human final review required; delivery not blocked"})
-    else:
-        dims = th["grade"]["pass_requires_dims"]
-        vals = [scores.get(d) for d in dims]
-        numeric = [v["score"] for v in vals if isinstance(v, dict)]
-        no_zero = all(v != lv["fail"] for v in numeric) and len(numeric) == len(dims)
-        e_val = scores.get("E")
-        e_ok = (e_val == "N/A" or (isinstance(e_val, dict) and e_val["score"] >= lv["pass"]))
-        passed = hard_all_pass and no_zero and e_ok and f_verified and not args.quick
-        if passed:
-            grade = msg["grade_pass"]
-            headline = "已达质量阈值，可进入人工终审（可选）"
-            status = "ok"
-            needs_human_review = False
-            reason = msg["reason_none"]
-            er = th["grade"]["excellent_requires"]
-            twos = sum(1 for v in scores.values() if isinstance(v, dict) and v["score"] == lv["excellent"])
-            a_val, b_val = scores.get("A"), scores.get("B")
-            internal_excellent = bool(
-                isinstance(a_val, dict) and a_val["score"] == er["A"] and
-                isinstance(b_val, dict) and b_val["score"] == er["B"] and
-                twos >= er["min_twos"])
-        elif args.quick:
-            grade = msg["grade_fail"]
-            headline = th["orchestration"]["quick_mode"]["headline"]
-        elif not h2_ok or not h1_ok:
-            headline = "L4 降级：" + msg["l4_note"] + "，需人工终审"
-            degradation.append({"level": "L4", "reason": "native .ai not produced",
-                                "note": msg["l4_note"]})
-            degraded_flag = True
+    # ---- grading: single source of truth (r70, #5) ----------------------------
+    # main() and _validate_acceptance() both call _derive_grade(). Nothing here
+    # assigns a grade/tier/headline/... by hand any more: a half-migration that
+    # left one branch inline would let a forged judgement field attest itself.
+    # `evidence` is acceptance-shaped, so the validator can pass a case verbatim
+    # and re-derive exactly the verdict this run wrote.
+    evidence = {
+        "scores": scores,
+        "hard_gates": {
+            "H1": {"pass": h1_ok},
+            "H2": {"pass": h2_ok},
+            "H3": {"pass": (h3_status == "pass") if grading_entered else None},
+            "H4": {"pass": h4_ok},
+        },
+        "h1": h1_ok, "h2": h2_ok,
+        "f_verified": f_verified, "f_data_isolated": f_data_isolated,
+        "quick": bool(args.quick),
+        "degraded": bool(degradation),
+        "degradation": [dict(d) for d in degradation],
+        "capability_missing": bool(l2) if grading_entered else None,
+        "mode": mode, "grading_entered": grading_entered,
+    }
+    verdict = _derive_grade(evidence, th)
+    grade = verdict["grade"]
+    tier = verdict["tier"]
+    headline = verdict["headline"]
+    status = verdict["status"]
+    degraded_flag = verdict["degraded"]
+    needs_human_review = verdict["needs_human_review"]
+    reason = verdict["reason"]
+    internal_excellent = verdict["internal_excellent"]
+    if verdict["degradation_add"]:
+        if verdict["degradation_front"]:
+            degradation.insert(0, verdict["degradation_add"])
         else:
-            # L1: quality below threshold with every capability present. Design
-            # 4.3 / 7.4 list L1 as a degradation level, so `degraded` must not
-            # read false here; leaving it false was the last contradiction
-            # between the log and the design.
-            degradation.append({"level": "L1", "reason": "quality below threshold",
-                                "note": th["degradation_levels"]["L1"]})
-            degraded_flag = True
+            degradation.append(verdict["degradation_add"])
 
-    # ---- a degraded delivery must never auto-close human review ----
-    # The fallback-PNG case is the sharp one: the preview a human (and the A/B
-    # judge) would rely on is itself known to be low-fidelity, so a numeric pass
-    # reached through it cannot be presented as a clean pass. Flags are fixed
-    # here; the A-F scores and the two grade tiers are left untouched.
-    if grading_entered and degraded_flag:
-        needs_human_review = True
-        if grade == msg["grade_pass"]:
-            headline = "已达质量阈值，但存在降级，需人工终审"
-
-    # ---- calibration consistency ----
-    if grading_entered:
-        tier = "pass" if grade == msg["grade_pass"] else "not-pass"
     calib_problems = _calibration_check(th)
 
     acceptance = {
@@ -616,10 +784,22 @@ def main():
         "h3": (h3_status == "pass") if grading_entered else None,
         "h4": h4_ok,
         "hard_gates": {
-            "H1": {"status": h1_status, "pass": h1_ok, "reason": h1_reason},
+            "H1": {"status": h1_status, "pass": h1_ok, "reason": h1_reason,
+                   # r70 #2: booleans + small ints only. No sha256 / dates:
+                   # acceptance.json must stay byte-identical across two runs.
+                   "probe": {"pdf_ok": probe_pdf_ok, "pages_ok": probe_pages_ok,
+                             "images_match_raster": bool(probe_images_ok),
+                             "page_count": probe["page_count"],
+                             "image_count": probe["image_count"]}},
             "H2": {"status": h2_status, "pass": h2_ok, "missing": missing,
                    "png": png, "renderer": renderer if png else "none",
-                   "fidelity": (fidelity or "limited") if png else "none",
+                   # r70 #1: fail-closed display. Only "faithful" is a real
+                   # positive; anything else (missing field, "full" from a real
+                   # renderer not backed by _builtin_fidelity, "limited", fake
+                   # values) is shown as "limited" -- H2.fidelity must never
+                   # read "full", which would advertise an unverified pass.
+                   "fidelity": (fidelity if fidelity in ("faithful", "limited")
+                                else "limited") if png else "none",
                    "fallback": fallback, "degraded": fallback,
                    "preview_fidelity_note": msg["fallback_png_note"] if fallback else ""},
             "H3": {"status": h3_status, "reason": h3_reason, "source": h3_source,
@@ -672,6 +852,15 @@ def main():
                      " h2=" + str(h2_ok))
 
     errors = calib_problems + validation_problems
+    # r70 #2: reuse E-H1-STRUCTURE for a failed independent byte probe (both
+    # evidence tracks). A hand-written structure_readback.json alone can no
+    # longer buy H1 a pass. This gives the run-dir negative fixture a concrete
+    # code to hit instead of merely a non-zero exit. Only when a real final.ai
+    # was opened and its OWN bytes contradicted the readback; a missing .ai is
+    # already covered by the "no structure readback" path.
+    if ai_ok and isinstance(sr, dict) and not probe_bytes_ok:
+        errors.append(L.err("E-H1-STRUCTURE",
+                            "final.ai byte probe did not satisfy H1: " + h1_reason))
     if grading_entered and not h2_ok:
         errors.append(L.err("E-H2-INCOMPLETE", "four artifacts incomplete: " + ", ".join(missing)))
     if grading_entered:
@@ -699,6 +888,11 @@ def main():
                         "rounds": rounds,
                         "validation_problems": [p["code"] for p in validation_problems]},
                   errors=errors,
+                  # r70 #3: a log whose self-declared capability_skips differs
+                  # from L.CAPABILITY_SKIPS is only a candidate signal for a
+                  # human/QA to review, never a verdict. No "E-XXX:" prefix so
+                  # the exact go/want code match in run_fixtures is untouched.
+                  warnings=([self_whitelist_warning] if self_whitelist_warning else []),
                   degradation=degradation[0] if degradation else None,
                   artifacts={"acceptance": acceptance_path.name,
                              "delivery_note": "delivery-note.md"})

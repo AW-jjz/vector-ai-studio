@@ -38,7 +38,8 @@ def rasterise(src, dst, dpi):
             "vector input needs the VectorCraft CLI to rasterise; "
             "install it or pass a raster file", L.EXIT_MISSING)
     p = subprocess.run([str(cli), "convert", str(src), str(dst), "--ppi", str(dpi)],
-                       capture_output=True, text=True, timeout=900)
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=900)
     if p.returncode != 0 or not Path(dst).is_file():
         raise L.ToolError("E-RENDER", "vectorcraft convert failed: " +
                           (p.stderr or p.stdout)[-300:], L.EXIT_ERROR)

@@ -29,6 +29,36 @@ EXIT_ERROR = 4     # internal exception or landing-engine failure
 
 CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 
+# ---- H3 policy: single source of truth (r70) --------------------------------
+# selftest.py writes the selftest.json that proves H3; aggregate_log.py judges
+# H3 from that log. Both used to keep their own copy of these two policies:
+# selftest declared EXPECTED_ASSERTIONS / CAPABILITY_SKIPS, while aggregate_log
+# trusted whatever `capability_skips` the *log itself* carried. A log could
+# therefore declare its own skip whitelist -- self-attesting. These constants
+# now live here, in the shared library, and BOTH sides read them: selftest to
+# write/verify, aggregate_log to judge. Never reintroduce a second copy.
+#
+# Registration condition: an assertion belongs in CAPABILITY_SKIPS only when
+# the capability itself is optional (engine / optional external library that
+# may legitimately be absent). Adding a guard here to make a run go green
+# turns the guard into decoration.
+#
+# EXPECTED_ASSERTIONS is the number a complete selftest run must leave behind,
+# including A60 (the guard that checks this number) but excluding A13, which
+# only runs with --fixtures. Add or remove an assertion -> bump this number
+# too; A60 turns a stale count red instead of leaving it to a human.
+EXPECTED_ASSERTIONS = 79
+CAPABILITY_SKIPS = frozenset({
+    "A30-vectorcraft-chain-h1-h2",
+    "A31-deliverable-schema-no-drift",
+    "A42-delight-flattens-lighting",
+    "A43-export-print-dimensions",
+    "A44-trace-ref-contract",
+    "A45-uniform-error-envelope",
+    "A46-craft-only-landing",
+    "A53-legibility-fails-what-the-eye-misses",
+})
+
 _NEUTRAL_NAMES = {"black", "white", "gray", "grey", "silver", "gainsboro", "whitesmoke"}
 _SKIP_COLORS = {"none", "transparent", "currentcolor", "inherit", "initial", "unset", ""}
 _FORBIDDEN_TAGS = {"clippath", "filter", "mask", "pattern", "use", "image", "foreignobject"}

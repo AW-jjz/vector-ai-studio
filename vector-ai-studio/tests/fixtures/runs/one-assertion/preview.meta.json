@@ -1,0 +1,17 @@
+{
+  "schema": "vector-ai-studio/preview-meta-v1",
+  "renderer": "builtin-fallback",
+  "degraded": true,
+  "fidelity": "faithful",
+  "note": "预览保真度受限",
+  "width": 200,
+  "height": 200,
+  "candidates": [
+    "resvg:SKIPPED(force-builtin)",
+    "cairosvg:SKIPPED(force-builtin)",
+    "headless-browser:MISSING",
+    "builtin-fallback:USED",
+    "fidelity:faithful"
+  ],
+  "source_svg": "final.svg"
+}

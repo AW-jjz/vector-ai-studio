@@ -46,6 +46,11 @@ import lib_common as L
 
 SCRIPT = "studio.py"
 HERE = Path(__file__).resolve().parent
+# r70 #3: the ONE content-derived run id for this orchestrated run. Every
+# stage receives it via --run-id, and steps 7-10 must pass the SAME id to
+# selftest.py and aggregate_log.py so H3 can bind the self-test log to this
+# run (design C-2). Set once at the top of _run_chain; never wall-clock.
+_ORCH_RUN_ID = ""
 STAGE_SCRIPTS = {
     "spec": "freeze_spec.py",
     "clean": "sanitize_svg.py",
@@ -57,14 +62,43 @@ STAGE_SCRIPTS = {
 }
 
 
+def content_run_id(args):
+    """Content-derived run id for THIS run (r70, #3).
+
+    Same spec + svg + thresholds version -> same id. No nonce, no wall-clock,
+    no signature: a time/random id would break the byte-idempotency of the
+    downstream selftest.json / acceptance.json judgment chain, and a signature
+    key would introduce credentials into the zero-credential default chain.
+    The orchestrator passes this ONE id to every stage and, in steps 7-10, to
+    selftest.py and aggregate_log.py, so H3 can bind the self-test log to the
+    very run whose acceptance it guards (design C-2, the three-way pair).
+    """
+    parts = ["studio", L.load_thresholds()["version"]]
+    for p in (getattr(args, "spec", "") or "", getattr(args, "svg", "") or ""):
+        try:
+            parts.append(Path(p).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError):
+            parts.append(str(p))
+    return L.sha_run_id(*parts)
+
+
 def _call(stage, args, timeout=1800):
     """Run one stage through its real CLI and return (rc, envelope).
 
     Importing the modules instead would let a stage drift from the command the
-    docs tell humans to run. Subprocess keeps one code path for both.
+    docs tell humans to run. Subprocess keeps one code path for both. r70 #3:
+    _run_chain appends the SAME content-derived --run-id to every stage's args,
+    so a stage's envelope, selftest.json and acceptance.json share one run id.
+    The signature stays (stage, args, timeout) to keep the selftest A50 stub,
+    which replaces this function with a 3-arg fake, working unchanged.
     """
     cmd = [sys.executable, str(HERE / STAGE_SCRIPTS[stage]), "--json"] + args
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    # r70 #3: thread the orchestration run id to every stage. A stage that
+    # later writes a log does so under the same id the H3 gate expects.
+    if _ORCH_RUN_ID:
+        cmd += ["--run-id", _ORCH_RUN_ID]
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=timeout)
     try:
         env = json.loads(p.stdout)
     except json.JSONDecodeError:
@@ -83,13 +117,17 @@ def _stage_row(name, rc, env):
 
 
 def _run_chain(args, out):
+    global _ORCH_RUN_ID
+    # r70 #3: derive ONE content-based run id for this run. getattr keeps the
+    # A50 harness (a hand-built Namespace without run_id) working.
+    _ORCH_RUN_ID = getattr(args, "run_id", "") or content_run_id(args)
     stages = []
     rd = out / "round-1"
     rd.mkdir(parents=True, exist_ok=True)
 
     # 1. spec: a frozen, validated copy is the only spec later stages may read
     rc, env = _call("spec", ["--spec", args.spec, "--validate",
-                             "--out", str(out / "spec.json")])
+                                  "--out", str(out / "spec.json")])
     stages.append(_stage_row("spec", rc, env))
     if rc != 0:
         return _finish(out, stages, rc, env)
@@ -103,8 +141,8 @@ def _run_chain(args, out):
 
     # 3. render: a missing renderer is recorded, not fatal
     rc_preview, env_preview = _call("render",
-                                    ["--in", str(sanitized),
-                                     "--out", str(rd / "preview.png")])
+                                           ["--in", str(sanitized),
+                                            "--out", str(rd / "preview.png")])
     stages.append(_stage_row("render", rc_preview, env_preview))
 
     # 4. judge + score only when the host supplied a reading of the preview
@@ -117,7 +155,7 @@ def _run_chain(args, out):
     # fallback rather than on the design.
     if not degraded and (rd / "preview.png").is_file():
         rc, env = _call("legible", ["--png", str(rd / "preview.png"),
-                                    "--out", str(rd / "legibility.json")])
+                                           "--out", str(rd / "legibility.json")])
         stages.append(_stage_row("legible", rc, env))
         if rc == 1:
             return _finish(out, stages, rc, env)
@@ -130,7 +168,7 @@ def _run_chain(args, out):
 
     if args.judge:
         rc, env = _call("judge", ["--judge", args.judge, "--validate",
-                                  "--spec", str(out / "spec.json")])
+                                         "--spec", str(out / "spec.json")])
         stages.append(_stage_row("judge", rc, env))
         if rc != 0:
             return _finish(out, stages, rc, env)
@@ -151,7 +189,7 @@ def _run_chain(args, out):
 
     # 5. land
     rc, env = _call("land", ["--svg", str(sanitized), "--out", str(out),
-                             "--profile", args.profile])
+                                    "--profile", args.profile])
     stages.append(_stage_row("land", rc, env))
     if rc != 0:
         return _finish(out, stages, rc, env)
@@ -164,9 +202,13 @@ def _finish(out, stages, code, last_env):
     L.write_json_atomic(out / "studio.json", {
         "schema": "vector-ai-studio/studio-v1",
         "status": status,
+        # r70 #3: steps 7-10 MUST reuse this exact id for selftest.py and
+        # aggregate_log.py -- H3 binds selftest.json.run_id to that --run-id.
+        "run_id": _ORCH_RUN_ID,
         "stages": stages,
         "note": "full grading still runs steps 7-10 (batch_check + aggregate_log); "
-                "this chain proves one draft can be cleaned, previewed, scored and landed",
+                "this chain proves one draft can be cleaned, previewed, scored and landed; "
+                "pass --run-id from studio.json.run_id to selftest.py and aggregate_log.py",
     })
     errors = [e for e in (last_env.get("errors") or [])]
     if not errors and code in (1, 2, 4):
@@ -182,8 +224,8 @@ def _finish(out, stages, code, last_env):
                        "reason": "a stage ran with a fallback or a missing capability",
                        "substitute": "stage-level status in studio.json"}
     return L.emit(SCRIPT, status=status, code=code,
-                  data={"stages": stages}, errors=errors,
-                  degradation=degradation, run_id="")
+                  data={"stages": stages, "run_id": _ORCH_RUN_ID}, errors=errors,
+                  degradation=degradation, run_id=_ORCH_RUN_ID)
 
 
 def _preview_of(run_dir):
@@ -258,6 +300,9 @@ def _opts():
     ap.add_argument("--candidate", action="append", default=[],
                     help="run dir for --review-pack, repeatable")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--run-id", default="",
+                    help="content-derived run id shared with selftest.py and "
+                         "aggregate_log.py; derived from spec+svg+version when omitted")
     ap.add_argument("--json", action="store_true")
     return ap
 

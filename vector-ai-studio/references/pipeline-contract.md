@@ -114,6 +114,8 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 
 - 第 2 轮扩展字段：mode（full 或 landing-only）、grading_entered（bool）、h2_status（pass 或 fail 或 not_evaluated）、scores_source（score 与 F 的来源、missing 列表）、discarded_scores（L2 覆盖掉的原始 A/B 数字，审计用）。
 - 错误码与 fidelity：`E-NO-SCORE`（full 轨缺必需维，REQUIRED_DIMS 为 A、B、C、D、F；E 可选，无参考时合法记 N/A）、`E-EXEMPTION-ABUSE`（跨轨声明滥用）；preview.meta 的 fidelity 三值 full 或 faithful 或 limited，**字段缺失一律按 limited 处理（fail-closed，防止省略字段绕过读图判读闸）**，兜底且非 faithful 时自动转 L2。
+- **r70 #1 fidelity fail-closed（判据与渲染器身份解耦）**：A/B 语义 / 构图判读只在 `fidelity=="faithful"` 且 `judge.readable is True` 时放行。`output/<run-id>/preview.meta.json` 缺失 / `renderer=unknown` / `renderer=resvg` 但 `fidelity=limited` / 无 `fidelity` 字段，一律 L2 降级（`capability_missing=true` / `degraded=true` / A、B 记 N/A）；`H2.fidelity` 不记 `full`。`full` 是展示枚举，不是判据；代码实存放行值是 `faithful`（`render_png._builtin_fidelity()`）。删 meta 不再能翻绿。
+- **r70 #5 grade 单一函数复算**：`_derive_grade(evidence, th)` 是 grade / tier / headline / status / degraded / needs_human_review / reason / internal_excellent 八个判定字段的**唯一实现**，`main()` 与 `--validate-case` 校验器都调用它。校验器从证据逐字段重推并比对（含 `internal_excellent`），不一致报 `E-GRADE-MISMATCH`；landing-only 轨（grade/tier=null）豁免。档位赋值在 `../scripts/aggregate_log.py` 中只出现一次（A77 元断言护栏）。
 
 ## 证据轨道分层（H1 与 H2–H4）
 
@@ -123,6 +125,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 ## D 与 H1 的证据分工
 
 - D 只判**静态 XML**（语义分组数、退化路径、锚点数、禁用元素、位图标记，由 `../scripts/score.py` 从 SVG 文本确定性计算）；真机回读（raster=0 / placed=0 / paths>0 / artboard==viewBox）归 **H1 独占判定**、不重复计入 D，D 的 measured 里 readback 恒为 `delegated_to_H1`（同一证据记两遍会让纯脚本层永远算不出 D）。
+- **r70 #2 H1 独占判定新增产物字节复算**：`../scripts/lib_pdf.py` 的 `ai_h1_probe()` 纯字节读取器（`%PDF-` 前缀、≥1 `/Type /Page`、`/Subtype /Image` 计数与 structure_readback.raster 比对）以 AND 叠加于既有 H1 判据，两轨都生效；任一不符 `h1=false` / `h1_status=fail` / 报 `E-H1-STRUCTURE`。**幂等边界**：写入 `output/<run-id>/acceptance.json` 的仅 hard_gates.H1.probe 的布尔 / 小整数，绝不写 `output/<run-id>/final.ai` 的 sha256 / `/CreationDate` / `/ModDate` 等随落地变化的量——`output/<run-id>/acceptance.json` 仍保证同 run-dir 连跑两次逐字节一致（A18/自检固化报告 §3 第 10 条）。`output/<run-id>/deliverable.json` 内嵌 sha256，本就不保证字节幂等。
 
 ## 阈值校准白名单与审批流
 
@@ -211,6 +214,14 @@ schemas/acceptance.schema.json 与 deliverable.schema.json（draft 2020-12）。
 
 **跳过任何非可选断言，H3 一律 fail，并在 reason 里指名是哪一条。** 这条比"允许 partial 通过"更重要：可选引擎缺席不该让整台机器判不达标，但任何**守卫**没跑都必须拦下。
 
+### H3 证据强度与 run-id 绑定（r70 / #3 新增）
+
+- **白名单单一来源**：可跳过断言集合取自 `../scripts/lib_common.py` 的 `L.CAPABILITY_SKIPS`，`../scripts/selftest.py` 与 `../scripts/aggregate_log.py` 都从 L 引用。被校验日志自带的 `capability_skips` 字段降级为展示 / 审计，不再作为判据输入（否则日志可自证哪些守卫「可选」）；与 L 不一致时只输出一条 warning 候选信号，最终裁决归人。
+- **断言总数下界**：`len(assertions) >= L.EXPECTED_ASSERTIONS`（当前 76，随断言增减同步）。手写「1/1 ok」的伪日志直接 H3 fail。判定用 `>=` 而非 `==`，兼容 `--fixtures` 时多出 A13 的正常形态。
+- **绑定**：`selftest.json.run_id == aggregate_log 的 --run-id`，且 `--run-id` 非空（空则 fail-closed）。两者均为内容派生（`L.sha_run_id`，输入 = spec / run 内容 + `thresholds.version`），**不是** `datetime.now()` / 随机 nonce / 签名——时间与随机值会破坏判定 JSON 逐字节幂等，签名密钥会引入凭据。编排三处（`../scripts/studio.py` 的 `content_run_id()`、`SKILL.md` 步 11、`本节`）显式把**同一个**值同时传给 `../scripts/selftest.py` 与 `../scripts/aggregate_log.py`；只改校验不改编排会让所有正常日志 H3 全红。
+- **边界（必须写明，不得夸大）**：`output/<run-id>/` 是生成方可写的、`run_id` 公开可推导，因此**拦不住「同一次 run 内生成方自写一份 run_id 匹配的假 selftest.json」**。那属威胁模型外边界。同 run 内自证靠 #2（产物字节复算）+ #5（grade 单一函数复算）+ 断言总数下界共同收紧，而不是靠绑定谎称「不可伪造」。
+- H3 fail 通过 `hard_gates.H3.pass=false` + `h3_status=fail` + exit 1 表达，不新增错误码。
+
 ## A31 的覆盖范围与真机开关（r45 修订）
 
 `A31-deliverable-schema-no-drift` 检查交付清单与 schema 是否双向一致（多余键 / 声明缺失 / 类型不符 / 嵌套多余）。
@@ -244,7 +255,7 @@ r45 删掉了拟合成的 Illustrator 半边：它只证明「构造器输出合
 
 ### 对比度的作用域刻意收窄
 
-WCAG 2.1 SC 1.4.11 的规范原文限定为 "parts of graphics required to understand the content"，并豁免纯装饰图形；Understanding 文档另明确 2.999:1 不达标、不得四舍五入。因此：
+WCAG 2.1 SC 1.4.11（2.2 沿用同编号同阈值，检索日 2026-11-11）的规范原文限定为 "parts of graphics required to understand the content"，并豁免纯装饰图形；Understanding 文档另明确 2.999:1 不达标、不得四舍五入。因此：
 
 - 只有 spec 显式声明 `contrast_pairs` 时才检查；未声明一律记 `not_applicable`，**绝不显示为通过**。
 - `role` 三态严格校验：`text`（走 SC 1.4.3，正文 4.5 / 大字 3.0）、`meaning`（走 SC 1.4.11，3:1）、`decorative`（豁免，但仍记录实测比值，便于复核豁免是否正当）。未知 role 直接报 E-EMPTY-SPEC，**不得降级成 meaning**——降级会让标准明文豁免的图形开始被判失败。
@@ -265,3 +276,9 @@ WCAG 不要求模拟色觉缺陷。保留这一层是因为"正常视觉达标�
 **锚点不能舍入到 0-255 再比。** 第一版就是这么写的，容差 ±1/通道；变异测试证明它形同虚设：把矩阵系数改动 0.0001，输出只变 0.0255 个单位，四舍五入后仍是同一个整数，断言照绿。改为比较未舍入浮点（容差 1e-4）并加行和约束后，同一变异立刻被两条独立信号抓住（锚点偏 0.0255、行和 1.00010100）。**改矩阵必须同时改锚点，这是设计意图，不是不便。**
 
 A34 则把整条链路钉住：以 `#FF0000` 作前景、`#000000` 作背景、role=meaning 真跑一次 `../scripts/score.py`，要求 `normal > 4.5` 且 `min < 3.0` 且 status=warn。这两个条件同时成立，只可能是模拟层真的在工作。
+
+## 判决路径的负向夹具与评审边界（r70 / #8 / #4）
+
+- **r70 #8 判定精确化**：`../scripts/run_fixtures.py` 从「子集检查」改为 `got_codes == want_codes` 精确匹配（去重后比较；期望外的 `E-*` 错误码、warnings 前缀都不得算通过）。`fixtures-v1` case 增加两个可选能力：`setup_dir`（相对 `@F@` 的目录，用 `shutil.copytree` 物化完整 run 目录到 `@OUT@/<case-id>/`）与占位符 `@RUN@`（args 里替换为该路径）；以及可选 `want_acceptance`（dotted path → 期望字面值），用于把「L2 降级 / H3 fail」这类不以 `E-*` 错误码表达的判决精确锚到 `output/<run-id>/acceptance.json` 字段，而非仅凭 exit≠0。
+- **4 条 `--run-dir` 负向夹具**（`tests/fixtures/runs/`）：① 22 字节假 `output/<run-id>/final.ai` → `E-H1-STRUCTURE` / `H1.pass=false`；② 删 `output/<run-id>/preview.meta.json` → `capability_missing=true` / `degraded=true` / 不达标；③ 1 条断言且 `run_id` 跨 run 不匹配的 `output/<run-id>/selftest.json` → `H3.pass=false`；④ `structure_readback.raster=0` 但 `output/<run-id>/final.ai` 内嵌 `/Subtype /Image` → `E-H1-STRUCTURE` / `H1.pass=false`。第 4 条**不是**「grade 与 scores 矛盾」——`--run-dir` 路径 grade 当场算，无此输入；矛盾一族（V1/V2/V3/V7/V8/V9）归 #5 的 `--validate-case`。`cases_expected` 24 → 34（#5 的 6 条 + #8 的 4 条），由 A13 / A78 元断言守护 ≥3 条 run-dir case。
+- **r70 #4 评审去重的诚实边界**：`../scripts/review.py` 按（绝对路径 + 内容 sha256）去重，重复表报 `E-REVIEW-INVALID` 且不计入评审人数，`usable_for_claim` 按去重后人数 ≥2 判定。该机制**拦得住**「同一份表重复提交」「内容相同、文件名不同」，但**拦不住**「同一个人把同一份表另存为两个不同文件并改动一个字节」——两个人还是一个人，脚本无从判定。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，**不构成「两名不同真人已看过」的对外证据，也不宣称不可伪造**。

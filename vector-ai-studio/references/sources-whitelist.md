@@ -103,8 +103,9 @@
 ### 6.3 算法层（2026 现状）
 
 - **OKLCH**：感知均匀色彩空间，做色阶时明度步进才均匀。新工具普遍已支持。
-- **APCA**：WCAG 3 候选对比算法，输出 Lc 值（-108 ~ +106）。**但 WCAG 2.1 仍是现行合规标准，APCA 尚未取代它**；把 APCA 结果当合规依据是错的。
-- CSS `color-contrast()` 截至 2026 年 5 月仍在 Safari TP / Chrome Canary 实验阶段，不能作为交付依赖。
+- **WCAG 现行版本**：现行合规标准是 **WCAG 2.2**（W3C Recommendation，2024-12-12；检索日 2026-11-11，https://www.w3.org/TR/WCAG22/ ）。SC 1.4.11（非文本对比）与 SC 1.4.3（正文对比）在 2.2 中沿用同编号、同阈值（3:1 / 4.5:1），本包判据数值不变。
+- **APCA**：曾作为 WCAG 3 讨论中的候选对比算法（输出 Lc 值 -108 ~ +106）；**2026-09-10 的 WCAG 3 草案已 0 次提及 APCA**（检索日 2026-11-11，https://www.w3.org/TR/wcag-3.0/ ）。APCA 的许可判断（web 内容限定、商用需书面协议）仍成立，但把 APCA 结果当作 WCAG 合规依据是错的；合规仍以 WCAG 2.2 为准。
+- CSS `color-contrast()`：2022-04-28 已移至 **CSS Color Level 6**（检索日 2026-11-11，https://www.w3.org/TR/css-color-6/ 与 https://drafts.csswg.org/css-color-6/ ）；MDN 现以 `contrast-color()` 描述该能力（Baseline 2026，检索日 2026-11-11，https://developer.mozilla.org/en-US/docs/Web/CSS/contrast-color ）。不得作为交付依赖或合规依据。
 
 事实：单纯的颜色组合不构成受版权保护的作品（法律常识判断，非本站核实）。配色站不存在许可风险，风险只在字体、图标、插画、纹理。
 

@@ -1,6 +1,6 @@
 # vector-ai-studio
 
-一句话把需求做成按可断言判据达到质量阈值、可继续编辑的原生 `.ai` 矢量成品。
+一句话把需求做成按可断言判据给出**可复核质量结论**、可继续编辑的 **VectorCraft PDF 兼容 `.ai`** 矢量成品（状态 A：引用 `grade=达标` 前须复核真 `%PDF-` 可重开、`output/<run-id>/structure_readback.json` 的 `paths` 与产物对得上、`output/<run-id>/selftest.json` 为本次运行产生；不替代消费方复算，不宣称审美已被验证或印刷合规）。
 
 ## 装好就能用
 
@@ -38,9 +38,9 @@ python scripts/smoke_ai.py
 
 随包三例（书本店、咖啡、开发者工具）各有一份 review-status.md（位于 examples 各目录），写清它现在是**什么等级的证据**：
 
-- 当前等级一律是 `machine_only`：三个独立模型实例按同一张盲评表打分，表不空、可复核，但**不是外部评审**，不可对外声称「质量已验证」。
+- 当前等级一律是 `machine_only`：三个独立模型实例按同一张盲评表打分，表不空、可复核，但**不是外部评审**，不可对外声称「质量已验证」或「审美已被验证」。
 - 需求符合度里机械可判的部分（尺寸、色数、色面积上限、线宽档数、16px 与单色可辨、禁用构造）由 `scripts/conformance.py` 按各例的 conformance.json 判定，逐条写进状态文件；规则文件里没写的项进 `unchecked`，不显示成通过。剩下的审美判断（主张是否成立、主次、气质）只能人判。
-- 两名真人回收后用 `scripts/review.py` 汇总，`usable_for_claim` 才会为真；在此之前恒为假。请求件在 `templates/review-request.md`。
+- 外部评审表回收后用 `scripts/review.py` 汇总，只有 ≥2 名**去重后**（绝对路径 + 内容 sha256）的不同 external 评审人且零空格时 `evidence.usable_for_claim` 才为真；在此之前恒为假。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，不构成「两名不同真人已看过」的对外证据。请求件在 `templates/review-request.md`。
 
 ## 素材政策：两条通道，不建库
 
@@ -56,6 +56,24 @@ python scripts/smoke_ai.py
 - 可选增强：Pillow（读图三检与导出打印）、PNG 渲染器（resvg / cairosvg）、宿主读图、风格参考、商业生成端凭据。
 - 引擎、渲染器、宿主读图三项一律先探测，缺失显式列出 `MISSING` 与替代方案并降级，不假设已装。不依赖 Adobe / COM。
 
+依赖组合与可达结论（状态 A）：
+
+| 本机依赖 | 预览路径 | 可达结论 |
+|---|---|---|
+| 引擎 + PNG 渲染器齐全 | 真渲染器预览 | 按 A–F 机械比较，达标可达 |
+| 缺 VectorCraft CLI 或缺 Pillow | 无原生 .ai / 无读图 | L4 / L2 降级，恒不达标 |
+| **装了引擎但无 PNG 渲染器** | **预览恒内置兜底** | **非全 rect 稿恒 L2 → 本机永远拿不到达标** |
+
+### 依赖组合与验收结论（本机可复核）
+
+| VectorCraft CLI | PNG 渲染器 | 预览与降级 | 能否拿到 `达标` |
+|---|---|---|---|
+| FOUND | 有真渲染器（resvg / cairosvg） | 真预览，fidelity 由渲染器判定 | 过全部硬门后可达标 |
+| 缺 CLI（MISSING）或 Pillow 缺 | — | L4 降级：只交 SVG + PNG，H1 不达标 | 恒不达标 |
+| **装了引擎但无 PNG 渲染器** | 全部 MISSING | **预览恒内置兜底**（`renderer: builtin-fallback`）；只有纯 rect 稿被判 `faithful` 能进评级，其余稿恒 L2（A/B = capability_missing） | **非全 rect 稿恒 L2、恒不达标**；全 rect 稿亦需过其余硬门 |
+
+> 第三行是本机常见形态：引擎在、渲染器不在时，内置兜底只会画轴对齐纯色矩形，带圆 / 路径 / 描边 / 文字的稿子一律 fail-closed 到 L2，不会靠「文件存在」凑成达标。
+
 ## 边界
 
 - 不承诺一次直出即达到阈值；达标由验收日志按 `config/thresholds.json` 机械比较裁定。
@@ -63,10 +81,11 @@ python scripts/smoke_ai.py
 - 取证分工：H1 由 landing-only 轨取证（smoke_ai.py 加 --landing-only），H2/H3/H4 由完整链（默认）取证。
 - 不伪造 `.ai`；引擎缺失时明确标注「非原生 `.ai`，格式底线未满足」。
 - 路径含中文或空格时，需确认 VectorCraft CLI 能读取该路径；运行期请勿移动源文件。
-- 对外说明只承诺「达标」；未达标或降级时首行标注需人工终审。
+- 对外说明只承诺「达标」；未达标或降级时首行标注需人工终审。状态 A 限定（r70）：引用 `grade=达标` 前须自行复核三项（真 `%PDF-` 可重开、`output/<run-id>/structure_readback.json` 的 `paths` 与产物对得上、`output/<run-id>/selftest.json` 为本次运行产生）；本结论不替代消费方复算，不宣称印刷合规。
 - 用户可见说明仅此一页；`references/design-language.md` 与 `references/archetypes/` 是设计与生成约束，其余 references 是施工契约，都不是使用手册。
 - 单稿链路可压成一条命令：`python scripts/studio.py --spec ... --svg ... --out output/<run-id>`；阶段状态见 `output/<run-id>/studio.json`。
-- 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；只有 ≥2 名外部评审且零空格时 `evidence.usable_for_claim` 才为真。评审请求件在 `templates/review-request.md`。
+- 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；`--sheet` 按（绝对路径 + 内容 sha256）去重，重复提交同一份表也判 `E-REVIEW-INVALID` 且不计入评审人数；只有 ≥2 名**去重后**的外部评审且零空格时 `evidence.usable_for_claim` 才为真。评审请求件在 `templates/review-request.md`。
+- 评审去重的**已声明边界**：`(绝对路径, 内容 sha256)` 拦得住「同一份表重复提交」与「内容相同、文件名不同」，但**拦不住「同一个人把同一份表另存为两个不同文件并改动一个字节」**——那是两个人还是一个人，脚本无从判定。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，不构成「两名不同真人已看过」的对外证据。
 
 ## 自检说明
 

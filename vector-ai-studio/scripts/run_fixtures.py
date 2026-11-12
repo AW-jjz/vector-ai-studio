@@ -7,6 +7,7 @@ subprocess. Never skips a case silently; prints want/got differences.
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -56,29 +57,73 @@ def main():
         cid = str(case.get("id", "unnamed"))
         script = str(case.get("script", ""))
         raw_args = [str(a) for a in case.get("args", [])]
+        # r70 #8: optional setup_dir (a directory relative to @F@) is copied
+        # wholesale into @OUT@/<case-id>/ so a --run-dir case gets a COMPLETE
+        # run directory (final.ai / preview.png / JSON logs / ...). @RUN@
+        # expands to that path in args. Standard library copytree only.
+        run_dir = tmp / cid
+        setup_dir = case.get("setup_dir")
+        if setup_dir:
+            src = fdir / str(setup_dir)
+            if not src.is_dir():
+                raise L.ToolError("E-SCHEMA",
+                                  "setup_dir not found for case " + cid + ": " + str(src),
+                                  L.EXIT_USAGE)
+            shutil.copytree(src, run_dir)
         expanded = []
         for a in raw_args:
-            a = a.replace("@F@", str(fdir)).replace("@OUT@", str(tmp))
+            a = (a.replace("@F@", str(fdir))
+                  .replace("@OUT@", str(tmp))
+                  .replace("@RUN@", str(run_dir)))
             expanded.append(a)
         cmd = [sys.executable, str(SCRIPTS / script)] + expanded
         try:
-            r = subprocess.run(cmd, timeout=90, capture_output=True, text=True, check=False)
+            r = subprocess.run(cmd, timeout=90, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", check=False)
             rc, out = r.returncode, (r.stdout or "")
         except (OSError, subprocess.SubprocessError):
             rc, out = -1, ""
         got_codes = []
         try:
             env = json.loads(out)
-            got_codes = [e.get("code", "") for e in env.get("errors", [])]
-            got_codes += [w.split(":")[0] for w in env.get("warnings", []) if ":" in w]
+            # Only real E-* error codes count. A warning (even one with a ":"
+            # prefix) must never be able to satisfy a wanted code -- that was
+            # the old subset check's blind spot. De-duplicate the same code
+            # reported more than once (the project's "one failure, one code"
+            # convention); a distinct unexpected code still fails the match.
+            got_codes = sorted({str(e.get("code", ""))
+                                for e in env.get("errors", []) if isinstance(e, dict)})
         except json.JSONDecodeError:
             got_codes = []
         want_exit = [int(x) for x in case.get("want_exit", [0])]
-        want_codes = [str(x) for x in case.get("want_codes", [])]
-        ok = (rc in want_exit and all(c in got_codes for c in want_codes))
+        want_codes = sorted({str(x) for x in case.get("want_codes", [])})
+        # r70 #8: EXACT match got_codes == want_codes. Extra E-* codes, missing
+        # codes and warning prefixes can no longer pass a bad case. Sorting
+        # makes declaration order irrelevant while the equality stays strict.
+        ok = (rc in want_exit and got_codes == want_codes)
+        # Optional acceptance.json assertions (dotted path -> expected literal).
+        # Some --run-dir negatives are expressed as a degraded verdict rather
+        # than an E-* code (L2 downgrade, H3 fail); without this they would only
+        # prove "exit != 0". This makes them hit a concrete field (C-4 / QA-09).
+        want_acc = case.get("want_acceptance") or {}
+        acc_detail = {}
+        if want_acc:
+            acc_path = run_dir / "acceptance.json"
+            try:
+                acc_doc = json.loads(acc_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                acc_doc = {}
+            for dotted, expected in want_acc.items():
+                cur = acc_doc
+                for seg in str(dotted).split("."):
+                    cur = cur.get(seg) if isinstance(cur, dict) else None
+                acc_detail[dotted] = cur
+                if cur != expected:
+                    ok = False
         results.append({"id": cid, "script": script, "ok": ok,
                         "want_exit": want_exit, "got_exit": rc,
-                        "want_codes": want_codes, "got_codes": got_codes})
+                        "want_codes": want_codes, "got_codes": got_codes,
+                        "want_acceptance": want_acc, "got_acceptance": acc_detail})
 
     passed = sum(1 for r in results if r["ok"])
     failed = [r for r in results if not r["ok"]]

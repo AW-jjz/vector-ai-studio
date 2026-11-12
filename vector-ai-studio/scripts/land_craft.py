@@ -62,7 +62,8 @@ def viewbox_of(svg_path):
 
 
 def _run(cmd, timeout=1800):
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=timeout)
     if p.returncode != 0:
         raise L.ToolError("E-RENDER", "craft failed: " +
                           (p.stderr or p.stdout or "")[-400:], L.EXIT_ERROR)
@@ -113,7 +114,8 @@ def _pdf_facts(path, warnings=None):
 def _structure(ai_path):
     # `info` emits one JSON document (not JSON lines), so parse the whole stdout
     p = subprocess.run([str(find_cli()), "info", str(ai_path)],
-                       capture_output=True, text=True, timeout=600)
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=600)
     if p.returncode != 0:
         raise L.ToolError("E-RENDER", "info failed: " +
                           (p.stderr or "")[-300:], L.EXIT_ERROR)
@@ -311,7 +313,8 @@ def _land(args, out):
         "file": ai.name,
         "engine": "vectorcraft",
         "engine_version": subprocess.run([str(cli), "--version"], capture_output=True,
-                                         text=True, timeout=60).stdout.strip(),
+                                         text=True, encoding="utf-8", errors="replace",
+                                         timeout=60).stdout.strip(),
         "profile": args.profile,
         "save_options": {"pdf_standard": args.pdf_standard,
                          "pdf_compatible": True,

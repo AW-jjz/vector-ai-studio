@@ -32,7 +32,7 @@
 - 行距 1.3–1.5；行长 45–75 字符；两端对齐仅用于印刷正文，标识类文字一律左对齐或居中，且全图只用一种。
 - 大写字距 +2%–5%；小字不要负字距。
 - 字重只用两档（Regular + Bold）。三档以上在矢量缩放到小尺寸时分辨不出，只剩噪点。
-- **工程限制**：VectorCraft 落地的 `.ai` 在 Illustrator 中会把文字读成轮廓（见 `SKILL.md` 步 9 实测限制）。需要客户改字时，交付 `output/<run-id>/final.svg` 里的活文字 + `.ai` 里的轮廓版，并在 `../templates/delivery-note.template.md` 写明。
+- **工程限制（引擎行为，非格式属性）**：VectorCraft 落地的 `.ai` 在 Illustrator 中会把文字读成轮廓——这是该引擎产物在 Illustrator 中的表现，不是 `.ai` / PDF 格式固有属性（见 `SKILL.md` 步 9 实测限制）。需要客户改字时，交付 `output/<run-id>/final.svg` 里的活文字 + `.ai` 里的轮廓版，并在 `../templates/delivery-note.template.md` 写明。
 
 ## 5. 色彩
 
@@ -131,7 +131,7 @@
 
 | 失效 | 判据 | 依据 |
 |---|---|---|
-| `LOW-CONTRAST` | 前景均值与背景众数的 WCAG 比值低于 3.0 | WCAG 2.1 SC 1.4.11 |
+| `LOW-CONTRAST` | 前景均值与背景众数的 WCAG 比值低于 3.0 | WCAG 2.1 SC 1.4.11（2.2 沿用同编号同阈值） |
 | `COLLAPSED` | 缩到 16px 后前景覆盖率为 0 | 定义即失效：没有墨就没有形 |
 | `MUD` | 缩到 16px 后前景覆盖率满格 | 与上一条镜像：整块糊死同样没有形 |
 

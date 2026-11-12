@@ -1,0 +1,1211 @@
+{
+  "schema": "vector-ai-studio/selftest-v1",
+  "status": "ok",
+  "passed": 200,
+  "failed": 0,
+  "skipped": [],
+  "run_id": "runfixture",
+  "capability_skips": [],
+  "assertions": [
+    {
+      "id": "S-000",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-001",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-002",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-003",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-004",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-005",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-006",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-007",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-008",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-009",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-010",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-011",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-012",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-013",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-014",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-015",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-016",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-017",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-018",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-019",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-020",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-021",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-022",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-023",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-024",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-025",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-026",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-027",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-028",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-029",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-030",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-031",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-032",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-033",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-034",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-035",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-036",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-037",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-038",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-039",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-040",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-041",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-042",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-043",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-044",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-045",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-046",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-047",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-048",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-049",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-050",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-051",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-052",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-053",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-054",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-055",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-056",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-057",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-058",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-059",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-060",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-061",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-062",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-063",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-064",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-065",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-066",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-067",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-068",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-069",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-070",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-071",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-072",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-073",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-074",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-075",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-076",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-077",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-078",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-079",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-080",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-081",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-082",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-083",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-084",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-085",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-086",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-087",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-088",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-089",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-090",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-091",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-092",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-093",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-094",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-095",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-096",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-097",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-098",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-099",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-100",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-101",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-102",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-103",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-104",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-105",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-106",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-107",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-108",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-109",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-110",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-111",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-112",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-113",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-114",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-115",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-116",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-117",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-118",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-119",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-120",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-121",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-122",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-123",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-124",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-125",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-126",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-127",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-128",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-129",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-130",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-131",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-132",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-133",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-134",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-135",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-136",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-137",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-138",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-139",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-140",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-141",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-142",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-143",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-144",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-145",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-146",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-147",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-148",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-149",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-150",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-151",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-152",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-153",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-154",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-155",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-156",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-157",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-158",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-159",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-160",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-161",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-162",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-163",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-164",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-165",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-166",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-167",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-168",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-169",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-170",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-171",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-172",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-173",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-174",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-175",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-176",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-177",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-178",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-179",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-180",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-181",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-182",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-183",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-184",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-185",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-186",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-187",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-188",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-189",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-190",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-191",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-192",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-193",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-194",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-195",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-196",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-197",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-198",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    },
+    {
+      "id": "S-199",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    }
+  ]
+}

@@ -24,7 +24,7 @@ SCRIPTS = Path(__file__).resolve().parent
 def _run(cmd, timeout=240):
     try:
         r = subprocess.run(cmd, timeout=timeout, capture_output=True,
-                           text=True, check=False)
+                           text=True, encoding="utf-8", errors="replace", check=False)
         return r.returncode, (r.stdout or ""), (r.stderr or "")
     except (OSError, subprocess.SubprocessError) as e:
         return -1, "", type(e).__name__ + ": " + str(e)[:160]

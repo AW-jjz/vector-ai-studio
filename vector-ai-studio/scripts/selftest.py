@@ -38,27 +38,14 @@ CORE_SCRIPTS = ["score.py", "batch_check.py", "iterate.py", "aggregate_log.py"]
 O3_BANNED = ["优秀", "Excellent"]
 CLAIM_BANNED = ["达标", "优秀", "完美", "Excellent"]
 
-# How many assertions a complete run must leave behind, including the guard
-# that checks this number (A60) but excluding A13, which only runs with
-# --fixtures. Declared rather than asserted-in-prose because two rounds lost
-# ten assertions to a bad block extraction and the only thing that noticed was
-# a human comparing counts. Add or remove an assertion, bump this.
-EXPECTED_ASSERTIONS = 75
-
-# Assertions that may skip on a machine without an optional capability:
-# vectorcraft-cli (A30, A31) and Pillow (A42-A46, A53). A skip is honest only
-# where one of those two is genuinely absent; anything else skipping is a bug
-# stepping out of sight, so A76 turns an undeclared skip red.
-CAPABILITY_SKIPS = {
-    "A30-vectorcraft-chain-h1-h2",
-    "A31-deliverable-schema-no-drift",
-    "A42-delight-flattens-lighting",
-    "A43-export-print-dimensions",
-    "A44-trace-ref-contract",
-    "A45-uniform-error-envelope",
-    "A46-craft-only-landing",
-    "A53-legibility-fails-what-the-eye-misses",
-}
+# Single source of truth (r70): both of these now live in lib_common.py so
+# aggregate_log.py (the H3 judge) and selftest.py (the H3 evidence writer)
+# share ONE policy instead of each keeping a copy. The local names are kept
+# so every existing assertion / A76 / A60 reference stays untouched.
+# See L.EXPECTED_ASSERTIONS / L.CAPABILITY_SKIPS for the bump rule and the
+# registration condition; add or remove an assertion -> bump L's number.
+EXPECTED_ASSERTIONS = L.EXPECTED_ASSERTIONS
+CAPABILITY_SKIPS = L.CAPABILITY_SKIPS
 
 
 def _call(name, args, cwd, flags=()):
@@ -66,7 +53,7 @@ def _call(name, args, cwd, flags=()):
            + [str(a) for a in args])
     try:
         r = subprocess.run(cmd, cwd=str(cwd), timeout=90, capture_output=True,
-                           text=True, check=False)
+                           text=True, encoding="utf-8", errors="replace", check=False)
     except (OSError, subprocess.SubprocessError):
         return -1, {}, ""
     try:
@@ -1121,7 +1108,8 @@ def _check_archetypes_legal(tmp, add):
             _p49 = subprocess.run(
                 [sys.executable, str(SCRIPTS / "sanitize_svg.py"),
                  "--in", str(_a), "--out", str(tmp / ("a49-" + _a.name)), "--json"],
-                capture_output=True, text=True, timeout=120)
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=120)
             try:
                 _e49 = json.loads(_p49.stdout)
             except json.JSONDecodeError:
@@ -1349,6 +1337,16 @@ def _check_empty_review_sheet(tmp, add):
                                                  "--key", str(_keyp55),
                                                  "--reviewer-kind", "machine",
                                                  "--json"], tmp)
+        # r70 #4: the SAME sheet passed twice must be rejected as a duplicate
+        # (E-REVIEW-INVALID) and never count as two independent reviewers.
+        # Folded into A55 itself (no new assertion id -> no EXPECTED_ASSERTIONS
+        # churn); design §2.2 #4 explicitly allows extending A55.
+        _rc55d, _env55d, _ = _call("review.py", ["--sheet", _paths55["a"],
+                                                 "--sheet", _paths55["a"],
+                                                 "--key", str(_keyp55),
+                                                 "--reviewer-kind", "external",
+                                                 "--json"], tmp)
+        _u55d = ((_env55d.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
         _g55 = _env55g.get("data") or {}
         _u55i = ((_env55i.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
         _u55m = ((_env55m.get("data") or {}).get("evidence") or {}).get("usable_for_claim")
@@ -1359,11 +1357,15 @@ def _check_empty_review_sheet(tmp, add):
                  and (_g55.get("evidence") or {}).get("usable_for_claim") is True
                  and (_g55.get("agreement") or {}).get("rate") == 0.8
                  and [c["verdict"] for c in _g55.get("cases") or []] == ["pass"] * 3
-                 and _u55i is False and _u55m is False),
+                 and _u55i is False and _u55m is False
+                 and _rc55d == 1 and "E-REVIEW-INVALID" in _codes(_env55d)
+                 and _u55d is False),
             "empty_rc=" + str(_rc55e) + " hole_rc=" + str(_rc55h)
             + " good_rc=" + str(_rc55g) + " agreement="
             + str((_g55.get("agreement") or {}).get("rate"))
-            + " internal=" + str(_u55i) + " machine=" + str(_u55m))
+            + " internal=" + str(_u55i) + " machine=" + str(_u55m)
+            + " dup_rc=" + str(_rc55d) + " dup_codes=" + ",".join(_codes(_env55d))
+            + " dup_usable=" + str(_u55d))
     except Exception as e:                      # noqa: BLE001
         add("A55-review-sheet-empty-is-not-evidence", False,
             type(e).__name__ + ": " + str(e)[:140])
@@ -1676,7 +1678,8 @@ def _stage_print_route(tmp, add):
 
         def _run_script(name, argv):
             _p = subprocess.run([sys.executable, str(ROOT / "scripts" / name)] + argv,
-                                capture_output=True, text=True, timeout=1200)
+                                capture_output=True, text=True, encoding="utf-8",
+                                errors="replace", timeout=1200)
             try:
                 return _p.returncode, json.loads(_p.stdout)
             except Exception:                      # noqa: BLE001
@@ -1919,7 +1922,7 @@ def _stage_print_route(tmp, add):
                 [sys.executable, str(ROOT / "scripts" / "schema_check.py"),
                  str(ROOT / "references" / "schemas" / "deliverable.schema.json"),
                  str(_lc_out / "deliverable.json"), "--json"],
-                capture_output=True, text=True)
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
             _ok46 = _ok46 and _sch.returncode == 0
             # Passing the schema is not enough: it never forbade extra keys, so
             # the Craft manifest could emit a whole block nobody declared (it
@@ -3394,14 +3397,36 @@ def _stage_grading(tmp, add, th, w1):
                             "--out", str(a18 / "preview.png"), "--force-builtin"], tmp)
     meta18 = _jread(a18 / "preview.meta.json")
     _copy_if(GOOD / "judge.json", a18 / "judge.json")
-    (a18 / "final.ai").write_bytes(
-        b"synthetic-h1-file-existence-placeholder-not-a-real-ai\n")
+    # r70 #2: H1 now re-opens final.ai's OWN bytes. A 47-byte placeholder used
+    # to be enough to reach 达标 -- that green light was the contract being
+    # pinned down by the selftest itself. The pass-tier run must now carry a
+    # genuinely parseable minimal PDF container (>=1 /Type /Page, 0 /Subtype
+    # /Image == structure_readback.raster). It is still synthetic (it proves
+    # F->scores wiring, not a real engine landing), but H1 evidence is real.
+    _MIN_PDF_AI = (
+        b"%PDF-1.4\n"
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>\nendobj\n"
+        b"%%EOF\n")
+    (a18 / "final.ai").write_bytes(_MIN_PDF_AI)
     L.write_json_atomic(a18 / "structure_readback.json", {
         "ok": True, "raster": 0, "placed": 0, "paths": 5,
         "artboard_matches_viewBox": True})
+    # r70 #3: H3 now requires an assertion-count lower bound
+    # (n_all >= L.EXPECTED_ASSERTIONS) and a run_id bound to --run-id. A
+    # synthetic "1/1 ok" log can no longer prove H3, so this fixture must
+    # carry the full, internally consistent selftest shape a real run emits.
+    # Ids are placeholders for the count check, not a second assertion set.
+    _n18 = L.EXPECTED_ASSERTIONS
     L.write_json_atomic(a18 / "selftest.json", {
-        "status": "ok", "passed": 1, "failed": 0,
-        "assertions": [{"id": "A0", "ok": True}]})
+        "schema": "vector-ai-studio/selftest-v1",
+        "status": "ok", "passed": _n18, "failed": 0, "skipped": [],
+        "run_id": "a18",
+        "capability_skips": sorted(L.CAPABILITY_SKIPS),
+        "assertions": [{"id": "A18-syn-%03d" % i, "ok": True,
+                        "detail": "", "skipped": False}
+                       for i in range(_n18)]})
     L.write_json_atomic(a18 / "score.json", {
         "round": 2, "l2_degraded": False, "degraded_dims": [], "failed_dims": [],
         "scores": {"A": {"score": 2, "measured": {}, "threshold": {}},
@@ -3441,6 +3466,29 @@ def _stage_grading(tmp, add, th, w1):
         " needs_human_review=" + str(acc18.get("needs_human_review")) +
         " F_is_dict=" + str(f_dict) +
         " validation=" + str(d18.get("validation_problems")))
+
+    # A18-negative (r70 #2, pairs with A18): the SAME run with a 47-byte fake
+    # .ai must now FAIL H1 and never reach 达标. This is the reverse side of
+    # the fix -- without it, A18 would still be a one-sided green light.
+    a18_fake = tmp / "a18-fake"
+    shutil.copytree(a18, a18_fake)
+    (a18_fake / "final.ai").write_bytes(
+        b"synthetic-h1-file-existence-placeholder-not-a-real-ai\n")
+    # Keep the H3 evidence bound to this run too, so the ONLY difference
+    # between a18 and a18-fake is final.ai's bytes (a clean paired assertion).
+    _st18f = _jread(a18_fake / "selftest.json")
+    _st18f["run_id"] = "a18-fake"
+    L.write_json_atomic(a18_fake / "selftest.json", _st18f)
+    rc18f, env18f, _ = _call("aggregate_log.py",
+                             ["--run-dir", str(a18_fake), "--run-id", "a18-fake", "--json"], tmp)
+    acc18f = _jread(a18_fake / "acceptance.json")
+    h1_18f = (acc18f.get("hard_gates", {}).get("H1", {}) or {}).get("pass")
+    ok18f = (rc18f != 0 and h1_18f is False
+             and acc18f.get("grade") != msg["grade_pass"])
+    add("A18c-fake-ai-h1-fails", ok18f,
+        "fake 47-byte .ai: exit=" + str(rc18f) +
+        " h1=" + str(h1_18f) + " grade=" + str(acc18f.get("grade")) +
+        " h1_reason=" + str((acc18f.get("hard_gates", {}).get("H1", {}) or {}).get("reason")))
 
     # A18b a compliant full-mode pass-tier acceptance log passes validation
     rc18b, env18b, _ = _call("aggregate_log.py",
@@ -3571,6 +3619,51 @@ def main():
     _check_ledger_trace(tmp, add)
     _check_licence_claim(tmp, add)
     _stage_print_route(tmp, add)
+
+    # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
+    # A77 (C-3): the pass-tier assignment must exist exactly once, inside
+    # _derive_grade. A second inline `grade = msg["grade_pass"]` copy would
+    # re-open the "two judgments, one trusted and one not" hole (#5 / QA-06).
+    try:
+        _agg_src = (SCRIPTS / "aggregate_log.py").read_text(encoding="utf-8")
+        _assign = re.findall(r"grade\s*=\s*msg\[[\"']grade_pass[\"']\]", _agg_src)
+        add("A77-single-grade-derivation",
+            len(_assign) == 1 and "_derive_grade" in _agg_src,
+            "grade_pass assignments=" + str(len(_assign)) +
+            " has_derive_grade=" + str("_derive_grade" in _agg_src))
+    except OSError as e:
+        add("A77-single-grade-derivation", False, "read error: " + str(e)[:120])
+
+    # A78 (C-4 / QA-09): at least 3 cases must exercise the --run-dir judging
+    # path (and none of those may fall back to --validate-case's early return).
+    # Otherwise the negative fixtures prove nothing about H1/H2/H3/F/grade.
+    try:
+        _fx = json.loads((FIX / "fixtures.json").read_text(encoding="utf-8"))
+        _rundir = [c for c in _fx.get("cases", [])
+                   if "--run-dir" in c.get("args", [])
+                   and "--validate-case" not in c.get("args", [])]
+        add("A78-rundir-fixtures-coverage", len(_rundir) >= 3,
+            "run-dir cases=" + str(len(_rundir)) +
+            " ids=" + ",".join(c.get("id", "?") for c in _rundir))
+    except (OSError, json.JSONDecodeError) as e:
+        add("A78-rundir-fixtures-coverage", False, "read error: " + str(e)[:120])
+
+    # A79 (#5 / QA-06, paired item 1): a direct --validate-case recompute
+    # check, so the guard exists even in a plain (non --fixtures) run. The
+    # rebuilt V9 differs from the R-1-b revised V0 ONLY in internal_excellent;
+    # rejecting it proves that field is inside the recompute range (R-1-a).
+    _rc_v0, _env_v0, _ = _call(
+        "aggregate_log.py", ["--validate-case", str(GOOD / "good_acceptance_reachable.json")], tmp)
+    _rc_v9, _env_v9, _ = _call(
+        "aggregate_log.py", ["--validate-case", str(BAD / "bad_grade_v9_excellent.json")], tmp)
+    _v9_msgs = " ".join(e.get("msg", "") for e in _env_v9.get("errors", []))
+    add("A79-validator-recomputes-internal-excellent",
+        bool(_rc_v0 == 0 and not _codes(_env_v0)
+             and _rc_v9 == 1 and "E-GRADE-MISMATCH" in _codes(_env_v9)
+             and "internal_excellent" in _v9_msgs),
+        "V0_codes=" + ",".join(_codes(_env_v0)) +
+        " V9_codes=" + ",".join(_codes(_env_v9)) +
+        " names_internal_excellent=" + str("internal_excellent" in _v9_msgs))
 
     # optional: fixtures regression (now includes the six v1.3 samples)
     if args.fixtures:

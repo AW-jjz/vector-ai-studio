@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.3.0
+version: 1.4.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,14 +14,16 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.3.0"
+  version: "1.4.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
 
 # vector-ai-studio
 
-把一句需求做成按可断言判据达到质量阈值、可继续编辑的原生 `.ai` 矢量成品。第一优先是出图质量闭环，格式落地是底线约束。每一轮的判据变化与版本历史见 `CHANGELOG.md`。
+把一句需求做成按可断言判据给出**可复核质量结论**、可继续编辑的 **VectorCraft PDF 兼容 `.ai`** 矢量成品。第一优先是出图质量闭环，格式落地是底线约束。
+
+状态 A 限定（r70）：引用 `grade=达标` 前须自行复核三项——① `output/<run-id>/final.ai` 是否为真 `%PDF-` 且能重新打开；② `output/<run-id>/structure_readback.json` 的 `paths` 与产物对不对得上；③ `output/<run-id>/selftest.json` 是否为本次运行产生（`run_id` 绑定）。本结论是脚本机械比较的结果，不替代消费方复算，也不宣称审美已被验证或印刷合规。每一轮的判据变化与版本历史见 `CHANGELOG.md`。
 
 ## 触发条件
 
@@ -117,7 +119,7 @@ python scripts/legibility.py --png path/to/round/preview.png --out path/to/round
 
 240px 预览看不出的三种失效：16px 时墨没了、16px 时整块糊成实心、前景与背景灰度太近。三种都在 favicon、烫印、单色印刷上现形。读 PNG 而不是读 SVG，所以与渲染器无关。
 
-硬门只有三条，且每条都有外部依据或定义即失效：对比度低于 `C.contrast_graphic_ratio`（WCAG 2.1 SC 1.4.11）判 `LOW-CONTRAST`；16px 覆盖率为 0 判 `COLLAPSED`；16px 覆盖率满格判 `MUD`（与前者互为镜像，两种都没有剪影）。`FRAGMENTED` 与 `COVERAGE-DRIFT` 只报告、不判失败——那两个门限是工程值，未标定。
+硬门只有三条，且每条都有外部依据或定义即失效：对比度低于 `C.contrast_graphic_ratio`（WCAG 2.1 SC 1.4.11（2.2 沿用同编号同阈值），检索日 2026-11-11）判 `LOW-CONTRAST`；16px 覆盖率为 0 判 `COLLAPSED`；16px 覆盖率满格判 `MUD`（与前者互为镜像，两种都没有剪影）。`FRAGMENTED` 与 `COVERAGE-DRIFT` 只报告、不判失败——那两个门限是工程值，未标定。
 
 Pillow 未装时显式降级（exit 3 + `E-RENDERER-MISSING`），不从 SVG 猜。
 
@@ -164,9 +166,9 @@ C 维除了数颜色，还测三件互不相同的事，分开报告，绝不揉
 |---|---|---|
 | 两个色是不是同一个色 | CIEDE2000 < 2.3 | 这是**小色差**问题，ΔE00 正是为小色差拟合的 |
 | 声明要区分的色是否真的拉开 | HyAB < 10 | 这是**大色差**问题，此时 ΔE00 会失真 |
-| 前景/背景能不能读 | WCAG 2.1 对比度 + 三种色觉缺陷模拟取最小值 | 见下 |
+| 前景/背景能不能读 | WCAG 2.1 对比度（2.2 沿用同编号同阈值）+ 三种色觉缺陷模拟取最小值 | 见下 |
 
-**对比度的作用域是刻意收窄的。** WCAG 2.1 SC 1.4.11 只约束 "parts of graphics required to understand the content"，并明确豁免纯装饰。所以只有在 spec 里**显式声明** `contrast_pairs` 时才检查，未声明记 `not_applicable`——「没检查」不能显示成「通过」。`role` 取 `text`（走 SC 1.4.3）、`meaning`（走 SC 1.4.11）或 `decorative`（豁免，但仍记录实测比值，便于复核豁免是否正当）。
+**对比度的作用域是刻意收窄的。** WCAG 2.1 SC 1.4.11（2.2 沿用同编号同阈值，检索日 2026-11-11）只约束 "parts of graphics required to understand the content"，并明确豁免纯装饰。所以只有在 spec 里**显式声明** `contrast_pairs` 时才检查，未声明记 `not_applicable`——「没检查」不能显示成「通过」。`role` 取 `text`（走 SC 1.4.3）、`meaning`（走 SC 1.4.11）或 `decorative`（豁免，但仍记录实测比值，便于复核豁免是否正当）。
 
 **色觉缺陷这一层是本项目扩展，不是标准。** WCAG 不要求模拟色觉缺陷。加它是因为正常视觉达标而色盲几乎看不见的配色大量存在：#FF0000 在黑底上 WCAG 判 5.25 通过 AA，红色盲视角只有 1.26。`cvd_contrast_floor` 在配置里标注「无标准依据、未标定」。
 
@@ -217,7 +219,7 @@ python scripts/land_vc.py --svg path/to/round/sanitized.svg --out path/to/run --
 
 **色彩模式的判定依据是内容流算子，不是资源字典。** 未声明的 `k` 操作数按 PDF 规范即 DeviceCMYK；只数 `/DeviceCMYK` 会把一份合格的 CMYK 文件误判成 RGB。
 
-**印刷母版**由 `scripts/land_craft.py` 产出：同一引擎，额外给 PDF/X-1a / X-3 / X-4、裁切线、出血与 TrimBox/BleedBox 实测。
+**印刷母版**由 `scripts/land_craft.py` 产出：同一引擎，额外给 PDF/X-1a / X-3 / X-4、裁切线、出血与 TrimBox/BleedBox 实测。**PDF/X 合规限定（C7，状态 A）**：代码侧自洽，PDF/X 规范原文未核（iso.org / pdfa.org / Adobe 帮助页 403/404，检索日 2026-11-11）；本链路不作为印厂合规依据，交付印厂前请按 PDF/X 规范自行复核 OutputIntent / 色彩空间 / TrimBox / BleedBox。
 
 ```
 python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
@@ -229,7 +231,7 @@ python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
 实测限制（vectorcraft 0.22.0，2026-11-08）：
 
 - **CMYK 是真的**（内容流出现 k/K 算子、rg/RG 归零）
-- **文字在 Illustrator 里会变成轮廓**：同一份产物在 VectorCraft 中 `kinds.Type>0`，在 Illustrator 中 `textFrames=0`、路径增加。能否改字取决于客户用哪个软件打开；清单会写明这一条
+- **文字在 Illustrator 中表现为轮廓（引擎行为，非格式属性）**：VectorCraft 输出的 `.ai` 在 Illustrator 中文字读作轮廓（实测 `textFrames=0`），同一产物在 VectorCraft 中 `kinds.Type>0`；这是该引擎产物在 Illustrator 中的表现，不是 `.ai` / PDF 格式固有属性（Adobe 官方仅称 PDF 兼容层 "saves a PDF representation" 且 embeds fonts，未声称打开即轮廓化）。能否改字取决于客户用哪个软件打开；清单会写明这一条
 - **字体缺失会被静默替换**：源文件字体本机没有时，产物用回退字体渲染。工具会报出来，清单照抄进 `warnings`
 - **图层不完全可靠**：5 个「只含单个元素」的 `<g>` 实测生成 5 个命名图层；两个「`<g>` 内含多个子元素」的样本只有 1 层（均无 defs、无剪切蒙版）。规律尚未确认，清单层数取自文件 /OCGs，是实测值
 - `.ai` 本身不含输出意图与 ICC：是 CMYK、不是 PDF/X；需要印刷条件时走 `scripts/land_craft.py`
@@ -266,12 +268,19 @@ AI 不写分数，也不代替评审。这个脚本读的是人写下的格子�
 ### 步 11 装好即用自检（C5）
 
 ```
-python scripts/selftest.py --fixtures --log-dir <RUN_DIR>
-python scripts/run_fixtures.py
-python scripts/smoke_ai.py
+# 同一个「本次内容派生」run-id 必须同时传给 selftest.py 与 aggregate_log.py，
+# 否则 H3 判定 selftest.json 不属于本次运行，恒判红。值由 spec + svg + 版本派生，
+# 不含时间 / 随机数 / 签名，重跑同一输入得到同一 id（判定 JSON 逐字节幂等）。
+RUN_ID=<sha256(spec + svg + thresholds.version)[:12]>
+python scripts/selftest.py --fixtures --log-dir <RUN_DIR> --run-id "$RUN_ID"
+python scripts/run_fixtures.py --run-id "$RUN_ID"
+python scripts/aggregate_log.py --run-dir <RUN_DIR> --run-id "$RUN_ID"
+python scripts/smoke_ai.py --run-id "$RUN_ID"
 ```
 
-H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生（`--log-dir` 必须指向运行目录）；不传 `--log-dir` 时日志落在默认输出根下，`scripts/aggregate_log.py` 找不到它，H3 恒不通过。也可用 `--selftest-log <path>` 显式指定。
+H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生（`--log-dir` 必须指向运行目录，`--run-id` 写进日志的 `run_id`）；`scripts/aggregate_log.py` 校验 `selftest.json.run_id == 本次 --run-id`，两者取值必须一致。只给 `scripts/aggregate_log.py` 传 `--run-id`、却让 `scripts/selftest.py` 用默认固定值，会让所有正常日志 H3 全红。也可用 `--selftest-log <path>` 显式指定日志路径。
+
+这条绑定拦住的是**跨 run 复用旧日志**：把上一次 / 别处的 `output/<run-id>/selftest.json` 塞进本次 run-dir，其 `run_id` 与本次内容派生值不符 → H3 fail。它**拦不住**「同一次 run 内生成方自写一份 run_id 匹配的假 `output/<run-id>/selftest.json`」——`output/<run-id>/` 是生成方可写的、`run_id` 本身公开可推导，属已声明的威胁模型边界；同 run 内自证这一层由「断言总数下界 ≥ 75」+「#2 产物字节复算」+「#5 grade 单一函数复算」共同收紧，不靠绑定宣称「不可伪造」。`scripts/studio.py` 的 `content_run_id()` 是生成该值的单一实现，编排各阶段与步 11 都复用它。
 
 `scripts/selftest.py` 是纯脚本层，零外部依赖必能跑；`scripts/run_fixtures.py` 跑随包 good / bad 回归；`scripts/smoke_ai.py` 是独立的真机冒烟命令，真实探测并调用 VectorCraft 落地，引擎不可用按 L4 显式降级并留真实日志，绝不编造 `.ai`。
 
@@ -315,7 +324,7 @@ python scripts/schema_check.py references/schemas/acceptance.schema.json <RUN_DI
 python scripts/schema_check.py references/schemas/deliverable.schema.json <RUN_DIR>/deliverable.json
 ```
 
-`references/schemas/` 下是两份 JSON Schema（draft 2020-12）：验收日志与交付清单。字段契约从散文变成了机器可校验的东西，任何消费方都能独立判定一份日志合不合法，不必相信产出方。`scripts/schema_check.py` 是零依赖的子集校验器（type / enum / required / patternProperties / anyOf 等），遇到不认识的 schema 关键字会**报错而不是静默忽略**——静默忽略会让校验器变成装饰。
+`references/schemas/` 下是两份 JSON Schema（draft 2020-12）：验收日志与交付清单。字段契约从散文变成了机器可校验的东西，任何消费方都能独立判定一份日志合不合法，不必相信产出方。**状态 A 限定（r70）**：此处「独立判定」仅指 JSON Schema 的字段契约校验（type / enum / required 等），**不是**对 `grade` 判定结论的复算——`--validate-case` 在 r70 已用与主路径同源的 `_derive_grade` 逐字段重推并比对（`E-GRADE-MISMATCH`），但两份 Schema 本身不校验分档语义。引用 `grade=达标` 仍须按上文状态 A 三项自复核，不得据此句对外宣称质量已被独立验证。`scripts/schema_check.py` 是零依赖的子集校验器，遇到不认识的 schema 关键字会**报错而不是静默忽略**——静默忽略会让校验器变成装饰。
 
 ### 冻结与净化
 
@@ -402,6 +411,7 @@ python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
 产出六件：源 SVG、可编辑 .ai、印刷 PDF、预览 PNG、交付清单、结构回读 JSON。print 档走
 真 CMYK 转换 → 文档出血设置 → PDF/X 导出（PDF/X-1a / X-3 / X-4、TrimBox / BleedBox /
 MediaBox、裁切与套准标记、色标、页面信息、内嵌输出意图、字体内嵌）。
+**PDF/X 合规限定（C7，状态 A）**：代码侧自洽，PDF/X 规范原文未核（iso.org / pdfa.org / Adobe 帮助页 403/404，检索日 2026-11-11）；本链路不作为印厂合规依据，交付印厂前请按 PDF/X 规范自行复核 OutputIntent / 色彩空间 / TrimBox / BleedBox。以下 PDF/X 相关断言均为「代码侧自洽」的实测记录，不是规范合规结论。
 结构回读用 CLI 的 info 命令重开 .ai，H1 判据为 raster=0 / placed=0 / paths>0 /
 画板与 viewBox 一致，再由脚本解析 PDF **页面内容流（/Contents 引用与 /Subtype /Form）**
 确认颜色算子确实存在——ICC、字体程序、CMap 等二进制流不计入，它们只是碰巧含有 k/K 字节。

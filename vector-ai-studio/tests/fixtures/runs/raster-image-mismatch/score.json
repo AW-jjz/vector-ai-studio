@@ -1,0 +1,30 @@
+{
+  "round": 2,
+  "l2_degraded": false,
+  "degraded_dims": [],
+  "failed_dims": [],
+  "scores": {
+    "A": {
+      "score": 2,
+      "measured": {},
+      "threshold": {}
+    },
+    "B": {
+      "score": 2,
+      "measured": {},
+      "threshold": {}
+    },
+    "C": {
+      "score": 1,
+      "measured": {},
+      "threshold": {}
+    },
+    "D": {
+      "score": 1,
+      "measured": {},
+      "threshold": {}
+    },
+    "E": "N/A",
+    "F": "N/A"
+  }
+}

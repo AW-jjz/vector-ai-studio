@@ -1,7 +1,7 @@
 {
   "schema": "vector-ai-studio/fixtures-v1",
   "note": "Good cases exercise the pure-script chain and compliant acceptance-log samples; bad cases must hit the expected E-* codes. JSON samples labelled non-real-machine are validator regression inputs, never proof of a real pass. @F@ = fixtures dir, @OUT@ = temp out dir.",
-  "cases_expected": 24,
+  "cases_expected": 34,
   "cases": [
     {
       "id": "good-freeze-spec",
@@ -156,7 +156,7 @@
       "script": "aggregate_log.py",
       "args": ["--validate-case", "@F@/bad/bad_exemption_abuse_lo.json"],
       "want_exit": [1],
-      "want_codes": ["E-EXEMPTION-ABUSE"]
+      "want_codes": ["E-EXEMPTION-ABUSE", "E-NO-SCORE"]
     },
     {
       "id": "bad-missing-f",
@@ -188,6 +188,94 @@
       "args": ["--validate-case", "@F@/bad/bad_pass_missing_e.json"],
       "want_exit": [1],
       "want_codes": ["E-NO-SCORE"]
+    },
+    {
+      "id": "bad-grade-v1-e-zero",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "args": ["--validate-case", "@F@/bad/bad_grade_v1_e_zero.json"],
+      "want_exit": [1],
+      "want_codes": ["E-GRADE-MISMATCH"]
+    },
+    {
+      "id": "bad-grade-v2-a-zero",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "args": ["--validate-case", "@F@/bad/bad_grade_v2_a_zero.json"],
+      "want_exit": [1],
+      "want_codes": ["E-GRADE-MISMATCH"]
+    },
+    {
+      "id": "bad-grade-v3-h1-false",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "args": ["--validate-case", "@F@/bad/bad_grade_v3_h1_false.json"],
+      "want_exit": [1],
+      "want_codes": ["E-GRADE-MISMATCH"]
+    },
+    {
+      "id": "bad-grade-v7-all-zero",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "args": ["--validate-case", "@F@/bad/bad_grade_v7_all_zero.json"],
+      "want_exit": [1],
+      "want_codes": ["E-GRADE-MISMATCH"]
+    },
+    {
+      "id": "bad-grade-v8-no-gates",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "args": ["--validate-case", "@F@/bad/bad_grade_v8_no_gates.json"],
+      "want_exit": [1],
+      "want_codes": ["E-GRADE-MISMATCH"]
+    },
+    {
+      "id": "bad-grade-v9-excellent",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "args": ["--validate-case", "@F@/bad/bad_grade_v9_excellent.json"],
+      "want_exit": [1],
+      "want_codes": ["E-GRADE-MISMATCH"]
+    },
+    {
+      "id": "run-dir-fake-ai",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "setup_dir": "runs/fake-ai",
+      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
+      "want_exit": [1],
+      "want_codes": ["E-H1-STRUCTURE"],
+      "want_acceptance": {"hard_gates.H1.pass": false, "grade": "不达标"}
+    },
+    {
+      "id": "run-dir-no-meta",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "setup_dir": "runs/no-meta",
+      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
+      "want_exit": [1],
+      "want_codes": [],
+      "want_acceptance": {"capability_missing": true, "degraded": true, "grade": "不达标"}
+    },
+    {
+      "id": "run-dir-one-assertion",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "setup_dir": "runs/one-assertion",
+      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
+      "want_exit": [1],
+      "want_codes": [],
+      "want_acceptance": {"hard_gates.H3.pass": false, "grade": "不达标"}
+    },
+    {
+      "id": "run-dir-raster-image-mismatch",
+      "expect": "error",
+      "script": "aggregate_log.py",
+      "setup_dir": "runs/raster-image-mismatch",
+      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
+      "want_exit": [1],
+      "want_codes": ["E-H1-STRUCTURE"],
+      "want_acceptance": {"hard_gates.H1.pass": false, "grade": "不达标"}
     }
   ]
 }

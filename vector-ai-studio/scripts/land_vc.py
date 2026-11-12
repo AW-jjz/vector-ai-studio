@@ -97,6 +97,7 @@ def find_cli(explicit):
 
 def run_cli(cli, args, timeout=300):
     r = subprocess.run([str(cli)] + args, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace",
                        timeout=timeout, check=False)
     return r.returncode, r.stdout or "", r.stderr or ""
 
@@ -363,7 +364,8 @@ def _run(args, run_dir):
             # the client can edit the text depends on which app they open it
             # with. Saying "text becomes outlines" flatly was wrong.
             deliverable["warnings"].append(
-                "文字在外观上会变：Illustrator 打开时读成轮廓（实测 textFrames=0），"
+                "文字在外观上会变：Illustrator 打开时读成轮廓（实测 textFrames=0）——"
+                "这是 VectorCraft 引擎产物在 Illustrator 中的表现，非 .ai / PDF 格式属性；"
                 "文件内仍保留文字对象（用 VectorCraft 打开可编辑）。"
                 "若客户必须在 Illustrator 里改活字，改交付 SVG 源文件")
 

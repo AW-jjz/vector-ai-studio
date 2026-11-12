@@ -1,0 +1,84 @@
+{
+  "schema": "vector-ai-studio/acceptance-sample-v1",
+  "note": "回归样例（非真机产物）：以修订后 V0 为基线的单一破坏点反例 -> V9 internal_excellent=true 但 twos=2<min_twos=3 (C/D=1)；期望 E-GRADE-MISMATCH",
+  "mode": "full",
+  "grading_entered": true,
+  "h2": true,
+  "h2_status": "pass",
+  "headline": "已达质量阈值，可进入人工终审（可选）",
+  "grade": "达标",
+  "internal_excellent": true,
+  "tier": "pass",
+  "degraded": false,
+  "needs_human_review": false,
+  "reason": "none",
+  "capability_missing": false,
+  "status": "ok",
+  "quick": false,
+  "f_verified": true,
+  "f_data_isolated": true,
+  "generation_count": 3,
+  "generation_budget": {
+    "pass": 9,
+    "excellent": 15
+  },
+  "f_source_runs": [
+    {
+      "run_id": "run-1",
+      "h1": true,
+      "draft_sha256": "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111"
+    },
+    {
+      "run_id": "run-2",
+      "h1": true,
+      "draft_sha256": "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"
+    },
+    {
+      "run_id": "run-3",
+      "h1": true,
+      "draft_sha256": "cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333"
+    }
+  ],
+  "c2_revisions": [
+    {
+      "run_id": "run-1",
+      "round": 2,
+      "change_only": [
+        "C"
+      ],
+      "draft_sha256": "dddd4444dddd4444dddd4444dddd4444dddd4444dddd4444dddd4444dddd4444"
+    }
+  ],
+  "scores": {
+    "A": {
+      "score": 2
+    },
+    "B": {
+      "score": 2
+    },
+    "C": {
+      "score": 1
+    },
+    "D": {
+      "score": 1
+    },
+    "E": "N/A",
+    "F": {
+      "score": 1
+    }
+  },
+  "hard_gates": {
+    "H1": {
+      "pass": true
+    },
+    "H2": {
+      "pass": true
+    },
+    "H3": {
+      "pass": true
+    },
+    "H4": {
+      "pass": true
+    }
+  }
+}

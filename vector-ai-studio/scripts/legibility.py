@@ -7,8 +7,9 @@ score's geometry and colour counts, and both are what a client sees on a favicon
 or a stamped bag. This script measures three things that survive the renderer
 argument because it reads the PNG, not the SVG:
 
-  contrast     WCAG 2.1 SC 1.4.11 ratio between the foreground's mean colour
-               and the background's modal colour (external standard, gating)
+  contrast     WCAG 2.1 SC 1.4.11 (2.2 keeps the same SC number and thresholds)
+               ratio between the foreground's mean colour and the background's
+               modal colour (external standard, gating)
   collapse     foreground coverage at N px; zero ink is collapsed, and full ink
                is the mirror failure (MUD) -- both leave no silhouette
   structure    connected foreground components and the coverage drift between

@@ -126,7 +126,8 @@ def main():
                 "--params", json.dumps({"level": args.simplify})]
     cmd += ["--export", args.out]
 
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=1800)
     if p.returncode != 0:
         raise L.ToolError("E-TRACE", "trace failed: " +
                           (p.stderr or p.stdout)[-400:], L.EXIT_ERROR)

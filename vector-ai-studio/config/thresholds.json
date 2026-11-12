@@ -31,7 +31,7 @@
     "contrast_text_ratio": 4.5,
     "contrast_large_text_ratio": 3.0,
     "contrast_graphic_ratio": 3.0,
-    "_src_contrast": "WCAG 2.1 SC 1.4.3（正文 4.5:1、大字 3:1）与 SC 1.4.11（graphical objects required to understand the content，3:1）。SC 1.4.11 原文限定为'理解内容所必需的图形'并豁免纯装饰，故本实现只在 spec 显式声明 contrast_pairs 时检查，未声明记 not_applicable。Understanding 文档明确 2.999:1 不达标，不得四舍五入。",
+    "_src_contrast": "WCAG 2.1 SC 1.4.3（正文 4.5:1、大字 3:1）与 SC 1.4.11（graphical objects required to understand the content，3:1）；2.2 沿用同编号同阈值（检索日 2026-11-11）。SC 1.4.11 原文限定为'理解内容所必需的图形'并豁免纯装饰，故本实现只在 spec 显式声明 contrast_pairs 时检查，未声明记 not_applicable。Understanding 文档明确 2.999:1 不达标，不得四舍五入。",
 
     "cvd_contrast_floor": 3.0,
     "_src_cvd": "本项目扩展，非标准：将 SC 1.4.11 的 3:1 作用于 Machado 等 (2009) 模拟后的颜色。WCAG 本身不要求模拟色觉缺陷，故此阈值无标准依据、未标定；设它是因为正常视觉达标而色盲几乎看不见的配色大量存在（纯红 #FF0000 在黑底上 WCAG 5.25 通过，红色盲视角仅 1.26）。"
@@ -67,7 +67,7 @@
     "fragment_growth_warn": 2.0,
     "coverage_small_mud": 1.0,
     "_src_gap": "工程值，未标定：仅用于把前景与背景分开，不参与判失败。改它会改变 coverage 与 components 的读数，改前先存一组基准图。",
-    "_src_gates": "只卡三件有依据的事：对比度用 C.contrast_graphic_ratio（WCAG 2.1 SC 1.4.11，外部标准）；16px 覆盖率归零即 COLLAPSED；16px 覆盖率满格即 MUD。后两条互为镜像，定义即失效：零墨没有任何形，满格同样没有任何形。coverage_drift 与 fragment 只报告、不判失败。",
+    "_src_gates": "只卡三件有依据的事：对比度用 C.contrast_graphic_ratio（WCAG 2.1 SC 1.4.11（2.2 沿用同编号同阈值，检索日 2026-11-11），外部标准）；16px 覆盖率归零即 COLLAPSED；16px 覆盖率满格即 MUD。后两条互为镜像，定义即失效：零墨没有任何形，满格同样没有任何形。coverage_drift 与 fragment 只报告、不判失败。",
     "_src_mud": "coverage_small == 1.0 是精确值不是估计：整张 16x16 每像素都被掩膜判为前景，缩小后不再有背景，剪影为零。网格线、棋盘格、密集排线在 1/15 缩放下会落到这里。",
     "_src_small": "16px 取自 favicon 的常见最小尺寸；240px 画板缩到 16px 是 15:1，比浏览器标签更苛刻，属保守设定。"
   },

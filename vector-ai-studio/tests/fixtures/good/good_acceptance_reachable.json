@@ -7,7 +7,7 @@
   "h2_status": "pass",
   "headline": "已达质量阈值，可进入人工终审（可选）",
   "grade": "达标",
-  "internal_excellent": true,
+  "internal_excellent": false,
   "tier": "pass",
   "degraded": false,
   "needs_human_review": false,

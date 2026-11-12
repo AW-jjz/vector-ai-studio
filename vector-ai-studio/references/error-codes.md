@@ -24,7 +24,8 @@
 | `E-FABRICATED-SCORE` | L2 下出现数字分（伪造读图判读） | aggregate_log |
 | `E-FIXTURE-MISMATCH` | fixture 的期望值与实际结果不符 | run_fixtures |
 | `E-FORBIDDEN` | SVG 含禁用构造（filter / clipPath / use 等） | sanitize_svg |
-| `E-H1-STRUCTURE` | 结构回读失败（raster / placed / paths / 画板与 viewBox）；也用于「没有本次产物」的硬失败：落地命令非零退出或未写出本次 `output/<run-id>/final.ai` | land_vc, land_craft, lib_pdf, smoke_ai |
+| `E-GRADE-MISMATCH` | `--validate-case` 时，日志声明的判定字段（grade / tier / headline / status / degraded / needs_human_review / reason / internal_excellent）与 `_derive_grade` 从 evidence 重推的 verdict 逐字段不一致（含 `internal_excellent` 自证）；仅在 full 轨、且已通过所有其它契约检查时作为唯一裁决码，不叠加到更具体的错误码上 | aggregate_log |
+| `E-H1-STRUCTURE` | 结构回读失败（raster / placed / paths / 画板与 viewBox）；也用于「没有本次产物」的硬失败：落地命令非零退出或未写出本次 `output/<run-id>/final.ai`；r70 起含 `aggregate_log` 对 `output/<run-id>/final.ai` 的字节级独立复算不满足（`%PDF-` 前缀 / ≥1 `/Type /Page` / 内嵌 `/Subtype /Image` 数与 structure_readback.raster 一致），即「产物字节复算不满足」 | land_vc, land_craft, lib_pdf, smoke_ai, aggregate_log |
 | `E-H2-INCOMPLETE` | 四件产物不齐 | aggregate_log |
 | `E-INTERNAL` | 未预期异常（保留原始异常文本） | lib_common |
 | `E-JUDGE-SCHEMA` | 判读文件不符合 schema，且重试一次后仍失败 | llm_judge |
@@ -38,7 +39,7 @@
 | `E-QUICK-UNVERIFIED` | quick 模式（F 未验证）宣称达标 | aggregate_log |
 | `E-RENDERER-MISSING` | 渲染器全部缺失且内置兜底也产不出真实 PNG；或 Pillow 缺失导致 PNG 无法读取，小尺寸三检保持未测量 | render_png, legibility |
 | `E-REVIEW-EMPTY` | 盲评表每一个分数格都是空的：空表不是证据，退出 1，不出汇总 | review |
-| `E-REVIEW-INVALID` | 盲评表不可用：缺格、非 0–2 整数、case 缺失或重复、表头缺维；逐条列出后退出 1 | review |
+| `E-REVIEW-INVALID` | 盲评表不可用：缺格、非 0–2 整数、case 缺失或重复、表头缺维；r70 起含「同一份表重复提交（`--sheet` 按绝对路径 + 内容 sha256 去重命中）」——重复表不计入评审人数；逐条列出后退出 1，`usable_for_claim=false` | review |
 | `E-SCHEMA` | 输入结构不符合 schema；含 deal 历史文件损坏或 schema 不符（此时代码拒绝继续且不覆盖原文件，不做静默重置） | aggregate_log, deal, lib_common, run_fixtures, score |
 | `E-STUDIO-STAGE` | studio.py 的某阶段以非零码结束但未带更具体的码（如 score.py 因零分维返回 1）；消息里列出停链的阶段 | studio.py |
 | `E-SELFTEST` | 自检断言失败（附失败断言 id 列表） | selftest |

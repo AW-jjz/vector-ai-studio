@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <g id="frame">
+    <rect x="10" y="10" width="180" height="180" fill="#ffffff"/>
+  </g>
+  <g id="subject">
+    <rect x="40" y="40" width="120" height="120" fill="#2f6fed"/>
+  </g>
+  <g id="accent-top">
+    <rect x="70" y="55" width="60" height="16" fill="#ffb020"/>
+  </g>
+  <g id="accent-bottom">
+    <rect x="70" y="129" width="60" height="16" fill="#ffb020"/>
+  </g>
+  <g id="dot">
+    <rect x="90" y="90" width="20" height="20" fill="#111111"/>
+  </g>
+</svg>

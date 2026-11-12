@@ -13,11 +13,19 @@ the rest:
   * every cell must be present and be an integer 0-2 -- a missing cell is not a
     zero, and it is not a pass
   * agreement across reviewers is reported, never silently averaged away
-  * `evidence.usable_for_claim` is true only for >= 2 reviewers of kind
-    `external` with zero empty cells
+  * `evidence.usable_for_claim` is true only for >= 2 DISTINCT reviewers of
+    kind `external` with zero empty cells. Sheets are de-duplicated by
+    (absolute path, content sha256) BEFORE counting, so passing the same
+    sheet twice can no longer fake a second reviewer (r70 #4).
 
 `--reviewer-kind machine` is accepted so a model-assisted pass can be recorded
 honestly, but it can never be promoted to external evidence.
+
+Honest boundary: this de-duplication catches the same file (or identical
+content) submitted twice. It CANNOT detect one person who saves the same
+ratings under two different filenames with different content -- there is no
+way for a script to tell two independent humans from one human with two
+files. Do not describe this mechanism as making the evidence unforgeable.
 
 Scores are never produced here. This script reads what humans wrote.
 """
@@ -120,7 +128,23 @@ def main():
         raise L.ToolError("E-SCHEMA", "review key lists no cases", L.EXIT_USAGE)
 
     sheets, all_problems, reviewers = [], [], []
+    # r70 #4: de-duplicate by (absolute path, content sha256). Passing the very
+    # same review sheet twice used to count as TWO independent reviewers and
+    # make usable_for_claim true (report P0-4). A repeat is not evidence: it is
+    # an invalid submission, reported through the existing E-REVIEW-INVALID
+    # branch. The key is content-based, so two different files with identical
+    # content are also caught, not just the same filename twice.
+    seen_sheets = {}
     for s in args.sheet:
+        key = (str(Path(s).resolve()), L.file_sha256(s))
+        if key in seen_sheets:
+            all_problems.append(Path(s).name + ": duplicate review sheet "
+                                "(same absolute path + content sha256 as " +
+                                seen_sheets[key] + ")")
+            # still read it so per-cell problems are listed, but do NOT append
+            # to sheets/reviewers: it must not count toward the reviewer total.
+            continue
+        seen_sheets[key] = Path(s).name
         rows, problems = _read_sheet(s, dims)
         all_problems.extend(Path(s).name + ": " + p for p in problems)
         unknown = sorted(set(rows) - set(cases))
@@ -136,7 +160,10 @@ def main():
     blank = sum(1 for r in sheets for c in cases
                 for d in dims if d not in r.get(c, {}))
     if all_problems:
-        empty = blank == cells
+        # An empty sheet is a distinct, more specific diagnosis. A run where
+        # every submission was a duplicate has no sheets at all (cells=0);
+        # that is E-REVIEW-INVALID (duplicate/insufficient), NOT an empty sheet.
+        empty = bool(sheets) and blank == cells
         code = "E-REVIEW-EMPTY" if empty else "E-REVIEW-INVALID"
         msg = ("every score cell is blank: an empty sheet is not evidence"
                if empty else

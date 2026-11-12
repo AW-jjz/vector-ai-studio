@@ -63,8 +63,9 @@ def _perceptual_block(colors, spec, th):
       distinct    are declared-distinct colours actually apart?  HyAB, because
                   this is a LARGE-difference question and CIEDE2000 distorts
                   there (Abasi/Amani Tehran/Fairchild 2020).
-      contrast    can the pair be read?  WCAG 2.1. Scope is deliberately narrow:
-                  SC 1.4.11 constrains only graphics "required to understand the
+      contrast    can the pair be read?  WCAG 2.1 (2.2 keeps the same SC number
+                  and thresholds). Scope is deliberately narrow: SC 1.4.11
+                  constrains only graphics "required to understand the
                   content" and exempts decoration, so an undeclared pair is
                   reported as not_applicable -- never as a silent pass.
 

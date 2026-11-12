@@ -1,0 +1,21 @@
+{
+  "schema": "vector-ai-studio/judge-v1",
+  "readable": true,
+  "items": [
+    { "id": "e1", "hit": true },
+    { "id": "e2", "hit": true },
+    { "id": "e3", "hit": true },
+    { "id": "e4", "hit": true },
+    { "id": "e5", "hit": true }
+  ],
+  "subject_conflict": false,
+  "attributes": [
+    { "id": "a1", "hit": true },
+    { "id": "a2", "hit": true }
+  ],
+  "align": [
+    { "id": "b1", "pass": true },
+    { "id": "b2", "pass": true },
+    { "id": "b3", "pass": true }
+  ]
+}

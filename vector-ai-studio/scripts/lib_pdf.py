@@ -407,6 +407,49 @@ def _observe_ai(path, warnings=None):
     }
 
 
+def ai_h1_probe(path):
+    """Pure byte-level probe of a PDF-compatible .ai, for H1 re-verification.
+
+    Reads the target bytes only; returns {pdf_ok, page_count, image_count}.
+    No subprocess, no engine call, no sha256, no wall-clock: identical bytes
+    always give the identical result, so callers can fold it into a judgment
+    JSON without breaking byte-level idempotency. This is the single PDF
+    reader used by both the landers and the acceptance-log H1 gate -- never
+    re-implement these regexes elsewhere.
+
+    pdf_ok      raw starts with the %PDF- header
+    page_count  /Type /Page objects (NOT /Pages), including ones packed into
+                an /ObjStm object stream (reuse _pdf_objects)
+    image_count /Subtype /Image occurrences, the same counting rule as
+                _observe_ai (so the probe and the deliverable agree)
+    """
+    try:
+        raw = Path(path).read_bytes()
+    except OSError:
+        return {"pdf_ok": False, "page_count": 0, "image_count": 0}
+    out = {"pdf_ok": raw.startswith(b"%PDF-"), "page_count": 0, "image_count": 0}
+    if not out["pdf_ok"]:
+        # A non-PDF blob cannot be a page container; report zeros rather than
+        # guessing at its content, so a 22-byte fake .ai fails closed.
+        return out
+    # Same regex/口径 as _observe_ai's "images" field.
+    out["image_count"] = len(re.findall(rb"/Subtype\s*/Image", raw))
+    # Count page dictionaries from the raw bytes AND from object-stream bodies;
+    # take the max (the raw already contains every unpacked direct object, so
+    # summing would double-count). No I/O beyond the read above.
+    blobs = [raw]
+    try:
+        blobs.extend(_pdf_objects(raw).values())
+    except Exception:                          # noqa: BLE001 - probe never raises
+        pass
+    page_re = re.compile(rb"/Type\s*/Page\b")
+    for b in blobs:
+        if isinstance(b, str):
+            b = b.encode("latin-1")
+        out["page_count"] = max(out["page_count"], len(page_re.findall(b)))
+    return out
+
+
 def _deliverable(path, opts, obs, kv, engine="", engine_version="",
                  export_steps=None, source_probe=None, tool_warnings=None):
     """The document a client can check instead of arguing.
@@ -611,7 +654,12 @@ def _ensure_preview(run_dir, svg):
     try:
         r = subprocess.run([sys.executable, str(SCRIPTS / "render_png.py"),
                             "--in", str(svg), "--out", str(png)],
-                           timeout=60, capture_output=True, text=True, check=False)
+                           timeout=60, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", check=False)
         return r.returncode == 0 and png.is_file()
     except (OSError, subprocess.SubprocessError):
         return False
+
+
+# NOTE: ai_h1_probe() is defined once, above _deliverable() (single PDF reader).
+# aggregate_log imports it from here; do not add a second copy.

@@ -4,6 +4,62 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.4.0 — 2026-11-12 [r70]
+
+Judgment-layer hardening round, following the independent deep-research report
+(items #1-#8). Field-level fail-closed design with an explicit threat model and
+registered boundaries -- not an "unforgeable" claim.
+
+- **#6** All 14 `subprocess.run(..., text=True)` call sites (9 scripts) now pass
+  `encoding="utf-8", errors="replace"` explicitly; no silent decode fallback.
+- **#1** Fidelity gate decoupled from renderer identity: only an explicit
+  `fidelity=="faithful"` plus a readable judge may support A/B scoring. A
+  missing `output/<run-id>/preview.meta.json`, `renderer=unknown`, `resvg` with `limited`
+  fidelity, or a missing fidelity field all fail closed to L2. `H2.fidelity`
+  never records `full`.
+- **#2** `lib_pdf.ai_h1_probe()` re-opens `output/<run-id>/final.ai`'s own bytes (`%PDF-`
+  header, >=1 `/Type /Page`, image count == structure_readback.raster) and
+  AND-combines with the existing H1 gate. Only booleans / small ints are written
+  into hard_gates.H1.probe -- no sha256 / dates, preserving byte idempotency.
+  Reuses `E-H1-STRUCTURE`; A18 became a paired assertion (a real minimal PDF
+  container can reach pass, a 47-byte fake .ai must fail H1).
+- **#3** H3 evidence: `L.CAPABILITY_SKIPS` / `L.EXPECTED_ASSERTIONS` are the
+  single source in `scripts/lib_common.py`; the whitelist no longer comes from the log
+  being validated; `len(assertions) >= L.EXPECTED_ASSERTIONS`; and
+  `selftest.json.run_id` binds to the same content-derived `--run-id` the
+  orchestration (`scripts/studio.py`, SKILL.md step 11, pipeline-contract.md) passes to
+  `scripts/selftest.py` and `scripts/aggregate_log.py`. No nonce / time / signature.
+- **#4** `scripts/review.py` de-duplicates `--sheet` by (absolute path, content
+  sha256); duplicates raise `E-REVIEW-INVALID` and never count toward the
+  reviewer total. Documented boundary: two different files from one person
+  cannot be detected as one reviewer.
+- **#5** `_derive_grade(evidence, th)` is now the single pure function for all
+  verdict fields (grade / tier / headline / status / degraded /
+  needs_human_review / reason / internal_excellent), shared by `main()` and the
+  `--validate-case` validator. The validator re-derives and compares field by
+  field, including `internal_excellent`, rejecting mismatches with the new
+  `E-GRADE-MISMATCH`. Six negative validate-case fixtures pin V1/V2/V3/V7/V8/V9.
+- **#8** `scripts/run_fixtures.py` switched from a subset check to exact
+  `got_codes == want_codes` (warnings can no longer satisfy a wanted code),
+  gained `setup_dir` copytree + `@RUN@` to materialize complete run directories,
+  and 4 `--run-dir` negative fixtures (fake .ai / deleted meta / 1-assertion
+  selftest / raster=0 with an embedded image). Meta-assertions pin >=3 run-dir
+  cases and a single grade derivation. `cases_expected`: 24 -> 34.
+- **#7** In-package wording: state-A limits on outward pass claims, three
+  self-review prompts in the delivery note, C9 re-qualified as engine behavior
+  (not a format attribute), C7 PDF/X marked "spec text not verified", WCAG
+  2.1 -> "WCAG 2.1 SC 1.4.11 (2.2 keeps the same number and thresholds)" with
+  retrieval dates, APCA / `color-contrast()` status corrected. 3:1 / 4.5:1
+  thresholds are unchanged. Absolute "unforgeable / anti-self-deception"
+  claims are permanently removed.
+
+Readings: selftest 79/79 (with --fixtures 80/80), run_fixtures 34/34,
+validate_skill 0 error / 0 warning; all exit 0. Two consecutive plain
+selftest runs are identical (79/79/0); same run-dir twice yields a
+byte-identical acceptance.json. Meta-assertions A77 (single grade
+derivation), A78 (>=3 run-dir cases), A79 (validator recomputes
+internal_excellent) guard the paired items.
+
 ## 1.3.0 — 2026-11-11 [r69]
 
 - Second audit round, run by independent subagents against the shipped

@@ -1,0 +1,17 @@
+{
+  "schema": "vector-ai-studio/selftest-v1",
+  "status": "ok",
+  "passed": 1,
+  "failed": 0,
+  "skipped": [],
+  "run_id": "STOLEN-FROM-ANOTHER-RUN",
+  "capability_skips": [],
+  "assertions": [
+    {
+      "id": "A0",
+      "ok": true,
+      "detail": "",
+      "skipped": false
+    }
+  ]
+}
