@@ -1,6 +1,6 @@
 vector-ai-studio 发布校验留痕
 
-【本段为 r29 历史读数，最新版本见文件末尾 r69 段】
+【本段为 r29 历史读数，最新版本见文件末尾 r70 段】
 文件数        : 54
 字节数        : 161934
 sha256        : 30855c2b58d8e05366b59811cdc7d0f6d0c2b4e520cda2e898e54100e99f0e79
@@ -2041,3 +2041,135 @@ sha256        : 20469f7b61727fceb561b4c45c9b7da808fb602450ced70efb28ae5b8b65d564
 
 校验方式      : python scripts/selftest.py 期望 75/75；带 --fixtures 期望 76/76
                 get-filehash 发布包应为 20469f7b…d564（280,600 B）
+
+────────────────────────────────────────────────────────────
+r70（2026-11-12）　判读层收紧：字段级 fail-closed ＋ 威胁模型与已登记边界
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r70-137files.zip
+版本          : r70（SKILL.md 1.4.0，metadata.version 1.4.0）
+文件数        : 137
+字节数        : 318973
+sha256        : d20491b6921b05f290051b8e249e5babbd86d26a3d9a857d12af7baee7a1f653
+冻结时刻      : 2026-11-12（源码 137 文件 / 882,818 B / 0 个 .pyc）
+包内根前缀    : vector-ai-studio/（137 条目、0 目录项，与 r69 同构）
+旧包归档      : r69-96files.zip 移入 05-发布/archive/（不覆盖、不删除）
+
+相对 r69 变更 : 66 个文件（41 新增 / 0 删除 / 25 修改）
+                对比 04-QA/test-log-r69/00-freeze-r69-manifest.txt 逐件 md5
+新增 41       :
+                tests/fixtures/bad/bad_grade_v1_e_zero.json 8a5c691a53717052e4fe42b523eded5191581e842138cfc672f1524555ec179f
+                tests/fixtures/bad/bad_grade_v2_a_zero.json 2d73a902813db4992ffe19e6387d91f7f8fc6004f18a70f34f7cee6f206f87eb
+                tests/fixtures/bad/bad_grade_v3_h1_false.json 512720b126cc43e4763969e998a916fcf5eac86de2aeb618cc5c7259afbe810f
+                tests/fixtures/bad/bad_grade_v7_all_zero.json 9cc152fa392e91f7f0b4521ced6b6f7236ee98077176bca610a7fd9d300cfa2e
+                tests/fixtures/bad/bad_grade_v8_no_gates.json af6231d252728b1bd198f96fb42eaa4afadf21c8d0346b989468e385c42df84c
+                tests/fixtures/bad/bad_grade_v9_excellent.json 172ae1064cd48389068007361e74d85ddb0ae38a8c216a3a4499ac7e47acf028
+                tests/fixtures/runs/fake-ai/batch.json e97a14cfaa7f707cdb3e2db0e7203101acdcae74a27ae93cff30f2d65c1b84c8
+                tests/fixtures/runs/fake-ai/final.ai   ea86b30de1723ebf14fd6311ff4cb2a61c22e9372abc51926c416ba70aef8ae6
+                tests/fixtures/runs/fake-ai/final.svg  90e2e7ced07d7546586b8cf01903b3e44dc4c86e86f11f6c0b3addc1578a8322
+                tests/fixtures/runs/fake-ai/judge.json 7811a78bf8d54ff7a54448c1e5bd30ad04a5094fc07711ed68983ce2a2019793
+                tests/fixtures/runs/fake-ai/preview.meta.json 7f1e5950961baa7218f2f081d762da3ae8dd67a477cf790f9f49e1fcc95904f6
+                tests/fixtures/runs/fake-ai/preview.png 75e7571698fda9ad56d9ab36791399afcf803b738b1ae70959aeb84d9b4886c5
+                tests/fixtures/runs/fake-ai/score.json 211abeab6e9f4f3772a363b81e330fd50269610f41913484154374e5adcf17b1
+                tests/fixtures/runs/fake-ai/selftest.json c6ca261245c53650cdf9b7f9a4ed98c6114001b53f821d9cd4c9efda7442d992
+                tests/fixtures/runs/fake-ai/structure_readback.json be96699a11e3d06dc1439c01b6a916cd057745ed58b4128b3879a42dc4f1b457
+                tests/fixtures/runs/no-meta/batch.json e97a14cfaa7f707cdb3e2db0e7203101acdcae74a27ae93cff30f2d65c1b84c8
+                tests/fixtures/runs/no-meta/final.ai   ab2e5fb59ce27a5263332d3b32796fd16c10eb132232b027e06cae67bfce2502
+                tests/fixtures/runs/no-meta/final.svg  90e2e7ced07d7546586b8cf01903b3e44dc4c86e86f11f6c0b3addc1578a8322
+                tests/fixtures/runs/no-meta/judge.json 7811a78bf8d54ff7a54448c1e5bd30ad04a5094fc07711ed68983ce2a2019793
+                tests/fixtures/runs/no-meta/preview.png 75e7571698fda9ad56d9ab36791399afcf803b738b1ae70959aeb84d9b4886c5
+                tests/fixtures/runs/no-meta/score.json 211abeab6e9f4f3772a363b81e330fd50269610f41913484154374e5adcf17b1
+                tests/fixtures/runs/no-meta/selftest.json c6ca261245c53650cdf9b7f9a4ed98c6114001b53f821d9cd4c9efda7442d992
+                tests/fixtures/runs/no-meta/structure_readback.json be96699a11e3d06dc1439c01b6a916cd057745ed58b4128b3879a42dc4f1b457
+                tests/fixtures/runs/one-assertion/batch.json e97a14cfaa7f707cdb3e2db0e7203101acdcae74a27ae93cff30f2d65c1b84c8
+                tests/fixtures/runs/one-assertion/final.ai ab2e5fb59ce27a5263332d3b32796fd16c10eb132232b027e06cae67bfce2502
+                tests/fixtures/runs/one-assertion/final.svg 90e2e7ced07d7546586b8cf01903b3e44dc4c86e86f11f6c0b3addc1578a8322
+                tests/fixtures/runs/one-assertion/judge.json 7811a78bf8d54ff7a54448c1e5bd30ad04a5094fc07711ed68983ce2a2019793
+                tests/fixtures/runs/one-assertion/preview.meta.json 7f1e5950961baa7218f2f081d762da3ae8dd67a477cf790f9f49e1fcc95904f6
+                tests/fixtures/runs/one-assertion/preview.png 75e7571698fda9ad56d9ab36791399afcf803b738b1ae70959aeb84d9b4886c5
+                tests/fixtures/runs/one-assertion/score.json 211abeab6e9f4f3772a363b81e330fd50269610f41913484154374e5adcf17b1
+                tests/fixtures/runs/one-assertion/selftest.json 1f9ac0c430ca68c5cdfb429e02ba64ddd288bda5baa1f49d35ef573d00ec9074
+                tests/fixtures/runs/one-assertion/structure_readback.json be96699a11e3d06dc1439c01b6a916cd057745ed58b4128b3879a42dc4f1b457
+                tests/fixtures/runs/raster-image-mismatch/batch.json e97a14cfaa7f707cdb3e2db0e7203101acdcae74a27ae93cff30f2d65c1b84c8
+                tests/fixtures/runs/raster-image-mismatch/final.ai 7cf9607b9ba25c329de66277eecf751281d9cef72a695facc7e03843769d308a
+                tests/fixtures/runs/raster-image-mismatch/final.svg 90e2e7ced07d7546586b8cf01903b3e44dc4c86e86f11f6c0b3addc1578a8322
+                tests/fixtures/runs/raster-image-mismatch/judge.json 7811a78bf8d54ff7a54448c1e5bd30ad04a5094fc07711ed68983ce2a2019793
+                tests/fixtures/runs/raster-image-mismatch/preview.meta.json 7f1e5950961baa7218f2f081d762da3ae8dd67a477cf790f9f49e1fcc95904f6
+                tests/fixtures/runs/raster-image-mismatch/preview.png 75e7571698fda9ad56d9ab36791399afcf803b738b1ae70959aeb84d9b4886c5
+                tests/fixtures/runs/raster-image-mismatch/score.json 211abeab6e9f4f3772a363b81e330fd50269610f41913484154374e5adcf17b1
+                tests/fixtures/runs/raster-image-mismatch/selftest.json c6ca261245c53650cdf9b7f9a4ed98c6114001b53f821d9cd4c9efda7442d992
+                tests/fixtures/runs/raster-image-mismatch/structure_readback.json be96699a11e3d06dc1439c01b6a916cd057745ed58b4128b3879a42dc4f1b457
+修改 25       :
+                CHANGELOG.md                           11ed32cfaaa8a0a16820178a8675451eac2a5d498c6553db1bde7c9cfec066f3
+                README.md                              4d63683e7319b5a6295ab0da4c90e83f8e3fdf6367b9273244f39bef0a83afc5
+                SKILL.md                               6ca77406c3aa3cc9b79b125802bce8a33e0bdaf455af701ecbb761c9f4073ab2
+                config/thresholds.json                 2f67f141349c8c5a377c6c9e632825feb2a15f6e0593c91019cdcd6663fcfba7
+                references/design-language.md          52bababfec07c1a08ee820b39c143e6ea98c3b88a3f15dd3142495d7f551b367
+                references/error-codes.md              432c81ed072371f449f1aa8aa2e63c5d7450555019d8539e79e9355b1af80e10
+                references/pipeline-contract.md        2acd866c52d1dc2a2c4e04686b013282963dbe171187e3645100ace38ba1fc66
+                references/sources-whitelist.md        7d057b79d451fcd1999bb0bde493b1b87b106f11dc303279fd534ae1c644318f
+                scripts/aggregate_log.py               7fdaec4be15210eb8f5888e81bfcfadf833d9bf04f0eda902303730ba29b168a
+                scripts/export_print.py                8b76ad5a183a40f05f032d6c0bc022fe7be571417fb47a99d2e6d29ece8642dd
+                scripts/land_craft.py                  0f21aed34674e3390495b4adff62b82cd267e9ee62f11fb59db182bab93e7985
+                scripts/land_vc.py                     94eb7de993d4a6f0cdd6543efd07a2febf0c2faad36218917421a480268d2334
+                scripts/legibility.py                  e5f83946903e44ba2e645da2176d607ec8c11d62496ea4e2b79fadf0e7026b97
+                scripts/lib_common.py                  9a6adf6f11e6cbbc29469d4769a4c9ecdb278a11ccbee171e8271a965ec53e2a
+                scripts/lib_pdf.py                     d8ba7a963374dccff3a27330ca1dc6758d0ca5e0c5e4232b0a0ca785a9c645cb
+                scripts/review.py                      e72fbe20d27106038250a7197a93d37185d124e2a02a7de24a7f7ff67014ba24
+                scripts/run_fixtures.py                b96afd2eb643d08c1ec7afbf43ac13658b5ccbbb3dfc2f5c14e19f0a2abbc8ce
+                scripts/score.py                       e9cae8a3059d934e5b5599050b7544fec97bbd2b90b43e010cd1a0bbd2449bcb
+                scripts/selftest.py                    3024cf46a69619ce06d39bbc398f862ced9df7b72bee51e3dbbdaee17302a0c9
+                scripts/smoke_ai.py                    616cabb66b46c82fb1de6322c45432e809083e1366140103dc716138bed930e6
+                scripts/studio.py                      1c8254bcd13c0f24c54e427ccb17ea0bd7445d8723f09094f47d4ea7f72f4d10
+                scripts/trace_ref.py                   9ea24856b7f7336a710985203c958138df2909ee441ff6e3963174b51364ffa7
+                templates/delivery-note.template.md    cca96a8a912e4be9c743f685aaa6c08baee5424cfb25be9742bc379df84399eb
+                tests/fixtures/fixtures.json           3c5aadf9d7499ccd3034f1704195cf6ebafbf88fe4abd9169f4738d0b7d7e930
+                tests/fixtures/good/good_acceptance_reachable.json bdc7430bd5a81a09ce91ad8b69449ed9b0ffff040cfad98b11b4659c48c89335
+
+内容          : 依据独立深研报告 #1-#8，只做字段级 fail-closed，不宣称「不可伪造」
+                1) #6 encoding：9 个脚本 14 处 subprocess.run(text=True) 全部显式
+                   encoding=utf-8 + errors=replace，取消静默解码回退
+                2) #1 fidelity 与渲染器身份解耦：只有显式 fidelity=faithful 且 judge 可读
+                   才支撑 A/B 评分；缺 preview.meta.json / renderer=unknown /
+                   resvg+limited / 无 fidelity 字段 一律 fail-closed 到 L2，H2.fidelity 不记 full
+                3) #2 H1 字节探针：重开 final.ai 自身字节（%PDF- 头、≥1 /Type /Page、
+                   图像数 == structure_readback.raster）与既有 H1 门 AND 合并；
+                   probe 只写布尔与小整数，保字节幂等；A18 改为成对断言
+                4) #3 H3 证据单源：CAPABILITY_SKIPS / EXPECTED_ASSERTIONS 只在 lib_common，
+                   断言总数取下界，selftest.json.run_id 绑定内容派生的 --run-id
+                5) #4 评审去重：review.py 按（绝对路径, 内容 sha256）去重，重复报
+                   E-REVIEW-INVALID 且不计入评审人数；已登记边界：同人两份文件不可辨
+                6) #5 判读唯一函数：_derive_grade() 统一 8 个判读字段，--validate-case
+                   复算逐字段比对，不符报 E-GRADE-MISMATCH；6 条负例钉 V1/V2/V3/V7/V8/V9
+                7) #8 run_fixtures 由子集改精确匹配 got_codes == want_codes，新增
+                   setup_dir + @RUN@ 与 4 条 --run-dir 负例；cases_expected 24 -> 34
+                8) #7 包内措辞：状态 A 对外承诺限制、交付说明三项自复核、
+                   C9 降为引擎行为、C7 PDF/X 标「规范原文未核」、
+                   WCAG 2.1（2.2 同编号同阈值）+ 检索日、APCA / color-contrast() 状态更正；
+                   绝对化措辞永久移除（仅剩否定式边界）
+                9) 计数：selftest 75 -> 79（新增 A77-A79），run_fixtures 24 -> 34，
+                   源 96 -> 137 文件（+41 夹具 / 0 删除 / 25 修改）
+
+实测证据      : QA 重测第 1 轮「通过，可打包」（04-QA/QA重测报告-r70.md）
+                selftest 79/79（--fixtures 80/80）、run_fixtures 34/34、
+                validate_skill 0 error / 0 warning，全 exit 0
+                打包器强制校验 exit 0；产物自检「无杂质」
+                双打包 x2 字节一致（137 文件 / 318,973 B / d20491b6…f653）
+                zip ↔ 源码逐件 md5：missing 0 / extra 0 / diff 0；
+                包内 .pyc 0 / __pycache__ 0 / _dev-logs 0
+                安装冒烟（解压到临时目录、cwd 置临时根、绝对路径调用）：
+                validate_skill --selftest exit 0；--fixtures exit 0；对解压根校验 0 warning；
+                解压位置运行 selftest 79/79（--fixtures 80/80）、run_fixtures 34/34，
+                cwd_independent=true
+                证据目录 04-QA/test-log-r70/、05-发布/打包留痕-r70.md
+
+已知限制      : 1) 外部真人评审 0 份，usable_for_claim 恒为假
+                2) 判读层只做字段级 fail-closed，不宣称不可伪造；同一人的两份文件
+                   无法识别为同一评审（已登记边界）
+                3) 本机 locale=utf-8 且 vectorcraft-cli 不在 PATH，encoding 端到端乱码
+                   复现不可达，只做静态扫描 + cp936 解码 A/B
+                4) 无 Pillow 的机器上 A42-A46 与 A53 记 skipped（exit 3）
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r70-137files.zip
+                Windows 自带 Get-FileHash -Algorithm SHA256 同上路径
+                两者均应为 d20491b6921b05f290051b8e249e5babbd86d26a3d9a857d12af7baee7a1f653
+                （318,973 B / 137 文件）

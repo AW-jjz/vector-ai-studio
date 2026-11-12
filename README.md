@@ -1,8 +1,8 @@
 # vector-ai-studio
 
-把一句自然语言需求，做成**原生可编辑的 `.ai` 矢量成品**，并且**只在这份文件真的达到判据时才说达标**。
+把一句自然语言需求，做成**可继续编辑的 VectorCraft PDF 兼容 `.ai`**，并且**只在判决层自己复算过、这份文件真的达到判据时才给出可复核的质量结论**。
 
-这不是又一个"AI 画图"封装。它的重点在反面：**防止"看起来达标、其实很烂"**。
+这不是又一个"AI 画图"封装。它的重点在反面：**防止"看起来达标、其实很烂"**。v1.4.0（r70）起，判决层不再只读日志里的结论：H1 会第二次打开 `.ai` 做字节断言，`--validate-case` 会用与主路径同一函数重推分档。
 
 ## 它解决的具体问题
 
@@ -38,8 +38,8 @@ python vector-ai-studio/scripts/run_fixtures.py
 
 | 环境 | `selftest --fixtures` | `run_fixtures` |
 |---|---|---|
-| 装了 VectorCraft CLI | **76/76**（含 `--fixtures` 的 A13），`status=ok`，**exit 0** | **24/24**，exit 0 |
-| 没装 | 依赖引擎或 Pillow 的断言转 skipped，`status=partial`，**exit 3** | 24/24，exit 0 |
+| 装了 VectorCraft CLI | **79/79**（`--fixtures` 为 **80/80**，含 A13），`status=ok`，**exit 0** | **34/34**，exit 0 |
+| 没装 | 依赖引擎或 Pillow 的断言转 skipped，`status=partial`，**exit 3** | 该组合在 34 条后**未单独实测**，不作承诺 |
 
 **`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。
 两条都不依赖 Adobe，纯脚本层就能跑通；如果这里就失败，先别往下走。
@@ -135,12 +135,12 @@ C 维以前只有 `len(colors) <= N` 一条：一张全用同一支灰的画，�
 | **ICC 未生效** | 请求了 CMYK 输出意图，但产出中未观察到 `/OutputIntent` 或 `/ICCBased`，清单把它写进 `unverified`。 |
 | **`.ai` 是 PDF 容器** | VectorCraft 写出的 `.ai` 即 PDF 兼容文件，观察全部来自容器字节；没有 Illustrator 私有压缩段可解。 |
 | **A8 双运行时** | 覆盖「默认 vs `-I` 隔离」两种运行模式，**未覆盖跨 Python 版本**。可选的 PyYAML / cairosvg 分支在本机未安装，未实测。 |
-| **`--validate-case` 边界** | 只校验达标日志「必须含 E 键」，**不校验 E 分值与达标结论一致**。手改日志写 `E=0` 配 `grade=达标` 仍能过。 |
+| **`--validate-case` 的自证边界** | r70 起 validator 用与主路径同一 `_derive_grade` 从 `scores` + `hard_gates` 重推 `grade` / `tier` / `internal_excellent` 等字段，不一致即 `E-GRADE-MISMATCH`（V1/V2/V3/V7/V8/V9 全拒）。**仍未覆盖**：生成方在同一 run 内自写全部日志——这属已声明的威胁模型边界，不宣称抗伪造。 |
 
 ## 仓库结构
 
 ```
-vector-ai-studio/     技能本体（96 文件，与发布基线逐字节一致）
+vector-ai-studio/     技能本体（137 文件，与发布基线逐字节一致）
 docs/                 发布说明、发布纪律、校验留痕
 ```
 
