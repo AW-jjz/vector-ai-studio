@@ -1,0 +1,30 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "01-fake-ai",
+  "name": "假的 final.ai（不是 %PDF- 容器）",
+  "expect": "block",
+  "why": "H1 必须重新打开产物自己的字节：文件存在不等于产物有效。",
+  "reference": "r71 audit P0 / plan 4.2",
+  "mutations": [
+    {
+      "op": "write_text",
+      "path": "final.ai",
+      "text": "synthetic-h1-file-existence-placeholder-not-a-real-ai\n"
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [
+    "E-H1-STRUCTURE"
+  ],
+  "expect_no_pass": true
+}

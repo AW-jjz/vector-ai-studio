@@ -1,0 +1,119 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "08-coverage-claim",
+  "name": "谎报证据覆盖率（A/B 声称测过）",
+  "expect": "block",
+  "why": "「哪几维测过」必须由证据重推，不能由日志自称。",
+  "reference": "r72 / plan 4.7 evidence_coverage",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "acceptance.json",
+      "doc": {
+        "schema": "vector-ai-studio/acceptance-v1",
+        "note": "ATTACK SAMPLE -- not a real machine run",
+        "run_id": "attack",
+        "mode": "full",
+        "grading_entered": true,
+        "headline": "语义 / 构图判读未取证，需人工终审",
+        "grade": "未判定",
+        "internal_excellent": false,
+        "tier": "indeterminate",
+        "degraded": true,
+        "needs_human_review": true,
+        "reason": "capability_missing",
+        "capability_missing": true,
+        "status": "degraded",
+        "quick": false,
+        "f_verified": true,
+        "f_data_isolated": true,
+        "generation_count": 3,
+        "generation_budget": {
+          "pass": 9,
+          "excellent": 15
+        },
+        "h1": true,
+        "h2": true,
+        "h2_status": "pass",
+        "h3": true,
+        "h4": true,
+        "scores": {
+          "A": "N/A (capability_missing)",
+          "B": "N/A (capability_missing)",
+          "C": {
+            "score": 1
+          },
+          "D": {
+            "score": 1
+          },
+          "E": "N/A",
+          "F": {
+            "score": 1
+          }
+        },
+        "hard_gates": {
+          "H1": {
+            "pass": true
+          },
+          "H2": {
+            "pass": true
+          },
+          "H3": {
+            "pass": true
+          },
+          "H4": {
+            "pass": true
+          }
+        },
+        "evidence_coverage": {
+          "A": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "B": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "C": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "D": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "F": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "coverage": 1.0,
+          "required_dims": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "F"
+          ]
+        },
+        "deliverable_status": "deliverable_with_human_review",
+        "criteria_version": "2.0.0",
+        "legacy_grading": false
+      }
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--validate-case",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [
+    "E-GRADE-MISMATCH"
+  ]
+}

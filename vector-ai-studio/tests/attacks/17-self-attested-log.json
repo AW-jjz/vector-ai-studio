@@ -1,0 +1,524 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "17-self-attested-log",
+  "name": "同一次 run 内自己写一份完整的自检日志",
+  "expect": "leak",
+  "why": "已声明的边界：run 目录由生成方可写，脚本无法分辨同一 run 内的自证。",
+  "reference": "SKILL.md 已声明的威胁模型边界 / plan M2",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "selftest.json",
+      "doc": {
+        "schema": "vector-ai-studio/selftest-v1",
+        "status": "ok",
+        "passed": 81,
+        "failed": 0,
+        "skipped": [],
+        "run_id": "attack",
+        "capability_skips": [],
+        "assertions": [
+          {
+            "id": "forged-000",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-001",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-002",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-003",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-004",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-005",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-006",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-007",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-008",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-009",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-010",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-011",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-012",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-013",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-014",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-015",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-016",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-017",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-018",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-019",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-020",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-021",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-022",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-023",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-024",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-025",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-026",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-027",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-028",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-029",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-030",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-031",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-032",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-033",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-034",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-035",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-036",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-037",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-038",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-039",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-040",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-041",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-042",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-043",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-044",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-045",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-046",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-047",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-048",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-049",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-050",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-051",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-052",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-053",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-054",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-055",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-056",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-057",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-058",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-059",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-060",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-061",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-062",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-063",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-064",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-065",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-066",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-067",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-068",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-069",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-070",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-071",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-072",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-073",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-074",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-075",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-076",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-077",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-078",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-079",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "forged-080",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          }
+        ]
+      }
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [],
+  "expect_no_pass": false
+}

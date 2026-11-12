@@ -1,0 +1,25 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "11-narrow-track-laundering",
+  "name": "用窄轨洗掉完整链的失败",
+  "expect": "block",
+  "why": "已经跑过完整链的目录不得再被窄轨判成「无结论、exit 0」。",
+  "reference": "r71 report P1 / plan 6.2",
+  "mutations": [],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--landing-only",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [
+    "E-EXEMPTION-ABUSE"
+  ],
+  "expect_no_pass": true
+}

@@ -1,0 +1,1138 @@
+{
+  "schema": "vector-ai-studio/claims-v1",
+  "note": "对外承诺登记册。每条带原文哈希：改了文档没改这里就红（E-CLAIMS-DRIFT）。mechanism=assertion 必须挂真实存在且通过的 selftest 断言；mechanism=boundary-declaration 必须挂一条真的漏过去的攻击（attack:<id>）或一条钉住边界的断言（test:<id>）；mechanism=unverified 是已登记但暂无机器校验的承诺，数量本身就是要被压下去的指标。",
+  "claims": [
+    {
+      "id": "CLAIM-001",
+      "file": "SKILL.md",
+      "anchor": "description: 把一句",
+      "text_hash": "sha256:3b3d0b87bbd9ae3fe06a113641b9153c89c25520c0cd7cc24a5700bd40bc86a6",
+      "claim": "description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-002",
+      "file": "SKILL.md",
+      "anchor": "不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换",
+      "text_hash": "sha256:7bfaa60ed5cd92138f6e7bfe4720457a5fd54ca06b78a16484b70eb46ed6d497",
+      "claim": "不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-003",
+      "file": "SKILL.md",
+      "anchor": "不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换",
+      "text_hash": "sha256:7bfaa60ed5cd92138f6e7bfe4720457a5fd54ca06b78a16484b70eb46ed6d497",
+      "claim": "不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-004",
+      "file": "SKILL.md",
+      "anchor": "- 只要位图 / 照片级真实感 ",
+      "text_hash": "sha256:42c1e7c6776e549670ae39efd927d1a1fa37f4fecc1ba923b597d4a9753f1925",
+      "claim": "- 只要位图 / 照片级真实感 / 3D / 像素级修图",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-005",
+      "file": "SKILL.md",
+      "anchor": "- 默认链路零付费凭据、零第三方",
+      "text_hash": "sha256:f739f6e8b802b63278122a4ae123fb303a54379094824fb590f572f6504e2f2e",
+      "claim": "- 默认链路零付费凭据、零第三方付费服务；商业生成端只在用户自行提供凭据时启用，不隐式调用",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-006",
+      "file": "SKILL.md",
+      "anchor": "- 一切外部依赖（VectorC",
+      "text_hash": "sha256:d525ef4d87144ee3f2eee410c46d1852b6365b3dbdf4985d3f4dc4f98617cfa1",
+      "claim": "- 一切外部依赖（VectorCraft CLI、PNG 渲染器、宿主 LLM 读图）一律先由 `scripts/detect_deps.py` 探测，显式列出 FOUND / MISSING / UNVERIFIED 与替代方案，不假设已装",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-007",
+      "file": "SKILL.md",
+      "anchor": "凭据环境变量只判断名称是否存在，",
+      "text_hash": "sha256:106b147dd3429464c7eb256036c21548a162ea52d6f0ff1cf879a9a54819124c",
+      "claim": "凭据环境变量只判断名称是否存在，从不读取值",
+      "mechanism": "assertion",
+      "tests": [
+        "A7-H4-no-credential-value-read"
+      ]
+    },
+    {
+      "id": "CLAIM-008",
+      "file": "SKILL.md",
+      "anchor": "空 prompt / 空清单 /",
+      "text_hash": "sha256:880cd1c40c31d950721a2793f883e504b34ad56a65b6973418d4bbfb4ebc069b",
+      "claim": "空 prompt / 空清单 / 畸形 schema 一律显式拒绝并要求补充，不臆造需求",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-009",
+      "file": "SKILL.md",
+      "anchor": "冻结清单与色板全轮次只读",
+      "text_hash": "sha256:f6ef3012fb56ba57046126d5aaf2120bf9e14d6275a063c2f5a8d00b57824aae",
+      "claim": "冻结清单与色板全轮次只读",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-010",
+      "file": "SKILL.md",
+      "anchor": "原型范例在 `reference",
+      "text_hash": "sha256:6df7f0066146505844e26122152cde800ccd49534b059c83b3a495a1bd20fce8",
+      "claim": "原型范例在 `references/archetypes/`，只作语法参照，直接改色改形复用只会得到「像范例但不如范例」的结果",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-011",
+      "file": "SKILL.md",
+      "anchor": "跳过它，后面的净化与打分只能保证",
+      "text_hash": "sha256:20a32c1edd7432d5a2ec5d952a46eebc624884100500613c516b2f77932e5bb8",
+      "claim": "跳过它，后面的净化与打分只能保证「不出错」，不能保证「好看」",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-012",
+      "file": "SKILL.md",
+      "anchor": "每个方向留了 `why` / `",
+      "text_hash": "sha256:627bec5b344d036304fe18a384bba2215994b6b18a8a04ee37845aade3ea31f4",
+      "claim": "每个方向留了 `why` / `risk` 两个空槽，必须由人按当次 brief 填满再动笔",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-013",
+      "file": "SKILL.md",
+      "anchor": "带 `--prev` 时比对通过",
+      "text_hash": "sha256:7ff4899e616e5ce947abb4e5507ce2196f3fb372fc027c5a22fc762bdbe2ad3d",
+      "claim": "带 `--prev` 时比对通过项结构；改动只在 `warnings` 里写 `E-REGRESSION` 并要求重生成，不改变退出码（净化本身已通过）",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-014",
+      "file": "SKILL.md",
+      "anchor": "渲染器按优先级探测；全部 MIS",
+      "text_hash": "sha256:21b43aac3c9de38cb927cc0311fdd2137ccf87a950c56fb90623abc2dcd040a2",
+      "claim": "渲染器按优先级探测；全部 MISSING 时用内置最小 SVG→PNG 兜底，产物必须是真实可解析 PNG（非零字节、PNG 魔数、可读宽高、IEND 完整），并标 `renderer: builtin-fallback` 与「预览保真度受限」",
+      "mechanism": "assertion",
+      "tests": [
+        "A11-fallback-png-strict-H2"
+      ]
+    },
+    {
+      "id": "CLAIM-015",
+      "file": "SKILL.md",
+      "anchor": "零字节或占位文件一律判 PNG ",
+      "text_hash": "sha256:504068b9d23778d796c602f4cf60f883f4c40150f4441c17c3c48069e94713b3",
+      "claim": "零字节或占位文件一律判 PNG 缺失",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-016",
+      "file": "SKILL.md",
+      "anchor": "硬门只有三条，且每条都有外部依据",
+      "text_hash": "sha256:6082dfb36301e63739d11d4876a8e3cbc83621914a9212869b90e6590e112724",
+      "claim": "硬门只有三条，且每条都有外部依据或定义即失效：对比度低于 `C.contrast_graphic_ratio`（WCAG 2.1 SC 1.4.11（2.2 沿用同编号同阈值），检索日 2026-11-11）判 `LOW-CONTRAST`；16px 覆盖率为 0 判 `COLLAPSED`；16px 覆盖率满格判 `",
+      "mechanism": "assertion",
+      "tests": [
+        "A53-legibility-fails-what-the-eye-misses"
+      ]
+    },
+    {
+      "id": "CLAIM-017",
+      "file": "SKILL.md",
+      "anchor": "`FRAGMENTED` 与 `",
+      "text_hash": "sha256:b0db5414e2f439382092b114d98768046b9ebad584933839dbcc59f81e8d509e",
+      "claim": "`FRAGMENTED` 与 `COVERAGE-DRIFT` 只报告、不判失败——那两个门限是工程值，未标定",
+      "mechanism": "assertion",
+      "tests": [
+        "A53-legibility-fails-what-the-eye-misses"
+      ]
+    },
+    {
+      "id": "CLAIM-018",
+      "file": "SKILL.md",
+      "anchor": "盲评不给评审人 brief，所以",
+      "text_hash": "sha256:c19d2274c55e523e78a647e24d98f7c488104532253418908759c4c5acfa61f2",
+      "claim": "盲评不给评审人 brief，所以「是否符合需求」不能在评分表里判",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-019",
+      "file": "SKILL.md",
+      "anchor": "规则文件是 brief 硬约束的",
+      "text_hash": "sha256:25437714cd69ffa1c4f2db902bb980d2e0b5add7300c7cc0191c8ac0ef1a78e2",
+      "claim": "规则文件是 brief 硬约束的结构化写法——人写一次数字，脚本每轮核对，后续改稿无法悄悄偏离需求",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-020",
+      "file": "SKILL.md",
+      "anchor": "判定只看规则文件里写了的项，没写",
+      "text_hash": "sha256:b758629c3d2508fd9bc8240e933627144809b0d931c1fa7e76d6716a2a24001f",
+      "claim": "判定只看规则文件里写了的项，没写的进 `unchecked`，不把「没检查」显示成「通过」",
+      "mechanism": "assertion",
+      "tests": [
+        "A56-conformance-checks-brief-and-reports-unchecked"
+      ]
+    },
+    {
+      "id": "CLAIM-021",
+      "file": "SKILL.md",
+      "anchor": "** 参考素材（风格、构图、质感",
+      "text_hash": "sha256:b95f8b1cdcc6909cb42222b3dcb882a98e2ace86a29a940430868e7180efb9eb",
+      "claim": "** 参考素材（风格、构图、质感参照）只进账本、不进产物；要进产物的构件必须有 URL、许可、许可声明页与核实日期，外加对应元素 id，账本模板是 `templates/source-ledger.json`",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-022",
+      "file": "SKILL.md",
+      "anchor": "规则文件里加 `source_l",
+      "text_hash": "sha256:4e1cb05883aff87f4ff28ce16600dc7e22103fb7bf336d491897ead29d9f15bf",
+      "claim": "规则文件里加 `source_ledger` 指向账本、`licenses_allowed` 列可接受许可后，脚本会查六件事：每个条目必须具备 `channel`/`license`/`fetched`/`use` 四个字段、带 `data-source` 的元素必须在账本里有条目、产出条目的许可必须在白名单内、账本写",
+      "mechanism": "assertion",
+      "tests": [
+        "A57-source-ledger-tracks-what-enters-the-artwork",
+        "A58-licence-claim-needs-source-and-date"
+      ]
+    },
+    {
+      "id": "CLAIM-023",
+      "file": "SKILL.md",
+      "anchor": "`own` 条目豁免后两项：自产",
+      "text_hash": "sha256:08de99a6fc177362ba8e7b84faeaea88adc9ea10d340e118dfe6f2a06b9777e1",
+      "claim": "`own` 条目豁免后两项：自产内容没有对外许可声明页，强制填 URL 只会逼人编造",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-024",
+      "file": "SKILL.md",
+      "anchor": "宿主 LLM 读预览图，按冻结清",
+      "text_hash": "sha256:fe611e923524f8131ac4f476fbd399f75877cd83aa526501d01d55bca87ae842",
+      "claim": "宿主 LLM 读预览图，按冻结清单逐条给命中 / 未命中、主体是否相悖、主体完整 / 无明显失衡 / 对齐一致，写成逐条二值的判读文件；脚本只校验 schema、统计命中率，绝不自行判读语义",
+      "mechanism": "assertion",
+      "tests": [
+        "A16-L2-anti-fabrication"
+      ]
+    },
+    {
+      "id": "CLAIM-025",
+      "file": "SKILL.md",
+      "anchor": "所有阈值只从 `config/t",
+      "text_hash": "sha256:efb429c8a31a107f34c3c487df1b1be2b6428f4b120517a9f53e4e20c35f9f8b",
+      "claim": "所有阈值只从 `config/thresholds.json` 读取，脚本零硬编码",
+      "mechanism": "assertion",
+      "tests": [
+        "A2-thresholds-single-source"
+      ]
+    },
+    {
+      "id": "CLAIM-026",
+      "file": "SKILL.md",
+      "anchor": "**每个失败维必须带一句具名判决",
+      "text_hash": "sha256:1caa5274dd19aa35336f7e268242255f06adca46a009fff8db095396a3980e9c",
+      "claim": "**每个失败维必须带一句具名判决和一个动作",
+      "mechanism": "assertion",
+      "tests": [
+        "A54-failed-dimension-names-its-action"
+      ]
+    },
+    {
+      "id": "CLAIM-027",
+      "file": "SKILL.md",
+      "anchor": "判决表是既有阈值的一层映射，不新",
+      "text_hash": "sha256:76a0c1c14bbcd4f56db969202e13aa2fa91038fa284028dd57cc792ee7357c65",
+      "claim": "判决表是既有阈值的一层映射，不新增任何数字，也不改分数；没有失败维时只输出一条 `PASS`，不输出空数组——「没有判决」和「没有失败」必须能区分",
+      "mechanism": "assertion",
+      "tests": [
+        "A54-failed-dimension-names-its-action"
+      ]
+    },
+    {
+      "id": "CLAIM-028",
+      "file": "SKILL.md",
+      "anchor": "C 维除了数颜色，还测三件互不相",
+      "text_hash": "sha256:aa72dd0f30b1d9c14cff8ab883125d148370d574383c81eccbce74d1c660b011",
+      "claim": "C 维除了数颜色，还测三件互不相同的事，分开报告，绝不揉成一个「色彩分」——揉在一起就看不出是哪一件坏了：",
+      "mechanism": "assertion",
+      "tests": [
+        "A29-content-ops-measurement"
+      ]
+    },
+    {
+      "id": "CLAIM-029",
+      "file": "SKILL.md",
+      "anchor": "** WCAG 2.1 SC 1",
+      "text_hash": "sha256:1cd9ead1196341c630c748bec0dcc03b58e26c5ccafb57b2f3a998eadbbe3c87",
+      "claim": "** WCAG 2.1 SC 1.4.11（2.2 沿用同编号同阈值，检索日 2026-11-11）只约束 \"parts of graphics required to understand the content\"，并明确豁免纯装饰",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-030",
+      "file": "SKILL.md",
+      "anchor": "所以只有在 spec 里**显式",
+      "text_hash": "sha256:1bd2c2d73861bf541d58276c51c7c9d24fac259bf47cfd60384fe85ef00429cd",
+      "claim": "所以只有在 spec 里**显式声明** `contrast_pairs` 时才检查，未声明记 `not_applicable`——「没检查」不能显示成「通过」",
+      "mechanism": "assertion",
+      "tests": [
+        "A34-contrast-catches-cvd-collapse"
+      ]
+    },
+    {
+      "id": "CLAIM-031",
+      "file": "SKILL.md",
+      "anchor": "加它是因为正常视觉达标而色盲几乎",
+      "text_hash": "sha256:2efb7a097aad222ae07cb86c56e810492e9ca4f931b7d20680f47370c526c5fa",
+      "claim": "加它是因为正常视觉达标而色盲几乎看不见的配色大量存在：#FF0000 在黑底上 WCAG 判 5.25 通过 AA，红色盲视角只有 1.26",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-032",
+      "file": "SKILL.md",
+      "anchor": "**这一轮只测量、不判失败",
+      "text_hash": "sha256:f88e81637d732c1b6db49d3a488f39817561cbd136cca876d5383e84df163f14",
+      "claim": "**这一轮只测量、不判失败",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-033",
+      "file": "SKILL.md",
+      "anchor": "但要分清这两个锚点的**强度不同",
+      "text_hash": "sha256:b63f05bb836ea63ed73200bf263bc5bc56bd69ad828642a80186c8a2c513f045",
+      "claim": "但要分清这两个锚点的**强度不同**：CIEDE2000 与 WCAG 的期望值是**外部**权威数据，它们能证明实现正确；而色觉缺陷那两个值是同一个矩阵乘纯红的产物，它只能证明\"矩阵没有被改过\"，**不能证明矩阵是从论文抄对的**",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "test:A33-perceptual-reference-vectors"
+    },
+    {
+      "id": "CLAIM-034",
+      "file": "SKILL.md",
+      "anchor": "revision.json 的 ",
+      "text_hash": "sha256:31734cd19cd8016468d94f36909b208c693ab2a62128611c934ed7383f712219",
+      "claim": "revision.json 的 `change_only` 只含失败项，`must_keep` 锁定通过项结构；宿主 LLM 读它回到步 2 只改失败项，脚本不写自然语言改稿内容",
+      "mechanism": "assertion",
+      "tests": [
+        "A54-failed-dimension-names-its-action"
+      ]
+    },
+    {
+      "id": "CLAIM-035",
+      "file": "SKILL.md",
+      "anchor": "F 统计只从 f_source_",
+      "text_hash": "sha256:7ae29385fb73866013d4ee70a9c89bd76d0f6cac81303d0f87542c2b9b3e9e47",
+      "claim": "F 统计只从 f_source_runs 按 run 取数，C2 收敛产物严禁跨 run 回填 F 统计；脚本校验一一对应与 SVG 哈希隔离，违规报 `E-F-DATA-ISOLATION`",
+      "mechanism": "assertion",
+      "tests": [
+        "A15-F-data-isolation"
+      ]
+    },
+    {
+      "id": "CLAIM-036",
+      "file": "SKILL.md",
+      "anchor": "绝不把 SVG 改后缀、绝不把没",
+      "text_hash": "sha256:4e5ac7c9f5e3d902893c1a5dbafbeffb2bd05e514779e908a7ed667b5ed2765b",
+      "claim": "绝不把 SVG 改后缀、绝不把没有结构回读的文件冒称合格 `.ai`",
+      "mechanism": "assertion",
+      "tests": [
+        "A18c-fake-ai-h1-fails"
+      ]
+    },
+    {
+      "id": "CLAIM-037",
+      "file": "SKILL.md",
+      "anchor": "其中 `unverified` ",
+      "text_hash": "sha256:1abaee9403d074a850f702c80eca09031ed0a53bc9818c716ec60fdc250014da",
+      "claim": "其中 `unverified` 记录「要求了但没兑现」的项：例如请求了 CMYK 而产物未以 CMYK 着色时，差异会连着实测算子计数写进清单，代码不会假装成功",
+      "mechanism": "assertion",
+      "tests": [
+        "A36-icc-request-not-claimed"
+      ]
+    },
+    {
+      "id": "CLAIM-038",
+      "file": "SKILL.md",
+      "anchor": "** 未声明的 `k` 操作数按",
+      "text_hash": "sha256:03817943ea99cd764f12ef5b920c6385a7cb05c3b35e0feaa98b2374bd7a9428",
+      "claim": "** 未声明的 `k` 操作数按 PDF 规范即 DeviceCMYK；只数 `/DeviceCMYK` 会把一份合格的 CMYK 文件误判成 RGB",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-039",
+      "file": "SKILL.md",
+      "anchor": "- **图层不完全可靠**：5 ",
+      "text_hash": "sha256:e68d2b54d7aa0f7110848fda6e6c8f078bb9c4f2e26df7fc5fd1d155e5df8ea5",
+      "claim": "- **图层不完全可靠**：5 个「只含单个元素」的 `<g>` 实测生成 5 个命名图层；两个「`<g>` 内含多个子元素」的样本只有 1 层（均无 defs、无剪切蒙版）",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-040",
+      "file": "SKILL.md",
+      "anchor": "- 这些差异只在带文字、渐变、剪",
+      "text_hash": "sha256:61f41704074a41951ce8312c106196d1eb12ac280cf447da85d83af529e1ea41",
+      "claim": "- 这些差异只在带文字、渐变、剪切蒙版的复杂样本上暴露，换版本前必须压一遍",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-041",
+      "file": "SKILL.md",
+      "anchor": "`scripts/render_png.py` ",
+      "text_hash": "sha256:1302cdebdcec981a3288bab34f8a7f5dac1ecc30b4139211ee41eb427d742794",
+      "claim": "`scripts/render_png.py` 的渲染器按 resvg → cairosvg → 内置兜底依次尝试（无头浏览器只记 MISSING，不实际调用）",
+      "mechanism": "assertion",
+      "tests": [
+        "A11-fallback-png-strict-H2"
+      ]
+    },
+    {
+      "id": "CLAIM-042",
+      "file": "SKILL.md",
+      "anchor": "两个落地脚本在**调用引擎之前*",
+      "text_hash": "sha256:ea6876c34cc848e2d92425e17d48fefa2f4a2e2c959689a1bdd4bace8722f984",
+      "claim": "两个落地脚本在**调用引擎之前**先清掉本轮目标产物（`output/<run-id>/final.ai`、`output/<run-id>/print.pdf`、`output/<run-id>/preview.png` 与它的 meta），所以「文件存在」只代表**本轮**写的——CLI 退出 0 却没写文件这种静",
+      "mechanism": "assertion",
+      "tests": [
+        "A47-failed-preview-clears-stale-png",
+        "A48-silent-cli-cannot-inherit-outputs"
+      ]
+    },
+    {
+      "id": "CLAIM-043",
+      "file": "SKILL.md",
+      "anchor": "两路都失败就**没有预览**（H",
+      "text_hash": "sha256:e8c23572cbfaab13ea0092d2b8ae94bd64c2801b132ac9e73383f85b8232d473",
+      "claim": "两路都失败就**没有预览**（H2 记四件不齐），不会拿上一版设计的图顶替本轮",
+      "mechanism": "assertion",
+      "tests": [
+        "A47-failed-preview-clears-stale-png"
+      ]
+    },
+    {
+      "id": "CLAIM-044",
+      "file": "SKILL.md",
+      "anchor": "对外说明用 `templates",
+      "text_hash": "sha256:145c9cb913d995c47dfd02142d3f680eed39b9bbd6fd46be325b65a70e77d347",
+      "claim": "对外说明用 `templates/delivery-note.template.md` 生成，只承诺分档结论，内部评分字段不外露",
+      "mechanism": "assertion",
+      "tests": [
+        "A6-O3-no-excellent-wording"
+      ]
+    },
+    {
+      "id": "CLAIM-045",
+      "file": "SKILL.md",
+      "anchor": "原实现把宿主读不了图（`capa",
+      "text_hash": "sha256:b10fc660cc6e8e32ebbe39e5b6469bfc13fdbdd6ea5c8cb98ef9e337749a502e",
+      "claim": "原实现把宿主读不了图（`capability_missing`）一律记成「不达标」，用户会去改一幅根本没被看过的稿子；现在这类结论记「未判定」，并由 `evidence_coverage` 说清**哪几维测过、哪几维没测、为什么、怎么修**",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-046",
+      "file": "SKILL.md",
+      "anchor": "「能不能交付」与「质量达没达标」",
+      "text_hash": "sha256:834b61c8ba25cd214bc211cb7030a3db9c9a0033c05cefb85f417e655ee724b1",
+      "claim": "「能不能交付」与「质量达没达标」是两个问题，分开两个字段：`grade` 说质量结论，`deliverable_status` 说文件能不能交（`deliverable` / `deliverable_with_human_review` / `not_deliverable` / `evidence_only`）",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-047",
+      "file": "SKILL.md",
+      "anchor": "验收日志另记 `criteria",
+      "text_hash": "sha256:73fd244e3f7a980d535d97469b29e0c9a1d7649443a70fbfcdc33757df2d4794",
+      "claim": "验收日志另记 `criteria_version` 与 `thresholds_sha256`：结论只在该判据版本下有效",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-048",
+      "file": "SKILL.md",
+      "anchor": "需要旧的两值写法时加 `--tw",
+      "text_hash": "sha256:c25e213c11a14bb5ec2319ac9184bc8db889c54f8039a73e549d6bc2deb224f6",
+      "claim": "需要旧的两值写法时加 `--two-valued`：结论被折回旧措辞，日志标 `legacy_grading: true`，**达标 / 不达标的判定边界一个都没变**（只有「未判定 → 不达标」这一处措辞不同）",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-049",
+      "file": "SKILL.md",
+      "anchor": "两条证据轨，不得混用：默认是**",
+      "text_hash": "sha256:c64b11b0c380ef72a307b30a13a4bd89a965b5103ef81df37beb1cb3026b2d0e",
+      "claim": "两条证据轨，不得混用：默认是**完整链**（`mode=full`、`grading_entered=true`，H1–H4 全判并进入评级）；`--landing-only` 是**只取 H1 证据的窄轨**（`mode=landing-only`，h2、tier、grade、h3、h4 全为 `null`，`h2_",
+      "mechanism": "assertion",
+      "tests": [
+        "A20-landing-only-unevaluated",
+        "A21-exemption-abuse-both-ways"
+      ]
+    },
+    {
+      "id": "CLAIM-050",
+      "file": "SKILL.md",
+      "anchor": "伪造 `mode=full` 却",
+      "text_hash": "sha256:9266aafc28e42d65f53e5bde65f8d0d49c66e92734fec50808064efec13a559e",
+      "claim": "伪造 `mode=full` 却带 `grading_entered=false`，或 `landing-only` 却带档位词，一律 `E-EXEMPTION-ABUSE`；**已经跑过完整链的目录也不许再走窄轨**（目录里已有 `score.json` / `judge.json` / `selftest.json",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-051",
+      "file": "SKILL.md",
+      "anchor": "它只做两件事：算人不该手算的，以",
+      "text_hash": "sha256:6783a75c66cf61703105670b45a2297fcea86c8019ff2ed9de8456497ffc7775",
+      "claim": "它只做两件事：算人不该手算的，以及拒绝不该被算的",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-052",
+      "file": "SKILL.md",
+      "anchor": "- 评审人之间的完全一致率会被算",
+      "text_hash": "sha256:b2c888b7a16151a9c37da883db65d36ef429023f6fde051b772a81529dc180f1",
+      "claim": "- 评审人之间的完全一致率会被算出来并列出分歧格；一致率低只报警告，不参与判定——两把尺子不同时均值没有解释力，但也不能因此判图不合格",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-053",
+      "file": "SKILL.md",
+      "anchor": "- `evidence.usab",
+      "text_hash": "sha256:4ced4fd30a5307814da279145b9fce4f7d51395e7ba33005e19448767ad88414",
+      "claim": "- `evidence.usable_for_claim` 只在「评审人 ≥2 且 `--reviewer-kind external` 且零空格」时为真",
+      "mechanism": "assertion",
+      "tests": [
+        "A55-review-sheet-empty-is-not-evidence"
+      ]
+    },
+    {
+      "id": "CLAIM-054",
+      "file": "SKILL.md",
+      "anchor": "`internal`（自己人）与",
+      "text_hash": "sha256:756b0baaacbb630cfeaa61d78b1fa1ef558688ab92de59b92f2e62d1bf1a1adb",
+      "claim": "`internal`（自己人）与 `machine`（模型评审）都能归档成记录，但永远不会被提升为对外证据",
+      "mechanism": "assertion",
+      "tests": [
+        "A55-review-sheet-empty-is-not-evidence"
+      ]
+    },
+    {
+      "id": "CLAIM-055",
+      "file": "SKILL.md",
+      "anchor": "H3 的取证文件是 `<RUN_",
+      "text_hash": "sha256:33c65fd3724cec79fe31871b475dfcdc1b38b9a029acab8b67141562b55f5b4e",
+      "claim": "H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生（`--log-dir` 必须指向运行目录，`--run-id` 写进日志的 `run_id`）；`scripts/aggregate_log.py` 校验 `selftest.json.run_id == 本次 --run-i",
+      "mechanism": "assertion",
+      "tests": [
+        "A18-F-merged-reachable"
+      ]
+    },
+    {
+      "id": "CLAIM-056",
+      "file": "SKILL.md",
+      "anchor": "只给 `scripts/aggr",
+      "text_hash": "sha256:7a2c7613a6cdca8f4ea49bb414585a4fac72c1b171be38a1235d5a08aeccd787",
+      "claim": "只给 `scripts/aggregate_log.py` 传 `--run-id`、却让 `scripts/selftest.py` 用默认固定值，会让所有正常日志 H3 全红",
+      "mechanism": "assertion",
+      "tests": [
+        "A18-F-merged-reachable"
+      ]
+    },
+    {
+      "id": "CLAIM-057",
+      "file": "SKILL.md",
+      "anchor": "`scripts/selftest.py` 是纯",
+      "text_hash": "sha256:8ed1e106752a661be7799cb61646f07e61aeb038b18158925ede19cece28d77b",
+      "claim": "`scripts/selftest.py` 是纯脚本层，零外部依赖必能跑；`scripts/run_fixtures.py` 跑随包 good / bad 回归；`scripts/smoke_ai.py` 是独立的真机冒烟命令，真实探测并调用 VectorCraft 落地，引擎不可用按 L4 显式降级并留真实日志，绝不",
+      "mechanism": "assertion",
+      "tests": [
+        "A81-smoke-rating-follows-acceptance"
+      ]
+    },
+    {
+      "id": "CLAIM-058",
+      "file": "SKILL.md",
+      "anchor": "`contract/contra",
+      "text_hash": "sha256:f7b9f22a1a93758e6e3692f11c6f23f81edf187c22379524131e492f25ffe318",
+      "claim": "`contract/contract.json` 是**唯一事实源**：跨文件的枚举（保真度、档位、判读字段、必需维）与「谁能写、谁接受」的接受集合都只在这里定义一次，由 `scripts/gen_contract.py` 生成到 `scripts/_contract.py`（生产侧与判据侧都 import 它）、`r",
+      "mechanism": "assertion",
+      "tests": [
+        "A83-contract-is-the-single-source"
+      ]
+    },
+    {
+      "id": "CLAIM-059",
+      "file": "SKILL.md",
+      "anchor": "r71 的 P0-1（生产侧写 ",
+      "text_hash": "sha256:2c0fd4a301704cf52c98b7cc15b7e4bb957ce09f5259f0a91c79966cf98e908e",
+      "claim": "r71 的 P0-1（生产侧写 `full`、判据侧只认 `faithful`、六处三种说法零处校验）就是靠这条消灭的：**词表不再可能漂移，因为代码里已经没有第二份词表",
+      "mechanism": "assertion",
+      "tests": [
+        "A83-contract-is-the-single-source"
+      ]
+    },
+    {
+      "id": "CLAIM-060",
+      "file": "SKILL.md",
+      "anchor": "`scripts/redteam.py` 是**",
+      "text_hash": "sha256:dbee477ff855b3e56a0ae644292cf1a1ada0821ecbe0d57a6bb945a8fe2f2f50",
+      "claim": "`scripts/redteam.py` 是**随包攻击集**：每个攻击是一份数据（`tests/attacks/*.json`），都写明自己攻的是什么、期望被拦还是被放（后者是**已声明的边界**，必须有反向证明）",
+      "mechanism": "assertion",
+      "tests": [
+        "A82-redteam-attacks-all-blocked"
+      ]
+    },
+    {
+      "id": "CLAIM-061",
+      "file": "SKILL.md",
+      "anchor": "`scripts/validat",
+      "text_hash": "sha256:c11305cc39fba955843da8fc611d9487d0e73852601d93022dd3c09865a2b8a6",
+      "claim": "`scripts/validate_claims.py` 把**对外声明**与**测试**绑在一起：`contract/claims.json` 登记每一条可证伪的对外承诺（原文哈希、机制、对应测试），校验器在 CI 里跑——改了文档没改契约就红；`assertion` 类声明必须挂真实存在且通过的测试；`bounda",
+      "mechanism": "assertion",
+      "tests": [
+        "A84-claims-registry-holds"
+      ]
+    },
+    {
+      "id": "CLAIM-062",
+      "file": "SKILL.md",
+      "anchor": "依次执行冻结校验、净化、预览、方",
+      "text_hash": "sha256:5613e09a8ace9e4f61210438d67832131ef68257f0fab29ddd1abad47c9fa4f0",
+      "claim": "依次执行冻结校验、净化、预览、方寸三检、判读与打分（只有给了 `--judge` 才做）、落地",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-063",
+      "file": "SKILL.md",
+      "anchor": "方寸三检只在预览来自真渲染器时执",
+      "text_hash": "sha256:ca38422240dfd50d6e7666cbae46e1ae20b87b3adb2fd1ca4e8a566bf8b278a5",
+      "claim": "方寸三检只在预览来自真渲染器时执行：内置兜底图保真度不够，量它等于量兜底图而不是量稿子，此时记 `skipped` 而不是假装测过",
+      "mechanism": "assertion",
+      "tests": [
+        "A53-legibility-fails-what-the-eye-misses"
+      ]
+    },
+    {
+      "id": "CLAIM-064",
+      "file": "SKILL.md",
+      "anchor": "它不替代步 7–10 的 F 汇",
+      "text_hash": "sha256:f8cc4174ccc7d7a1d2c2526b26dd8ec981bd5f8c64528b3ab5f93d581fe69613",
+      "claim": "它不替代步 7–10 的 F 汇总与验收聚合，只是把「单稿能不能干净落地」压成一条命令，少一次漏跑 `--validate` 的机会",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-065",
+      "file": "SKILL.md",
+      "anchor": "`scripts/conform",
+      "text_hash": "sha256:f2a7bde22dd27f573ad662b92843750c17c13151e30377aef6043779655a1ea6",
+      "claim": "`scripts/conformance.py` 判 brief 里机械可判的那一半（canvas / 颜色 / 色面积 / 描边宽度 / 图元种类与数量 / 留白 / 禁用构造），失败报 `E-CONFORMANCE` 退出 1；没写进规则文件的项进 `unchecked`，不显示成通过；反过来，写了但脚本不认识的键",
+      "mechanism": "assertion",
+      "tests": [
+        "A56-conformance-checks-brief-and-reports-unchecked"
+      ]
+    },
+    {
+      "id": "CLAIM-066",
+      "file": "SKILL.md",
+      "anchor": "只量真正会画出来的东西：`<de",
+      "text_hash": "sha256:f42837096283e93c2d5611447975a6ba345fde84e3a043a878024d9e9ee34346",
+      "claim": "只量真正会画出来的东西：`<defs>` / `<symbol>` 等定义、`display=\"none\"` 子树、`visibility:hidden`、`opacity=\"0\"`、`fill-opacity=\"0\"` 一律不计入颜色、面积与图元数",
+      "mechanism": "assertion",
+      "tests": [
+        "A65-unrendered-content-is-not-measured"
+      ]
+    },
+    {
+      "id": "CLAIM-067",
+      "file": "SKILL.md",
+      "anchor": "子集之外的任何写法——伪类、属性",
+      "text_hash": "sha256:2ca430bfdb37c55f09fb17ed277f53e46e0b1245f3770e3613fdaf3ea849223d",
+      "claim": "子集之外的任何写法——伪类、属性选择器、`@` 规则、`media`、未放行的属性——整份表拒绝并判 `STYLE-SHEETS` 失败，不半套应用：半套应用量出来的是没渲染过的数",
+      "mechanism": "assertion",
+      "tests": [
+        "A63-unreadable-rules-fail-closed"
+      ]
+    },
+    {
+      "id": "CLAIM-068",
+      "file": "SKILL.md",
+      "anchor": "快速预览用 `scripts/a",
+      "text_hash": "sha256:81e223e11d082110f4eb360e248acb123a3df867e8e52be463c1b2bfa2cd3281",
+      "claim": "快速预览用 `scripts/aggregate_log.py --quick`；只取 H1 证据、不评级用 `scripts/aggregate_log.py --landing-only`",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-069",
+      "file": "SKILL.md",
+      "anchor": "· 不给 `--mask`：只对",
+      "text_hash": "sha256:20cc3d76f382032588b9fada91e5a49d5841caeaf4545f1d67d583eeb8193c94",
+      "claim": "· 不给 `--mask`：只对明显有色/暗的像素（亮度 < 230）去光照，**所有近白像素逐字节保持不变**；",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-070",
+      "file": "SKILL.md",
+      "anchor": "· 给 `--mask`（灰度轮",
+      "text_hash": "sha256:68784eceab38530b64f68c78f54ba1d1d7e84ed80501e17efb3b1d3d96f41fbc",
+      "claim": "· 给 `--mask`（灰度轮廓，非黑即主体）：掩膜是唯一权威，其内部的死白高光才用周围颜色修复，外部一律不动",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-071",
+      "file": "SKILL.md",
+      "anchor": "**已知限制（随包声明）**：无",
+      "text_hash": "sha256:c94c76ae568a94542ccafa972f236bd784b7d608bce0809f95d4561ed3266c13",
+      "claim": "**已知限制（随包声明）**：无掩膜模式不去高光；要高光去眩光必须提供掩膜",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "test:A42-delight-flattens-lighting"
+    },
+    {
+      "id": "CLAIM-072",
+      "file": "SKILL.md",
+      "anchor": "任何「再从像素推一次掩膜」的启发",
+      "text_hash": "sha256:31bc56cc08b5df5f2c8fce82f21ddcd4698d56e514f891be39dd48d67493ff9f",
+      "claim": "任何「再从像素推一次掩膜」的启发式都被禁止——它必然有第三种几何形态反例",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-073",
+      "file": "SKILL.md",
+      "anchor": "`ignoreWhite` 必须",
+      "text_hash": "sha256:6d5153baf5956068cbaa7426f95ebc5afd68f5e20ddd20470696fb6b3239b598",
+      "claim": "`ignoreWhite` 必须保持 false——开了它会把珍珠、水晶内部的纯白高光当背景挖掉，留下黑洞",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "test:A44-trace-ref-contract"
+    },
+    {
+      "id": "CLAIM-074",
+      "file": "SKILL.md",
+      "anchor": "满版稿裁切后不会露白线；白底 l",
+      "text_hash": "sha256:56e182dc7b35101d8eba6bba95e52cdb5b078e1cfe24395b865bfa43c78eabb2",
+      "claim": "满版稿裁切后不会露白线；白底 logo 用 `--bleed-mode white` 才是纯白边",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-075",
+      "file": "SKILL.md",
+      "anchor": "`scripts/land_craft.py` 与 `scr",
+      "text_hash": "sha256:8abbfad240c8de3b8a44c5aebf127f22d0c9fb74dbc4c092aa0350be7083f12f",
+      "claim": "`scripts/land_craft.py` 与 `scripts/land_vc.py` **同输出契约**，但整条链只用 VectorCraft CLI，",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-076",
+      "file": "SKILL.md",
+      "anchor": "adobe.com 上开放，自动",
+      "text_hash": "sha256:8f47df476300f82b479a82042fa29fad631563e56245b3393475cbc2f3ef39da",
+      "claim": "adobe.com 上开放，自动化产线不应把落地绑在桌面程序上",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-077",
+      "file": "SKILL.md",
+      "anchor": "确认颜色算子确实存在——ICC、",
+      "text_hash": "sha256:fd93c0e441ebb2dc67d7ea7e2fc72e5e7f76d56f7334313a9b2d5e47ce999b30",
+      "claim": "确认颜色算子确实存在——ICC、字体程序、CMap 等二进制流不计入，它们只是碰巧含有 k/K 字节",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-078",
+      "file": "SKILL.md",
+      "anchor": "X-3 / X-4 的颜色走 I",
+      "text_hash": "sha256:4b37a3cdc429a0e792f6ec4ee7662a4f7d35344ad7a8c58792ce15027b83cced",
+      "claim": "X-3 / X-4 的颜色走 ICCBased（内容流里是 `scn`/`SCN`），因此只有 X-1a 用 DeviceCMYK 的 `k`/`K` 判档；",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-079",
+      "file": "SKILL.md",
+      "anchor": "私有编辑数据」列为未完成项，不应",
+      "text_hash": "sha256:25201123e88a2189009120f9232d037e55c04562a9a8a6a282cf677e4a2af591",
+      "claim": "私有编辑数据」列为未完成项，不应对外承诺等效",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-080",
+      "file": "SKILL.md",
+      "anchor": "包内不留任何运行期文件，打 zi",
+      "text_hash": "sha256:9a1407bec3ae91f497083c213b447babe9f6c4fc8205aa048cdbd644c7350f40",
+      "claim": "包内不留任何运行期文件，打 zip 不会带出测试残留",
+      "mechanism": "assertion",
+      "tests": [
+        "A22-package-hygiene"
+      ]
+    },
+    {
+      "id": "CLAIM-081",
+      "file": "SKILL.md",
+      "anchor": "交付清单 deliverable",
+      "text_hash": "sha256:1f4bc1f8e2964b36e3966de0cafdb5cca5dc4a613330f97d2b8b39724a0c6160",
+      "claim": "交付清单 deliverable.json 是**给客户的**，与验收日志分开：它不评价好坏，只记录物件本身的可核事实（色彩空间、ICC、出血、图层、字体、位图、画板 pt/mm、sha256）与必须说明的风险（第三方重存会剥离 AIPrivateData、CMYK 未做色彩管理等）",
+      "mechanism": "assertion",
+      "tests": [
+        "A31-deliverable-schema-no-drift"
+      ]
+    },
+    {
+      "id": "CLAIM-082",
+      "file": "SKILL.md",
+      "anchor": "`observed` 段每一项都",
+      "text_hash": "sha256:3721cf26a9a436dcefac782bc4840b8e36878588ccba1759f41cd0da91ba949b",
+      "claim": "`observed` 段每一项都是从产物字节实测（含 print.pdf 的 /OutputConditionIdentifier）；`save_options` 段记录本次**请求**的保存参数，两者不混写——唯一例外是 `save_options.output_intent`：没有 PDF 可读回时它记请求值，读得",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-083",
+      "file": "SKILL.md",
+      "anchor": "- 阈值、分档、降级文案的唯一事",
+      "text_hash": "sha256:84e33d994234eb1b82a5ab1d3d215d192f8679825161833c227b7cb6e10a164e",
+      "claim": "- 阈值、分档、降级文案的唯一事实源是 `config/thresholds.json`；`calibration_policy` 登记可校准白名单与审批流，判据定义类一律锁定，任何放宽必须标 `loosening: true` 且带裁决引用",
+      "mechanism": "assertion",
+      "tests": [
+        "A9-calibration-policy"
+      ]
+    },
+    {
+      "id": "CLAIM-084",
+      "file": "SKILL.md",
+      "anchor": "- 判定类 JSON 不含 wa",
+      "text_hash": "sha256:d7d7d667109bcb00a6001c33e8f3016b16a69297653a2e9cf3026dbb59ce5346",
+      "claim": "- 判定类 JSON 不含 wall-clock，同一输入两次执行逐字节一致；时间只进 append-only 运行日志",
+      "mechanism": "assertion",
+      "tests": [
+        "A3-idempotent-byte-identical"
+      ]
+    },
+    {
+      "id": "CLAIM-085",
+      "file": "SKILL.md",
+      "anchor": "- 验收日志另含 generat",
+      "text_hash": "sha256:0d5adfe5d8e55068d52f2998e680f729867c3b27511311f22e8b96279e9bfbac",
+      "claim": "- 验收日志另含 generation_count / generation_budget（运行时派生）、f_source_runs / c2_revisions / f_data_isolated、f_verified、needs_human_review、reason、h1 至 h4 等强制字段，供 QA 机械核对",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-086",
+      "file": "SKILL.md",
+      "anchor": "- 对外说明由 `templat",
+      "text_hash": "sha256:5e5bfc70223058986959c6e9735b78cd1f4c9c998e18f1bf3eeb4198561c4f4e",
+      "claim": "- 对外说明由 `templates/delivery-note.template.md` 生成，只消费分档结论；未判定或降级时首行显式标注需人工终审并给出证据覆盖，禁止宣称达标 / 完美",
+      "mechanism": "assertion",
+      "tests": [
+        "A6-O3-no-excellent-wording"
+      ]
+    },
+    {
+      "id": "CLAIM-087",
+      "file": "SKILL.md",
+      "anchor": "- **同一次 run 内的自证",
+      "text_hash": "sha256:cf1fe213d36163c34deba1dbda3f5e7ccdf932709aadafdb0e1a1a2334f51807",
+      "claim": "- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本无法分辨同一 run 内自己写的 `selftest.json` 与真跑出来的",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:17-self-attested-log"
+    },
+    {
+      "id": "CLAIM-088",
+      "file": "SKILL.md",
+      "anchor": "H3 的断言数下界与 `run_",
+      "text_hash": "sha256:a75c487351de76947d38f576c67b91372fb9a049e9eba52af5bf38b1e9bcc69c",
+      "claim": "H3 的断言数下界与 `run_id` 绑定只能挡跨 run 复用",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-089",
+      "file": "SKILL.md",
+      "anchor": "`scripts/redteam.py` 的 `17-sel",
+      "text_hash": "sha256:08d59c9d0c34b1ae978a72d3e16955213e5a363045ebe7a39716d46fc80c3d1d",
+      "claim": "`scripts/redteam.py` 的 `17-self-attested-log` 就是这条边界的**反向证明**：它必须真的漏过去，否则这条声明就是低估自己",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-090",
+      "file": "SKILL.md",
+      "anchor": "- 所有脚本以 `scripts",
+      "text_hash": "sha256:f71129fc1d7bae4b11080eb32e9b6d6836f86afa5611cb18dfe00ff089241520",
+      "claim": "- 所有脚本以 `scripts/lib_common.py` 的 `skill_root()` 解析路径，配置 / references / fixtures / 运行期目录都相对技能根，禁止依赖调用时 cwd",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-091",
+      "file": "SKILL.md",
+      "anchor": "- 宿主 LLM 只负责语义生成",
+      "text_hash": "sha256:ccc8bc2155de55a5714bedbe9a4b40bb39294fa1c9e14736e28bcf641e1e4fc8",
+      "claim": "- 宿主 LLM 只负责语义生成与二值判读，数值 / 集合 / 结构判定全部由确定性脚本产出",
+      "mechanism": "assertion",
+      "tests": [
+        "A16-L2-anti-fabrication"
+      ]
+    },
+    {
+      "id": "CLAIM-092",
+      "file": "README.md",
+      "anchor": "默认链路只依赖 Python 3",
+      "text_hash": "sha256:cea43f3bc79328ce40601b37485a65fed5b6e41781a503f2e02f0f044a5b7f6f",
+      "claim": "默认链路只依赖 Python 3.10+ 标准库（CI 在 3.10 与 3.12 上跑通；本机实测 3.12.10），零付费凭据、零联网、零额外组件",
+      "mechanism": "assertion",
+      "tests": [
+        "A8-dual-runtime-consistent"
+      ]
+    },
+    {
+      "id": "CLAIM-093",
+      "file": "README.md",
+      "anchor": "引擎不可用时该命令显式降级并留下",
+      "text_hash": "sha256:496c8bcd7bbf0332fb012260c3c3e902142c96f1d06e2f982842f5a9a5d19c7a",
+      "claim": "引擎不可用时该命令显式降级并留下真实日志，不会假装成功、不会编造 `.ai`",
+      "mechanism": "assertion",
+      "tests": [
+        "A81-smoke-rating-follows-acceptance"
+      ]
+    },
+    {
+      "id": "CLAIM-094",
+      "file": "README.md",
+      "anchor": "- 交付清单 deliverab",
+      "text_hash": "sha256:100994159067fc58d402b2e00299ca7ed6df8fc9f0c62eb0c6b8f55e9936b64c",
+      "claim": "- 交付清单 deliverable.json（只记录从产物字节实测的事实与未兑现项）",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-095",
+      "file": "README.md",
+      "anchor": "- 当前等级一律是 `machi",
+      "text_hash": "sha256:3cb95e9928cae785b2deba516c925b3b6715963c7af52102962e57efe386f7ba",
+      "claim": "- 当前等级一律是 `machine_only`：三个独立模型实例按同一张盲评表打分，表不空、可复核，但**不是外部评审**，不可对外声称「质量已验证」或「审美已被验证」",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-096",
+      "file": "README.md",
+      "anchor": "剩下的审美判断（主张是否成立、主",
+      "text_hash": "sha256:9580110c285aaec2866f250b9c669b77ed8389384a4ba50aac256590d59a256a",
+      "claim": "剩下的审美判断（主张是否成立、主次、气质）只能人判",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-097",
+      "file": "README.md",
+      "anchor": "- 外部评审表回收后用 `scr",
+      "text_hash": "sha256:08ffc4021c3a9786fe4cb9c321ce78aa49f4d2955a4e06c7d42b3625d4eee425",
+      "claim": "- 外部评审表回收后用 `scripts/review.py` 汇总，只有 ≥2 名**去重后**（绝对路径 + 内容 sha256）的不同 external 评审人且零空格时 `evidence.usable_for_claim` 才为真；在此之前恒为假",
+      "mechanism": "assertion",
+      "tests": [
+        "A55-review-sheet-empty-is-not-evidence"
+      ]
+    },
+    {
+      "id": "CLAIM-098",
+      "file": "README.md",
+      "anchor": "- **参考通道**：风格、构图",
+      "text_hash": "sha256:46449e9a5eed8e8327be37e6d9cb258bac29692768210f1845436c554c9611f6",
+      "claim": "- **参考通道**：风格、构图、质感参照可以来自任何素材站，但只进 `source-ledger`（URL、许可、获取日期、用途），**不进入** final.svg / .ai",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-099",
+      "file": "README.md",
+      "anchor": "- **产出通道**：纹理、笔刷",
+      "text_hash": "sha256:76c5598b72d9c1e53eb0294b160ae8427e85c89a8749c4e2951a52beb887d0e7",
+      "claim": "- **产出通道**：纹理、笔刷、边框等非标志性构件若要用，必须许可明确允许商用、账本登记、SVG 元素带 `data-source`，并由 `scripts/conformance.py` 校验六件事：「条目字段齐全」「有标记必有登记」「有登记必有元素」「许可在白名单」「非 `own` 条目必须有许可声明页 `lic",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-100",
+      "file": "README.md",
+      "anchor": "`commercial` 描述的",
+      "text_hash": "sha256:96c2499a5235293e560cfca897c49d7f93a165e9a5dd10034c94618111ad24cd",
+      "claim": "`commercial` 描述的是用途不是许可，会把需署名与免署名混成一类，审计无法判定",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-101",
+      "file": "README.md",
+      "anchor": "- 引擎、渲染器、宿主读图三项一",
+      "text_hash": "sha256:2578acd659ce9aa60e589042f7c90f5899deb9deeda4ab7bf9e3da4a237b813a",
+      "claim": "- 引擎、渲染器、宿主读图三项一律先探测，缺失显式列出 `MISSING` 与替代方案并降级，不假设已装",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-102",
+      "file": "README.md",
+      "anchor": "> 第三行是本机常见形态：引擎在",
+      "text_hash": "sha256:d404c427f77f13f707600a6cae57b6ee7eee2af2b8664fc683bad706592b1247",
+      "claim": "> 第三行是本机常见形态：引擎在、渲染器不在时，内置兜底只会画轴对齐纯色矩形，带圆 / 路径 / 描边 / 文字的稿子一律 fail-closed 到 L2，不会靠「文件存在」凑成达标",
+      "mechanism": "assertion",
+      "tests": [
+        "A12-L2-indeterminate-not-fail"
+      ]
+    },
+    {
+      "id": "CLAIM-103",
+      "file": "README.md",
+      "anchor": "验收日志另给两个字段把话说全：`",
+      "text_hash": "sha256:c8f17f5e960e0a2316aa4477ce15a1be6045cc784daeb6709a14a3c9ed37e136",
+      "claim": "验收日志另给两个字段把话说全：`evidence_coverage` 说清**哪几维测过、哪几维没测、为什么、怎么修**；`deliverable_status` 说清**文件能不能交**（「能不能交」与「质量达没达标」是两个问题）",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-104",
+      "file": "README.md",
+      "anchor": "日志还记 `criteria_v",
+      "text_hash": "sha256:a573abf01fd85cd040fbfa3adbaa2604397cc18684611ba08b07aa8620e163b6",
+      "claim": "日志还记 `criteria_version` 与 `thresholds_sha256`：结论只在该判据版本下有效",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-105",
+      "file": "README.md",
+      "anchor": "下游暂时只能处理两个值时，聚合器",
+      "text_hash": "sha256:0eddffa5403189c2d5473f4b9243a20566283b8eaa4050334b1d28f4cb054adf",
+      "claim": "下游暂时只能处理两个值时，聚合器加 `--two-valued`：结论折回旧措辞、日志标 `legacy_grading: true`，**达标 / 不达标的判定边界一个都没变**",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
+    },
+    {
+      "id": "CLAIM-106",
+      "file": "README.md",
+      "anchor": "- 取证分工：H1 由 land",
+      "text_hash": "sha256:def1b80e636d236a17a8e768d9b01dd2c7f8068bd3a4b779ee01dc515499d0e7",
+      "claim": "- 取证分工：H1 由 landing-only 轨取证（smoke_ai.py 加 --landing-only），H2/H3/H4 由完整链（默认）取证；**已经跑过完整链的目录不许再走窄轨**（否则窄轨就成了洗白失败 run 的后门）",
+      "mechanism": "assertion",
+      "tests": [
+        "A85-narrow-track-cannot-launder"
+      ]
+    },
+    {
+      "id": "CLAIM-107",
+      "file": "README.md",
+      "anchor": "- 对外说明只承诺分档结论；未判",
+      "text_hash": "sha256:481bb2e116983d1b454a961d4c2354d3a505cb6519aa8d9f042c01ab6895ce43",
+      "claim": "- 对外说明只承诺分档结论；未判定或降级时首行标注需人工终审",
+      "mechanism": "assertion",
+      "tests": [
+        "A6-O3-no-excellent-wording"
+      ]
+    },
+    {
+      "id": "CLAIM-108",
+      "file": "README.md",
+      "anchor": "- 盲评回收用 `python ",
+      "text_hash": "sha256:be4847f95d4a6ba24a1c8a690c96197dd6b9f39edffcacc44d6cf1a0fdf3436c",
+      "claim": "- 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；`--sheet` 按（绝对路径 + 内容 sha256）去重，重复",
+      "mechanism": "assertion",
+      "tests": [
+        "A55-review-sheet-empty-is-not-evidence"
+      ]
+    },
+    {
+      "id": "CLAIM-109",
+      "file": "README.md",
+      "anchor": "- **同一次 run 内的自证",
+      "text_hash": "sha256:7724fdf57e083e6708013fd3a0c102046ba8f535dd571dc2d10f17704678de75",
+      "claim": "- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:17-self-attested-log"
+    },
+    {
+      "id": "CLAIM-110",
+      "file": "README.md",
+      "anchor": "- 跨文件的枚举（保真度、档位、",
+      "text_hash": "sha256:964bf4bdce66c3adac32ac0b6433ee06b22f4ddfd1c2c05806cbd3a9eb99efe0",
+      "claim": "- 跨文件的枚举（保真度、档位、判读字段）只在 `contract/contract.json` 定义一次，由 `scripts/gen_contract.py` 生成给生产侧与判据侧共同 import；`python scripts/gen_contract.py --check` 在 CI 里卡漂移",
+      "mechanism": "assertion",
+      "tests": [
+        "A83-contract-is-the-single-source"
+      ]
+    },
+    {
+      "id": "CLAIM-111",
+      "file": "SKILL.md",
+      "anchor": "**判决是三值的**（判据版本 ",
+      "text_hash": "sha256:718c0e7e3630b77c3126e72687d2ca9a28cc3bae56c6c5b1408cbdcb36e13946",
+      "claim": "**判决是三值的**（判据版本 2.0.0 起，见 `MIGRATION.md`）：",
+      "mechanism": "assertion",
+      "tests": [
+        "A12-L2-indeterminate-not-fail",
+        "A86-three-valued-verdict"
+      ]
+    },
+    {
+      "id": "CLAIM-112",
+      "file": "SKILL.md",
+      "anchor": "「没测出来」不等于「质量差」——",
+      "text_hash": "sha256:796fcc32ccf5e2355cc0ae5303ae83940b70a80c7f27de9766d9c0ca5f6ead49",
+      "claim": "「没测出来」不等于「质量差」——这是 r72 最重要的一条改动",
+      "mechanism": "assertion",
+      "tests": [
+        "A86-three-valued-verdict"
+      ]
+    },
+    {
+      "id": "CLAIM-113",
+      "file": "SKILL.md",
+      "anchor": "- L0 默认零凭据本地链路；L",
+      "text_hash": "sha256:7e65bc014714b855a1fd8b16d966a3c48e08de1e8d06da342f9bf2ba69eb4215",
+      "claim": "- L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），**判据版本 2.0.0 起结论记「未判定」而不是「不达标」**（`tier=indete",
+      "mechanism": "assertion",
+      "tests": [
+        "A87-degradation-loss-list"
+      ]
+    },
+    {
+      "id": "CLAIM-114",
+      "file": "README.md",
+      "anchor": "- 评审去重的**已声明边界**",
+      "text_hash": "sha256:9e1103b84d87e40830d3e694ca0e081450b3532d2ff32150f12c992eeca906dc",
+      "claim": "- 评审去重的**已声明边界**：`(绝对路径, 内容 sha256)` 拦得住「同一份表重复提交」，但**拦不住「同一份表换个文件名再交一次」与「同一个人把同一份表另存为两个不同文件并改动一个字节」**——那是两个人还是一个人，脚本无从判定",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:16-review-duplicate-new-name"
+    }
+  ]
+}

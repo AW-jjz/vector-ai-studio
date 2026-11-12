@@ -49,7 +49,11 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # too; A60 turns a stale count red instead of leaving it to a human.
 # r71: +A80 (registry scan catches unregistered codes), +A81 (smoke rating
 # follows the acceptance verdict) -> 79 + 2 = 81.
-EXPECTED_ASSERTIONS = 81
+# r72: +A82 (shipped attack set), +A83 (contract is the single source),
+# +A84 (claim registry), +A85 (narrow track cannot launder), +A86 (three-valued
+# verdict), +A87 (degradation loss list), +A88 (engine lock detects a
+# swapped binary) -> 81 + 7 = 88.
+EXPECTED_ASSERTIONS = 88
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
@@ -217,6 +221,102 @@ def assert_no_credentials(env=None):
     """H4: check only whether credential env NAMES exist; never read values."""
     env = env if env is not None else os.environ
     return {name: (name in env) for name in CREDENTIAL_ENV_NAMES}
+
+
+# ---- engine lock (r72, plan 4.4) --------------------------------------------
+# The engine is where the facts come from: its bytes decide the .ai. Pinning
+# a VERSION is not enough -- the same version number can ship a different
+# build -- so the lock pins the binary's sha256 per platform. A build that
+# does not match the lock is not trusted: the regression that was run against
+# the old binary no longer applies.
+
+def engine_platform():
+    """A coarse platform key: windows-x64, darwin-arm64, linux-x64, ..."""
+    import platform as _pl
+    sysname = _pl.system().lower()
+    machine = (_pl.machine() or "").lower()
+    if sysname.startswith("win"):
+        base = "windows"
+    elif sysname == "darwin":
+        base = "darwin"
+    else:
+        base = sysname or "unknown"
+    if machine in ("arm64", "aarch64"):
+        arch = "arm64"
+    elif machine in ("x86_64", "amd64", "x64"):
+        arch = "x64"
+    else:
+        arch = machine or "unknown"
+    return base + "-" + arch
+
+
+def engine_lock_path():
+    return skill_root() / "engine.lock.json"
+
+
+def load_engine_lock():
+    p = engine_lock_path()
+    if not p.is_file():
+        return {"schema": "vector-ai-studio/engine-lock-v1", "entries": []}
+    try:
+        obj = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"schema": "vector-ai-studio/engine-lock-v1", "entries": []}
+    if not isinstance(obj, dict):
+        return {"schema": "vector-ai-studio/engine-lock-v1", "entries": []}
+    return obj
+
+
+def check_engine_lock(cli_path, version, lock=None):
+    """Compare an engine binary with the committed lock.
+
+    Returns {"sha256", "platform", "locked", "drift", "expected", "note"}.
+
+    * locked=False : this platform+version is not pinned at all -> a NOTE,
+      not a failure. The tool still runs; the log says the build is unknown.
+    * drift=True   : the platform+version IS pinned and the binary differs ->
+      a hard stop. The build was swapped and the regression is void.
+
+    `lock` is injectable so the check itself can be tested without touching
+    the committed lock file.
+    """
+    if lock is None:
+        lock = load_engine_lock()
+    plat = engine_platform()
+    sha = file_sha256(cli_path)
+    entries = [e for e in (lock.get("entries") or [])
+               if isinstance(e, dict) and e.get("version") == version
+               and e.get("platform") == plat]
+    if not entries:
+        return {"sha256": sha, "platform": plat, "locked": False, "drift": False,
+                "expected": "",
+                "note": "this engine build (" + plat + " " + str(version) +
+                        ") is not pinned in engine.lock.json: the regression "
+                        "that covers it is unknown, so pin it after a run"}
+    expected = str(entries[0].get("sha256", ""))
+    if expected and expected != sha:
+        return {"sha256": sha, "platform": plat, "locked": True, "drift": True,
+                "expected": expected,
+                "note": "the engine binary changed for version " + str(version) +
+                        " on " + plat + ": pinned sha256 " + expected +
+                        ", found " + sha + ". Re-run the engine regression and "
+                        "update engine.lock.json before trusting the output"}
+    return {"sha256": sha, "platform": plat, "locked": True, "drift": False,
+            "expected": expected,
+            "note": "engine build matches engine.lock.json"}
+
+
+def engine_version(cli_path, timeout=30):
+    """The engine's own version string, or "" if it will not say."""
+    import subprocess
+    try:
+        r = subprocess.run([str(cli_path), "--version"], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace",
+                           timeout=timeout, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    m = re.search(r"\b\d+\.\d+\.\d+\b", (r.stdout or "") + (r.stderr or ""))
+    return m.group(0) if m else ""
 
 
 def envelope(script, status="ok", code=0, data=None, errors=None, warnings=None,

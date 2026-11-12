@@ -2,7 +2,7 @@
   "schema": "vector-ai-studio/acceptance-sample-v1",
   "note": "回归样例（非真机产物）：合规的 L2 验收日志快照，用于验证校验器正确接受，不代表真机出图结论",
   "headline": "语义 / 构图判读未取证，需人工终审",
-  "grade": "不达标",
+  "grade": "未判定",
   "degraded": true,
   "needs_human_review": true,
   "reason": "capability_missing",
@@ -12,20 +12,98 @@
   "quick": false,
   "generation_count": 6,
   "f_source_runs": [
-    { "run_id": "run-1", "h1": true, "score": {}, "draft_sha256": "aaaa1111" },
-    { "run_id": "run-2", "h1": true, "score": {}, "draft_sha256": "bbbb2222" },
-    { "run_id": "run-3", "h1": true, "score": {}, "draft_sha256": "cccc3333" }
+    {
+      "run_id": "run-1",
+      "h1": true,
+      "score": {},
+      "draft_sha256": "aaaa1111"
+    },
+    {
+      "run_id": "run-2",
+      "h1": true,
+      "score": {},
+      "draft_sha256": "bbbb2222"
+    },
+    {
+      "run_id": "run-3",
+      "h1": true,
+      "score": {},
+      "draft_sha256": "cccc3333"
+    }
   ],
   "c2_revisions": [
-    { "run_id": "run-1", "round": 2, "score": {}, "change_only": ["C"], "draft_sha256": "dddd4444" },
-    { "run_id": "run-2", "round": 2, "score": {}, "change_only": ["C"], "draft_sha256": "eeee5555" }
+    {
+      "run_id": "run-1",
+      "round": 2,
+      "score": {},
+      "change_only": [
+        "C"
+      ],
+      "draft_sha256": "dddd4444"
+    },
+    {
+      "run_id": "run-2",
+      "round": 2,
+      "score": {},
+      "change_only": [
+        "C"
+      ],
+      "draft_sha256": "eeee5555"
+    }
   ],
   "scores": {
     "A": "N/A (capability_missing)",
     "B": "N/A (capability_missing)",
-    "C": { "score": 1 },
-    "D": { "score": 1 },
+    "C": {
+      "score": 1
+    },
+    "D": {
+      "score": 1
+    },
     "E": "N/A",
-    "F": { "score": 1 }
-  }
+    "F": {
+      "score": 1
+    }
+  },
+  "tier": "indeterminate",
+  "status": "degraded",
+  "internal_excellent": false,
+  "evidence_coverage": {
+    "A": {
+      "measured": false,
+      "why": "宿主 LLM 读不了预览图（judge.readable=false）",
+      "fix": "让宿主 LLM 真读一次预览图并写出 readable=true 的 judge.json"
+    },
+    "B": {
+      "measured": false,
+      "why": "宿主 LLM 读不了预览图（judge.readable=false）",
+      "fix": "让宿主 LLM 真读一次预览图并写出 readable=true 的 judge.json"
+    },
+    "C": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "D": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "F": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "coverage": 0.6,
+    "required_dims": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "F"
+    ]
+  },
+  "deliverable_status": "not_deliverable",
+  "criteria_version": "2.0.0",
+  "legacy_grading": false
 }

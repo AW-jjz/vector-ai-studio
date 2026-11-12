@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import _contract as C
 
 SCRIPT = "iterate.py"
 SCORE_SCHEMA = "vector-ai-studio/score-v1"
@@ -47,9 +48,11 @@ def main():
     l2 = bool(sc.get("capability_missing")) or bool(sc.get("l2_degraded")) or bool(degraded)
     if l2:
         # A/B are capability-missing status, so no pass is possible; each run
-        # normally uses its full K rounds (no third grading tier, no early stop_pass).
+        # normally uses its full K rounds (no early stop_pass). r72: the grade
+        # is 未判定, not 不达标 -- "we could not read the preview" is not a
+        # statement about the drawing.
         decision = "stop_exhausted" if args.round >= k_max else "continue"
-        grade = msg["grade_fail"]
+        grade = msg["grade_indeterminate"]
     elif not failed:
         decision = "stop_pass"
         grade = msg["grade_pass"]

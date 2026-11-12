@@ -14,10 +14,26 @@
     "run_id": { "type": "string" },
     "mode": { "enum": ["full", "landing-only"] },
     "grading_entered": { "type": "boolean" },
-    "grade": { "type": ["string", "null"], "enum": ["达标", "不达标", null] },
-    "tier": { "type": ["string", "null"], "enum": ["pass", "not-pass", null] },
+    "grade": {
+      "type": ["string", "null"],
+      "enum": ["达标", "不达标", "未判定", null],
+      "description": "r72 (criteria 2.0.0): three values. 未判定 means the evidence was insufficient to judge -- it is NOT 不达标."
+    },
+    "tier": { "type": ["string", "null"], "enum": ["pass", "not-pass", "indeterminate", null] },
     "status": { "type": "string" },
     "reason": { "type": ["string", "null"] },
+    "evidence_coverage": {
+      "type": "object",
+      "description": "Per dimension: was it measured, and if not, why not and how to fix it. Derived from evidence by the judge; a log may not attest it."
+    },
+    "deliverable_status": {
+      "type": ["string", "null"],
+      "enum": ["deliverable", "deliverable_with_human_review", "not_deliverable", "evidence_only", null],
+      "description": "Whether the files can be handed over -- a different question from whether the quality is acceptable."
+    },
+    "criteria_version": { "type": "string" },
+    "thresholds_sha256": { "type": "string" },
+    "legacy_grading": { "type": "boolean" },
     "degraded": { "type": "boolean" },
     "needs_human_review": { "type": "boolean" },
     "capability_missing": { "type": ["boolean", "null"] },

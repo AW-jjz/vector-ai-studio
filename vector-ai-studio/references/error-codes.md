@@ -6,6 +6,7 @@
 
 | 错误码 | 含义 | 发出方 |
 |---|---|---|
+| `E-ATTACK-PASSED` | 随包攻击集里有 `expect=block` 的攻击没有被拦下（漏拦） | redteam |
 | `E-BATCH-INCOMPLETE` | 独立 run 数量不足，无法汇总 F | batch_check |
 | `E-BITMAP` | SVG 含位图或内联 base64，不是纯矢量 | sanitize_svg |
 | `E-BUDGET-EXCEEDED` | generation_count 超过运行时派生的预算上界 | aggregate_log, batch_check |
@@ -16,10 +17,16 @@
 | `E-CONFIG-KEYS` | 配置键缺失或存在多余键 | lib_common |
 | `E-CONFIG-MISSING` | 配置文件不存在 | lib_common |
 | `E-CONFIG-PARSE` | 配置文件无法解析 | lib_common |
+| `E-CONTRACT-MISSING` | 契约文件 `contract/contract.json` 不存在 | gen_contract |
+| `E-CONTRACT-PARSE` | 契约文件无法解析为 JSON | gen_contract |
+| `E-CONTRACT-SCHEMA` | 契约文件缺少必需键或 schema 不符 | gen_contract |
+| `E-CLAIMS-DRIFT` | 对外声明登记册与文档对不上：原文哈希变了（改了文档没改契约）、anchor 找不到、assertion 类没挂测试、boundary 类没挂反向证明、或承诺句登记覆盖率低于契约里声明的下限 | validate_claims |
+| `E-CONTRACT-DRIFT` | 契约生成物（`scripts/_contract.py` / schema / 文档 / 夹具）与 `contract/contract.json` 不一致，或 thresholds.json 缺少契约声明的文案键；必须重跑 `python scripts/gen_contract.py` | gen_contract |
 | `E-CONFORMANCE` | 需求符合度的机械检查未通过（颜色、色面积、描边宽度、图元种类/数量、留白、禁用构造）；逐条列出失败 id 与实测值，退出 1 | conformance |
 | `E-DEGENERATE` | 存在退化路径（零长度/零面积） | sanitize_svg |
 | `E-EMPTY-SPEC` | spec 为空或缺少必需项 | freeze_spec |
 | `E-EXEMPTION-ABUSE` | mode 与 grading_entered 组合非法（跨轨滥用豁免） | aggregate_log |
+| `E-ENGINE-DRIFT` | 引擎二进制与 `engine.lock.json` 里钉的哈希不符（同版本、不同构建）：引擎是产物的事实来源，构建换了就等于事实变了，必须重压一遍引擎回归并更新锁文件后才允许继续 | trace_ref, land_vc |
 | `E-F-DATA-ISOLATION` | F 统计与 C2 收敛产物跨 run 混用 | aggregate_log, batch_check |
 | `E-FABRICATED-SCORE` | L2 下出现数字分（伪造读图判读） | aggregate_log |
 | `E-FIXTURE-MISMATCH` | fixture 的期望值与实际结果不符 | run_fixtures |
@@ -27,10 +34,11 @@
 | `E-GRADE-MISMATCH` | `--validate-case` 时，日志声明的判定字段（grade / tier / headline / status / degraded / needs_human_review / reason / internal_excellent）与 `_derive_grade` 从 evidence 重推的 verdict 逐字段不一致（含 `internal_excellent` 自证）；仅在 full 轨、且已通过所有其它契约检查时作为唯一裁决码，不叠加到更具体的错误码上 | aggregate_log |
 | `E-H1-STRUCTURE` | 结构回读失败（raster / placed / paths / 画板与 viewBox）；也用于「没有本次产物」的硬失败：落地命令非零退出或未写出本次 `output/<run-id>/final.ai`；r70 起含 `aggregate_log` 对 `output/<run-id>/final.ai` 的字节级独立复算不满足（`%PDF-` 前缀 / ≥1 `/Type /Page` / 内嵌 `/Subtype /Image` 数与 structure_readback.raster 一致），即「产物字节复算不满足」 | land_vc, land_craft, lib_pdf, smoke_ai, aggregate_log |
 | `E-H2-INCOMPLETE` | 四件产物不齐 | aggregate_log |
+| `E-INDETERMINATE-FIELDS` | 「未判定」结论的字段不自洽：tier 不是 indeterminate、deliverable_status 非法、或首行出现达标字样；也用于 deliverable_status 取值不在枚举内 | aggregate_log |
 | `E-INTERNAL` | 未预期异常（保留原始异常文本） | lib_common |
 | `E-JUDGE-SCHEMA` | 判读文件不符合 schema，且重试一次后仍失败 | llm_judge |
 | `E-L2-FIELDS` | L2 必须同时置 degraded 与 needs_human_review 为真 | aggregate_log |
-| `E-L2-GRADE` | L2 的 grade 必须为不达标（无第三档） | aggregate_log |
+| `E-L2-GRADE` | L2 的 grade 必须是「未判定」（capability_missing 是测量缺口，不是质量结论）；只有显式声明 `legacy_grading=true` 的日志才接受旧的两值写法「不达标」 | aggregate_log |
 | `E-L2-HEADLINE` | L2 首行必须是需求原文，不得改写 | aggregate_log |
 | `E-L2-WORDING` | L2 输出出现达标 / 优秀 / 完美字样 | aggregate_log |
 | `E-NO-SCORE` | 受评日志缺少必需维 `{A,B,C,D,F}`；达标日志还须带 `E` | aggregate_log |

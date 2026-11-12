@@ -1,0 +1,30 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "10-legacy-fidelity-word",
+  "name": "保真度写回旧词 full（r71 的 P0-1）",
+  "expect": "block",
+  "why": "契约外的词不得被接受：这是 r71 让真机永远 L2 的那个词。",
+  "reference": "r71 audit P0-1 / plan M1",
+  "mutations": [
+    {
+      "op": "patch_json",
+      "path": "preview.meta.json",
+      "key": "fidelity",
+      "value": "full"
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [],
+  "expect_grade": "未判定",
+  "expect_no_pass": true
+}

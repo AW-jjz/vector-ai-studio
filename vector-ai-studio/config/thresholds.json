@@ -1,7 +1,8 @@
 {
   "schema": "vector-ai-studio/thresholds-v1",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "source": "需求说明书 7.2/7.3/7.4（定稿初值，主理人裁决 O2）",
+  "_version_note": "2.0.0 = 判据 major bump（r72）：判决从二值扩为三值（达标 / 不达标 / 未判定），并引入证据覆盖率。阈值数值一个都没动，只有「怎么判」变了。破坏性变更见 MIGRATION.md。",
   "score_levels": { "fail": 0, "pass": 1, "excellent": 2 },
   "A": {
     "hit_rate_pass": 1.0,
@@ -99,20 +100,23 @@
     "l1_headline": "未达质量阈值，需人工终审",
     "l2_headline": "语义 / 构图判读未取证，需人工终审",
     "l2_outward_note": "降级交付，需人工终审",
-    "l2_grade": "不达标",
     "l2_capability_missing": "N/A (capability_missing)",
     "l4_note": "非原生 .ai，格式底线未满足",
     "fallback_png_note": "预览保真度受限",
     "grade_pass": "达标",
     "grade_fail": "不达标",
+    "grade_indeterminate": "未判定",
+    "indeterminate_headline": "证据不足，未判定，需人工终审",
+    "indeterminate_outward_note": "未判定：证据不足以给出质量结论，需人工终审",
     "reason_capability_missing": "capability_missing",
     "reason_quality_fail": "quality_fail",
+    "reason_insufficient_evidence": "insufficient_evidence",
     "reason_none": "none"
   },
   "degradation_levels": {
     "L0": "默认零凭据本地链路",
     "L1": "质量未达标，进入定向收敛",
-    "L2": "宿主 LLM 读图不可用，A/B 记 N/A (capability_missing)、grade 不达标、交付不阻断",
+    "L2": "宿主 LLM 读图不可用，A/B 记 N/A (capability_missing)、grade 记未判定（不是不达标）、交付不阻断",
     "L3": "商业增强档（用户自行提供凭据）",
     "L4": "依赖缺失（VectorCraft CLI / 渲染器）",
     "L5": "无风格参考，E 记 N/A"
@@ -136,7 +140,7 @@
       "C.contrast_*",
       "C.cvd_contrast_floor"
     ],
-    "uncalibrated_perceptual_note": "感知阈值目前只测量、不判失败，因此不进入校准流程：校准的前提是它已经是个闸门。等 24 个 fixture 的真实分布出来、决定升格为判据之后，再按上面的审批流处理。",
+    "uncalibrated_perceptual_note": "感知阈值目前只测量、不判失败，因此不进入校准流程：校准的前提是它已经是个闸门。等真实分布出来、决定升格为判据之后，再按上面的审批流处理。",
     "locked": [
       "A.*",
       "E.jaccard_*",

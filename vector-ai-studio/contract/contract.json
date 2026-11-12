@@ -1,0 +1,100 @@
+{
+  "schema": "vector-ai-studio/contract-v1",
+  "version": "1.0.0",
+  "criteria_version": "2.0.0",
+  "note": "单一事实源。跨文件的枚举与判读字段只在这里定义一次，由 scripts/gen_contract.py 生成到 scripts/_contract.py、references/schemas/contract-enums.schema.json、docs/generated/contract-table.md、tests/fixtures/contract/contract-matrix.json。生产侧（写）与判据侧（读）都 import 生成物，不写字面量。改这个文件必须重新生成：python scripts/gen_contract.py；CI 用 --check 卡住漂移。",
+  "enums": {
+    "fidelity": {
+      "values": ["faithful", "limited", "unknown"],
+      "fail_closed_default": "limited",
+      "note": "预览保真度。r71 的 P0-1 就在这里：生产侧写 full、判据侧只认 faithful、六处三种说法、零处校验。现在只有一个词表、一个接受集合，full 这个词不再存在于代码里。",
+      "accepted_by": {
+        "aggregate_log": {
+          "A": ["faithful"],
+          "B": ["faithful"]
+        }
+      },
+      "producers": {
+        "render_png": {
+          "real_renderer": "faithful",
+          "builtin_rect_only": "faithful",
+          "builtin_other": "limited"
+        },
+        "land_vc": {
+          "vectorcraft_preview_ok": "faithful",
+          "preview_failed": "limited"
+        }
+      }
+    },
+    "tier": {
+      "values": ["pass", "not-pass", "indeterminate"],
+      "note": "机器可读档位。indeterminate = 未判定：我们没能力测，不等于不达标。"
+    },
+    "mode": {
+      "values": ["full", "landing-only"]
+    },
+    "h2_status": {
+      "values": ["pass", "fail", "not_evaluated"]
+    },
+    "status": {
+      "values": ["ok", "degraded", "fail", "error"]
+    },
+    "reason": {
+      "values": ["none", "quality_fail", "capability_missing", "insufficient_evidence"]
+    },
+    "degradation_level": {
+      "values": ["L1", "L2", "L3", "L4", "L5"]
+    }
+  },
+  "verdict": {
+    "tiers": ["pass", "fail", "indeterminate"],
+    "tier_to_grade_key": {
+      "pass": "grade_pass",
+      "fail": "grade_fail",
+      "indeterminate": "grade_indeterminate"
+    },
+    "legacy_grade_key": "grade_fail",
+    "legacy_tier": "not-pass",
+    "required_dims": ["A", "B", "C", "D", "F"],
+    "optional_dims": ["E"],
+    "self_attestation_forbidden": [
+      "grade",
+      "tier",
+      "headline",
+      "status",
+      "degraded",
+      "needs_human_review",
+      "reason",
+      "internal_excellent",
+      "evidence_coverage",
+      "deliverable_status"
+    ],
+    "note": "这些字段由 aggregate_log._derive_grade 从证据重推，日志里的自称值只做比对对象，不得作为输入。"
+  },
+  "banned_claim_words": ["达标", "优秀", "完美", "Excellent"],
+  "literal_scan": {
+    "files": [
+      "scripts/render_png.py",
+      "scripts/land_vc.py",
+      "scripts/aggregate_log.py",
+      "scripts/iterate.py",
+      "scripts/score.py"
+    ],
+    "exclude": ["scripts/_contract.py"],
+    "forbidden_literals": ["faithful", "limited", "unknown", "full"],
+    "note": "被扫描文件里不得出现保真度枚举的字面量（用 tokenize 只看字符串字面量，且只在「保真度上下文」里判：同一行附近提到 fidelity 才算命中，避免把版本号解析里的 unknown 误伤）。生成物本身除外。"
+  },
+  "coverage_fix_hints": {
+    "fidelity": "安装 resvg 或 cairosvg 提供可信预览；或改 contract/contract.json 的 accepted_by 让判据接受当前取值",
+    "judge": "让宿主 LLM 真读一次预览图并写出 readable=true 的 judge.json",
+    "f_unverified": "跑 batch_check.py 汇总 N>=3 个独立 run，batch.json 里 f_verified 才为真",
+    "quick": "关掉 --quick 重跑完整链，或改用 batch 汇总后的 run"
+  },
+  "claims": {
+    "registry": "contract/claims.json",
+    "scan_files": ["SKILL.md", "README.md"],
+    "mandatory_words": ["应", "必须", "绝不", "不会", "只", "不许", "禁止", "不能", "无法", "一律", "恒"],
+    "coverage_floor": 1.0,
+    "note": "对外承诺句登记在 contract/claims.json：每条带原文哈希、机制与对应测试。校验器 scripts/validate_claims.py 在 CI 里跑。coverage_floor 是棘轮：承诺句的登记覆盖率只许升不许降，低于它就红。代码块里的命令行不算承诺句。"
+  }
+}

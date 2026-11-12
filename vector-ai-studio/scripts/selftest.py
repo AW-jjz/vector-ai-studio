@@ -147,6 +147,34 @@ def _copy_if(src, dst):
     return False
 
 
+# r70 #2: H1 re-opens final.ai's OWN bytes, so the pass-tier run must carry a
+# genuinely parseable minimal PDF container (>=1 /Type /Page, 0 /Subtype /Image
+# == structure_readback.raster). It is still synthetic -- it proves the gates
+# and the wiring, NOT a real engine landing -- but the H1 evidence is real.
+_MIN_PDF_AI = (
+    b"%PDF-1.4\n"
+    b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+    b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+    b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>\nendobj\n"
+    b"%%EOF\n")
+
+
+def _synthetic_ai(run_dir, paths=5):
+    """Give a run directory a real (minimal) native .ai plus a matching readback.
+
+    Synthetic on purpose. It lets a test reach the gates that come AFTER H1
+    (an unreadable preview, a quick run) without a VectorCraft install. It
+    never proves that a real engine landed anything -- the acceptance log
+    still says nothing about that.
+    """
+    d = Path(run_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "final.ai").write_bytes(_MIN_PDF_AI)
+    L.write_json_atomic(d / "structure_readback.json", {
+        "ok": True, "raster": 0, "placed": 0, "paths": paths,
+        "artboard_matches_viewBox": True})
+
+
 def _type_ok(val, spec):
     t = spec.get("type")
     if t is None:
@@ -1615,6 +1643,11 @@ def _stage_pure_chain(tmp, add, th):
     # A10 quick must not claim a pass. L2 outranks quick: an unreadable preview
     # is more fundamental than "F not verified", so either non-pass headline is
     # acceptable. Never tweak the work dir's SVG to dodge L2 here.
+    # r72: the chain directories get a synthetic .ai first, so the run reaches
+    # the quick branch (the pure-script layer cannot land a real one, and a
+    # missing artefact would otherwise mask the thing this assertion tests).
+    _synthetic_ai(w1)
+    _synthetic_ai(w2)
     _call("aggregate_log.py", ["--run-dir", str(w1), "--quick", "--run-id", "quick-a10",
                                "--out", str(w1 / "quick-acceptance.json")], tmp)
     qa = _jread(w1 / "quick-acceptance.json")
@@ -3350,7 +3383,11 @@ def _stage_grading(tmp, add, th, w1):
     msg = th["messages"]
     cap = L.capability_missing_value(th)
 
-    # A12 L2: no third grading tier, capability-missing status, delivery not blocked
+    # A12 L2 (r72): capability_missing is a MEASUREMENT gap, so the verdict is
+    # 未判定 (indeterminate) -- NOT 不达标. Saying "not good enough" about a
+    # drawing we could not look at is a quality claim we cannot support, and
+    # it turns every default run into a permanent red. The run still carries
+    # its degradation, still needs a human, and still delivers the .ai.
     wl = tmp / "l2"
     wl.mkdir(parents=True, exist_ok=True)
     if (w1 / "spec.json").is_file():
@@ -3369,6 +3406,10 @@ def _stage_grading(tmp, add, th, w1):
                            "--out", str(wl / "judge.json")], tmp)
     _call("score.py", ["--svg", str(wl / "final.svg"), "--judge", str(wl / "judge.json"),
                        "--spec", str(wl / "spec.json"), "--out", str(wl / "score.json")], tmp)
+    # A real (minimal) .ai so the run reaches the L2 verdict instead of
+    # stopping at "the native file was never produced": the point of A12 is
+    # the capability gap, not a missing artefact.
+    _synthetic_ai(wl)
     _call("aggregate_log.py", ["--run-dir", str(wl),
                                "--out", str(wl / "acceptance.json")], tmp)
     la = _jread(wl / "acceptance.json")
@@ -3378,7 +3419,9 @@ def _stage_grading(tmp, add, th, w1):
     ldn = ((wl / "delivery-note.md").read_text(encoding="utf-8")
            if (wl / "delivery-note.md").is_file() else "")
     outward_words = [w for w in CLAIM_BANNED if w in ldn]
-    ok12 = (la.get("grade") == msg["l2_grade"] and
+    lcov = la.get("evidence_coverage") or {}
+    ok12 = (la.get("grade") == msg["grade_indeterminate"] and
+            la.get("tier") == "indeterminate" and
             la.get("headline") == msg["l2_headline"] and
             la.get("degraded") is True and
             la.get("needs_human_review") is True and
@@ -3387,8 +3430,14 @@ def _stage_grading(tmp, add, th, w1):
             la.get("grading_entered") is True and
             la.get("scores", {}).get("A") == cap and
             la.get("scores", {}).get("B") == cap and
+            la.get("deliverable_status") in ("deliverable_with_human_review",
+                                             "not_deliverable") and
+            lcov.get("A", {}).get("measured") is False and
+            bool(lcov.get("A", {}).get("why")) and bool(lcov.get("A", {}).get("fix")) and
             not l2_words and not outward_words)
-    add("A12-L2-not-pass-no-third-tier", ok12, "grade=" + str(la.get("grade")) +
+    add("A12-L2-indeterminate-not-fail", ok12, "grade=" + str(la.get("grade")) +
+        " tier=" + str(la.get("tier")) +
+        " coverage=" + str(lcov.get("coverage")) +
         " banned=" + ",".join(l2_words + outward_words))
 
     # A14 runtime-derived generation budget + real generation_count + rejection
@@ -3484,16 +3533,7 @@ def _stage_grading(tmp, add, th, w1):
     # genuinely parseable minimal PDF container (>=1 /Type /Page, 0 /Subtype
     # /Image == structure_readback.raster). It is still synthetic (it proves
     # F->scores wiring, not a real engine landing), but H1 evidence is real.
-    _MIN_PDF_AI = (
-        b"%PDF-1.4\n"
-        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
-        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
-        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>\nendobj\n"
-        b"%%EOF\n")
-    (a18 / "final.ai").write_bytes(_MIN_PDF_AI)
-    L.write_json_atomic(a18 / "structure_readback.json", {
-        "ok": True, "raster": 0, "placed": 0, "paths": 5,
-        "artboard_matches_viewBox": True})
+    _synthetic_ai(a18)
     # r70 #3: H3 now requires an assertion-count lower bound
     # (n_all >= L.EXPECTED_ASSERTIONS) and a run_id bound to --run-id. A
     # synthetic "1/1 ok" log can no longer prove H3, so this fixture must
@@ -3649,6 +3689,241 @@ def _stage_grading(tmp, add, th, w1):
         "pass_missing_e_rejected=" + str(me_rej) + " codes=" + ",".join(_codes(env_me)))
 
 
+def _fidelity_literal_hits(path, forbidden):
+    """String literals equal to a fidelity word, in a fidelity context.
+
+    A word like "unknown" is legitimate in a version parser; it is a second
+    VOCABULARY when it is written where a preview's fidelity goes. So the
+    scan looks at string literals whose value is a fidelity word, and only
+    counts them when the surrounding lines talk about fidelity. Comments are
+    not string literals, so prose may still explain the vocabulary.
+    """
+    import ast
+    import io
+    import tokenize
+    src = Path(path).read_text(encoding="utf-8")
+    lines = src.splitlines()
+    hits = []
+    for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+        if tok.type != tokenize.STRING:
+            continue
+        try:
+            val = ast.literal_eval(tok.string)
+        except (ValueError, SyntaxError):
+            continue
+        if not isinstance(val, str) or val not in forbidden:
+            continue
+        ln = tok.start[0]
+        window = "\n".join(lines[max(0, ln - 3):ln + 2]).lower()
+        if "fidelity" in window:
+            hits.append(path.name + ":" + str(ln) + "=" + val)
+    return hits
+
+
+def _stage_r72(tmp, add, th):
+    """A82-A87: the r72 additions -- attack set, contract, claims, three-valued verdict.
+
+    Everything the r72 plan added has to be machine-checked, or it is just
+    more prose. These six assertions are the difference between "the skill
+    says it can be verified" and "the skill can be verified".
+    """
+    import redteam as RT
+    import _contract as C
+
+    # ---- A82: the shipped attack set, run end to end ----------------------
+    rc, env, _ = _call("redteam.py", ["--json"], tmp)
+    d = env.get("data", {}) or {}
+    add("A82-redteam-attacks-all-blocked",
+        rc == 0 and d.get("leaked") == 0 and (d.get("attacks") or 0) >= 10
+        and (d.get("known_boundaries") or 0) >= 1,
+        "exit=" + str(rc) + " attacks=" + str(d.get("attacks")) +
+        " blocked=" + str(d.get("blocked")) + " leaked=" + str(d.get("leaked")) +
+        " known_boundaries=" + str(d.get("known_boundaries")) +
+        " closed=" + str(d.get("boundaries_closed")))
+
+    # ---- A83: the contract is the single source of truth -------------------
+    rc_gen, env_gen, _ = _call("gen_contract.py", ["--check", "--json"], tmp)
+    gen_ok = rc_gen == 0 and not _codes(env_gen)
+
+    hits = []
+    for rel in C.LITERAL_SCAN_FILES:
+        if rel in C.LITERAL_SCAN_EXCLUDE:
+            continue
+        p = L.skill_root() / rel
+        if p.is_file():
+            hits += _fidelity_literal_hits(p, set(C.LITERAL_SCAN_FORBIDDEN))
+
+    # producer: render_png must write exactly what the contract says
+    producer_ok = True
+    producer_detail = []
+    for case, svg in (("builtin_rect_only", RECT),
+                      ("builtin_other", GOOD / "sample.svg")):
+        d2 = tmp / ("contract-" + case)
+        d2.mkdir(parents=True, exist_ok=True)
+        _call("render_png.py", ["--in", str(svg), "--out", str(d2 / "preview.png"),
+                                "--force-builtin"], tmp)
+        meta = _jread(d2 / "preview.meta.json")
+        want = C.FIDELITY.PRODUCERS.get("render_png", {}).get(case)
+        got = meta.get("fidelity")
+        producer_detail.append(case + "=" + str(got) + "(want " + str(want) + ")")
+        if want is None or got != want:
+            producer_ok = False
+
+    # consumer: every enum value must be judged exactly when the contract says
+    consumer_ok = True
+    consumer_detail = []
+    for value in C.FIDELITY.VALUES:
+        d3 = tmp / ("matrix-" + value)
+        if d3.exists():
+            shutil.rmtree(d3, ignore_errors=True)
+        RT.base_run(d3, "attack")
+        meta_path = d3 / "preview.meta.json"
+        meta = _jread(meta_path)
+        meta["fidelity"] = value
+        L.write_json_atomic(meta_path, meta)
+        _call("aggregate_log.py", ["--run-dir", str(d3), "--run-id", "attack",
+                                   "--out", str(d3 / "acceptance.json")], tmp)
+        acc = _jread(d3 / "acceptance.json")
+        judged = isinstance((acc.get("scores") or {}).get("A"), dict)
+        want_judged = C.fidelity_is_judged("aggregate_log", "A", value)
+        consumer_detail.append(value + "=" + ("judged" if judged else "not-judged"))
+        if judged != want_judged:
+            consumer_ok = False
+
+    # reverse: narrow the accepted set in a COPY of the contract and the
+    # judge must follow it. Without this the whole check is decoration: a
+    # hardcoded "faithful" in the judge would pass every other test.
+    reverse_ok = False
+    reverse_detail = ""
+    try:
+        rev = tmp / "reversed"
+        shutil.copytree(SCRIPTS, rev / "scripts")
+        shutil.copytree(L.skill_root() / "config", rev / "config")
+        shutil.copytree(L.skill_root() / "templates", rev / "templates")
+        cpath = rev / "scripts" / "_contract.py"
+        src = cpath.read_text(encoding="utf-8")
+        patched = []
+        for line in src.splitlines():
+            if line.strip().startswith("ACCEPTED_BY = "):
+                patched.append('    ACCEPTED_BY = {"aggregate_log": {"A": [], "B": []}}')
+            else:
+                patched.append(line)
+        cpath.write_text("\n".join(patched) + "\n", encoding="utf-8")
+        d4 = tmp / "reverse-run"
+        RT.base_run(d4, "attack")
+        pr = subprocess.run([sys.executable, str(rev / "scripts" / "aggregate_log.py"),
+                             "--run-dir", str(d4), "--run-id", "attack",
+                             "--out", str(d4 / "acceptance.json")],
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=120, check=False)
+        acc4 = _jread(d4 / "acceptance.json")
+        judged4 = isinstance((acc4.get("scores") or {}).get("A"), dict)
+        reverse_ok = (pr.returncode != 0 and not judged4)
+        reverse_detail = "exit=" + str(pr.returncode) + " judged=" + str(judged4)
+    except (OSError, subprocess.SubprocessError) as e:
+        reverse_detail = "error: " + str(e)[:120]
+
+    add("A83-contract-is-the-single-source",
+        gen_ok and not hits and producer_ok and consumer_ok and reverse_ok,
+        "gen_check=" + str(gen_ok) + " literals=" + ",".join(hits[:4]) +
+        " producer=" + ";".join(producer_detail) +
+        " consumer=" + ";".join(consumer_detail) +
+        " reverse=" + reverse_detail)
+
+    # ---- A84: the outward-claim registry holds ---------------------------
+    rc_claims, env_claims, _ = _call("validate_claims.py", ["--json"], tmp)
+    dc = env_claims.get("data", {}) or {}
+    add("A84-claims-registry-holds",
+        rc_claims == 0 and (dc.get("claims") or 0) > 0
+        and dc.get("coverage", {}).get("ratio", 0) >= dc.get("coverage", {}).get("floor", 1),
+        "exit=" + str(rc_claims) + " claims=" + str(dc.get("claims")) +
+        " ok=" + str(dc.get("ok")) + " coverage=" + str(dc.get("coverage")) +
+        " problems=" + ";".join(str(p)[:120] for p in (dc.get("problems") or [])[:3]))
+
+    # ---- A85: the narrow track may not launder a full run ----------------
+    d5 = tmp / "narrow"
+    RT.base_run(d5, "attack")
+    rc_narrow, env_narrow, _ = _call("aggregate_log.py",
+                                      ["--run-dir", str(d5), "--landing-only",
+                                       "--run-id", "attack"], tmp)
+    add("A85-narrow-track-cannot-launder",
+        rc_narrow != 0 and "E-EXEMPTION-ABUSE" in _codes(env_narrow),
+        "exit=" + str(rc_narrow) + " codes=" + ",".join(_codes(env_narrow)))
+
+    # ---- A86: the verdict is three-valued, and the compat flag is honest --
+    l2d = tmp / "l2-three-valued"
+    if l2d.exists():
+        shutil.rmtree(l2d, ignore_errors=True)
+    RT.base_run(l2d, "attack")
+    meta_path = l2d / "preview.meta.json"
+    meta = _jread(meta_path)
+    meta["fidelity"] = C.FIDELITY.LIMITED
+    L.write_json_atomic(meta_path, meta)
+    judge = _jread(l2d / "judge.json")
+    judge["readable"] = False
+    L.write_json_atomic(l2d / "judge.json", judge)
+    _call("aggregate_log.py", ["--run-dir", str(l2d), "--run-id", "attack",
+                               "--out", str(l2d / "acceptance.json")], tmp)
+    acc_new = _jread(l2d / "acceptance.json")
+    _call("aggregate_log.py", ["--run-dir", str(l2d), "--run-id", "attack",
+                               "--two-valued", "--out", str(l2d / "legacy.json")], tmp)
+    acc_old = _jread(l2d / "legacy.json")
+    thr = th["messages"]
+    three_ok = (acc_new.get("grade") == thr["grade_indeterminate"] and
+                acc_new.get("tier") == C.TIER.INDETERMINATE and
+                acc_new.get("legacy_grading") is False and
+                acc_old.get("grade") == thr["grade_fail"] and
+                acc_old.get("tier") == C.VERDICT.LEGACY_TIER and
+                acc_old.get("legacy_grading") is True and
+                acc_old.get("evidence_coverage") == acc_new.get("evidence_coverage"))
+    # a doctored log that keeps a tier word under 未判定 must be refused
+    bad = tmp / "indeterminate-with-tier.json"
+    doctored = dict(acc_new)
+    doctored["tier"] = C.TIER.PASS
+    L.write_json_atomic(bad, doctored)
+    rc_bad, env_bad, _ = _call("aggregate_log.py", ["--validate-case", str(bad)], tmp)
+    refuse_ok = rc_bad == 1 and "E-INDETERMINATE-FIELDS" in _codes(env_bad)
+    add("A86-three-valued-verdict", three_ok and refuse_ok,
+        "new=" + str(acc_new.get("grade")) + "/" + str(acc_new.get("tier")) +
+        " legacy=" + str(acc_old.get("grade")) + "/" + str(acc_old.get("tier")) +
+        " tier_word_refused=" + str(refuse_ok))
+
+    # ---- A87: a degradation says what it cost and how to fix it -----------
+    degr = (acc_new.get("degradation") or [{}])[0]
+    loss = degr.get("loss") or {}
+    loss_ok = (degr.get("level") == "L2" and
+               isinstance(loss.get("trigger"), dict) and loss.get("trigger", {}).get("kind") and
+               isinstance(loss.get("lost"), list) and loss.get("lost") and
+               isinstance(loss.get("kept"), list) and loss.get("kept") and
+               isinstance(loss.get("fix_hint"), list) and loss.get("fix_hint") and
+               bool(degr.get("reason")) and
+               "host LLM cannot read" not in str(degr.get("reason")))
+    add("A87-degradation-loss-list", loss_ok,
+        "level=" + str(degr.get("level")) + " reason=" + str(degr.get("reason"))[:80] +
+        " lost=" + str(len(loss.get("lost") or [])) +
+        " fix=" + str(len(loss.get("fix_hint") or [])))
+
+    # ---- A88: a swapped engine binary is caught by the lock ---------------
+    fake = tmp / "fake-engine.bin"
+    fake.write_bytes(b"not the pinned engine")
+    plat = L.engine_platform()
+    pinned = {"schema": "vector-ai-studio/engine-lock-v1",
+              "entries": [{"version": "9.9.9", "platform": plat,
+                           "sha256": "0" * 64}]}
+    drift = L.check_engine_lock(fake, "9.9.9", pinned)
+    same = L.check_engine_lock(fake, "9.9.9",
+                               {"entries": [{"version": "9.9.9", "platform": plat,
+                                             "sha256": L.file_sha256(fake)}]})
+    unknown = L.check_engine_lock(fake, "9.9.9", {"entries": []})
+    add("A88-engine-lock-detects-swapped-binary",
+        drift.get("drift") is True and same.get("drift") is False
+        and same.get("locked") is True and unknown.get("locked") is False
+        and unknown.get("drift") is False,
+        "drift=" + str(drift.get("drift")) + " same=" + str(same.get("drift")) +
+        " unknown_locked=" + str(unknown.get("locked")) +
+        " platform=" + plat)
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -3701,6 +3976,7 @@ def main():
     _check_ledger_trace(tmp, add)
     _check_licence_claim(tmp, add)
     _stage_print_route(tmp, add)
+    _stage_r72(tmp, add, th)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

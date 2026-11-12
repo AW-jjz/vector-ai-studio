@@ -1,0 +1,77 @@
+{
+  "schema": "vector-ai-studio/contract-matrix-v1",
+  "note": "自动生成：每个生产者场景 × 保真度取值，及其应得的消费者判定。selftest 用它检查真实行为与契约一致（正例 + 反例）。",
+  "generated_from": {
+    "contract_version": "1.0.0",
+    "criteria_version": "2.0.0"
+  },
+  "consumer": "aggregate_log",
+  "rows": [
+    {
+      "id": "land_vc/preview_failed",
+      "producer": "land_vc",
+      "case": "preview_failed",
+      "fidelity": "limited",
+      "dims": [
+        "A",
+        "B"
+      ],
+      "expect_judged": false
+    },
+    {
+      "id": "land_vc/vectorcraft_preview_ok",
+      "producer": "land_vc",
+      "case": "vectorcraft_preview_ok",
+      "fidelity": "faithful",
+      "dims": [
+        "A",
+        "B"
+      ],
+      "expect_judged": true
+    },
+    {
+      "id": "render_png/builtin_other",
+      "producer": "render_png",
+      "case": "builtin_other",
+      "fidelity": "limited",
+      "dims": [
+        "A",
+        "B"
+      ],
+      "expect_judged": false
+    },
+    {
+      "id": "render_png/builtin_rect_only",
+      "producer": "render_png",
+      "case": "builtin_rect_only",
+      "fidelity": "faithful",
+      "dims": [
+        "A",
+        "B"
+      ],
+      "expect_judged": true
+    },
+    {
+      "id": "render_png/real_renderer",
+      "producer": "render_png",
+      "case": "real_renderer",
+      "fidelity": "faithful",
+      "dims": [
+        "A",
+        "B"
+      ],
+      "expect_judged": true
+    },
+    {
+      "id": "synthetic/unknown",
+      "producer": "-",
+      "case": "synthetic",
+      "fidelity": "unknown",
+      "dims": [
+        "A",
+        "B"
+      ],
+      "expect_judged": false
+    }
+  ]
+}

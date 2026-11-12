@@ -66,5 +66,43 @@
     "F": {
       "score": 1
     }
-  }
+  },
+  "evidence_coverage": {
+    "A": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "B": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "C": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "D": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "F": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "coverage": 1.0,
+    "required_dims": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "F"
+    ]
+  },
+  "deliverable_status": "deliverable",
+  "criteria_version": "2.0.0",
+  "legacy_grading": false
 }

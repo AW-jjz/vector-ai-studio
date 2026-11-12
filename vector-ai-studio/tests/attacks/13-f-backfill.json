@@ -1,0 +1,38 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "13-f-backfill",
+  "name": "把 C2 收敛产物算进 F 统计（跨 run 回填）",
+  "expect": "block",
+  "why": "F 的统计来源必须与 C2 收敛产物隔离。",
+  "reference": "A15 / E-F-DATA-ISOLATION",
+  "mutations": [
+    {
+      "op": "patch_json",
+      "path": "batch.json",
+      "key": "c2_revisions",
+      "value": [
+        {
+          "run_id": "run-1",
+          "f_run_id": "run-2",
+          "counted_in_f": true,
+          "draft_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ]
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [
+    "E-F-DATA-ISOLATION"
+  ],
+  "expect_no_pass": true
+}

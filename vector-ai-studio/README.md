@@ -10,6 +10,7 @@
 python scripts/detect_deps.py --json
 python scripts/selftest.py
 python scripts/run_fixtures.py
+python scripts/redteam.py --json      # 随包攻击集：每个攻击都必须被拦下
 ```
 
 真机冒烟是独立命令（需要本机 VectorCraft CLI）：
@@ -61,7 +62,7 @@ python scripts/smoke_ai.py
 | 本机依赖 | 预览路径 | 可达结论 |
 |---|---|---|
 | 引擎 + PNG 渲染器齐全 | 真渲染器预览 | 按 A–F 机械比较，达标可达 |
-| 缺 VectorCraft CLI 或缺 Pillow | 无原生 .ai / 无读图 | L4 / L2 降级，恒不达标 |
+| 缺 VectorCraft CLI 或缺 Pillow | 无原生 .ai / 无读图 | L4 / L2 降级，恒未判定 |
 | **装了引擎但无 PNG 渲染器** | **预览恒内置兜底** | **非全 rect 稿恒 L2 → 本机永远拿不到达标** |
 
 ### 依赖组合与验收结论（本机可复核）
@@ -69,23 +70,38 @@ python scripts/smoke_ai.py
 | VectorCraft CLI | PNG 渲染器 | 预览与降级 | 能否拿到 `达标` |
 |---|---|---|---|
 | FOUND | 有真渲染器（resvg / cairosvg） | 真预览，fidelity 由渲染器判定 | 过全部硬门后可达标 |
-| 缺 CLI（MISSING）或 Pillow 缺 | — | L4 降级：只交 SVG + PNG，H1 不达标 | 恒不达标 |
-| **装了引擎但无 PNG 渲染器** | 全部 MISSING | **预览恒内置兜底**（`renderer: builtin-fallback`）；只有纯 rect 稿被判 `faithful` 能进评级，其余稿恒 L2（A/B = capability_missing） | **非全 rect 稿恒 L2、恒不达标**；全 rect 稿亦需过其余硬门 |
+| 缺 CLI（MISSING）或 Pillow 缺 | — | L4 降级：只交 SVG + PNG，H1 未取证 | 恒未判定 |
+| **装了引擎但无 PNG 渲染器** | 全部 MISSING | **预览恒内置兜底**（`renderer: builtin-fallback`）；只有纯 rect 稿被判 `faithful` 能进评级，其余稿恒 L2（A/B = capability_missing） | **非全 rect 稿恒 L2、恒未判定**；全 rect 稿亦需过其余硬门 |
 
 > 第三行是本机常见形态：引擎在、渲染器不在时，内置兜底只会画轴对齐纯色矩形，带圆 / 路径 / 描边 / 文字的稿子一律 fail-closed 到 L2，不会靠「文件存在」凑成达标。
+
+## 结论是三值的：`达标` / `不达标` / `未判定`
+
+判据版本 2.0.0 起，验收日志的 `grade` 有三个值：
+
+- **达标**（`tier=pass`）：必需维全部**测过**且没有一维失败，硬门全过，F 已验证。
+- **不达标**（`tier=not-pass`）：某维**测过**且失败，或硬门明确为假（产物字节与回读对不上、自检日志坏了）。
+- **未判定**（`tier=indeterminate`）：**没测**。宿主读不了图、F 未验证、quick 模式、四件产物不齐、自检证据缺失——这些是**测量能力**的问题，不是**质量**的问题。
+
+验收日志另给两个字段把话说全：`evidence_coverage` 说清**哪几维测过、哪几维没测、为什么、怎么修**；`deliverable_status` 说清**文件能不能交**（「能不能交」与「质量达没达标」是两个问题）。日志还记 `criteria_version` 与 `thresholds_sha256`：结论只在该判据版本下有效。
+
+下游暂时只能处理两个值时，聚合器加 `--two-valued`：结论折回旧措辞、日志标 `legacy_grading: true`，**达标 / 不达标的判定边界一个都没变**。迁移说明见 `MIGRATION.md`。
 
 ## 边界
 
 - 不承诺一次直出即达到阈值；达标由验收日志按 `config/thresholds.json` 机械比较裁定。
-- 默认零凭据链路下若宿主读不到渲染图，按 L2 交付：A/B 记 capability_missing 状态枚举（非分数）、grade 不达标、五件产物照常落盘、不阻断交付。
-- 取证分工：H1 由 landing-only 轨取证（smoke_ai.py 加 --landing-only），H2/H3/H4 由完整链（默认）取证。
+- 默认零凭据链路下若宿主读不到渲染图，按 L2 交付：A/B 记 capability_missing 状态枚举（非分数）、**grade 记「未判定」**（读不了图不是质量结论）、五件产物照常落盘、不阻断交付。
+- 取证分工：H1 由 landing-only 轨取证（smoke_ai.py 加 --landing-only），H2/H3/H4 由完整链（默认）取证；**已经跑过完整链的目录不许再走窄轨**（否则窄轨就成了洗白失败 run 的后门）。
 - 不伪造 `.ai`；引擎缺失时明确标注「非原生 `.ai`，格式底线未满足」。
 - 路径含中文或空格时，需确认 VectorCraft CLI 能读取该路径；运行期请勿移动源文件。
-- 对外说明只承诺「达标」；未达标或降级时首行标注需人工终审。状态 A 限定（r70）：引用 `grade=达标` 前须自行复核三项（真 `%PDF-` 可重开、`output/<run-id>/structure_readback.json` 的 `paths` 与产物对得上、`output/<run-id>/selftest.json` 为本次运行产生）；本结论不替代消费方复算，不宣称印刷合规。
+- 对外说明只承诺分档结论；未判定或降级时首行标注需人工终审。状态 A 限定（r70）：引用 `grade=达标` 前须自行复核三项（真 `%PDF-` 可重开、`output/<run-id>/structure_readback.json` 的 `paths` 与产物对得上、`output/<run-id>/selftest.json` 为本次运行产生）；本结论不替代消费方复算，不宣称印刷合规。
 - 用户可见说明仅此一页；`references/design-language.md` 与 `references/archetypes/` 是设计与生成约束，其余 references 是施工契约，都不是使用手册。
 - 单稿链路可压成一条命令：`python scripts/studio.py --spec ... --svg ... --out output/<run-id>`；阶段状态见 `output/<run-id>/studio.json`。
 - 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；`--sheet` 按（绝对路径 + 内容 sha256）去重，重复提交同一份表也判 `E-REVIEW-INVALID` 且不计入评审人数；只有 ≥2 名**去重后**的外部评审且零空格时 `evidence.usable_for_claim` 才为真。评审请求件在 `templates/review-request.md`。
-- 评审去重的**已声明边界**：`(绝对路径, 内容 sha256)` 拦得住「同一份表重复提交」与「内容相同、文件名不同」，但**拦不住「同一个人把同一份表另存为两个不同文件并改动一个字节」**——那是两个人还是一个人，脚本无从判定。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，不构成「两名不同真人已看过」的对外证据。
+- 评审去重的**已声明边界**：`(绝对路径, 内容 sha256)` 拦得住「同一份表重复提交」，但**拦不住「同一份表换个文件名再交一次」与「同一个人把同一份表另存为两个不同文件并改动一个字节」**——那是两个人还是一个人，脚本无从判定。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，不构成「两名不同真人已看过」的对外证据。`python scripts/redteam.py --json` 里的 `16-review-duplicate-new-name` 就是这条边界的反向证明。
+- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用。反向证明见 red-team 的 `17-self-attested-log`。
+- 跨文件的枚举（保真度、档位、判读字段）只在 `contract/contract.json` 定义一次，由 `scripts/gen_contract.py` 生成给生产侧与判据侧共同 import；`python scripts/gen_contract.py --check` 在 CI 里卡漂移。
+
 
 ## 自检说明
 

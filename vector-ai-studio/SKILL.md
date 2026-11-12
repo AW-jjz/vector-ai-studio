@@ -248,9 +248,23 @@ python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
 python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptance.json --run-id "$RUN_ID"
 ```
 
-读全部轮次与 run 产物，汇总 A–F 分数、轮次记录、H1–H4 结论与降级标记，按 `config/thresholds.json` 机械比较得出分档（数值判定，LLM 不得宣布）。四件不齐即 `E-H2-INCOMPLETE` 并列出缺哪件。校准记录 `calibration_log` 做前后值与裁决引用一致性断言。对外说明用 `templates/delivery-note.template.md` 生成，只承诺「达标」，内部评分字段不外露。
+读全部轮次与 run 产物，汇总 A–F 分数、轮次记录、H1–H4 结论与降级标记，按 `config/thresholds.json` 机械比较得出分档（数值判定，LLM 不得宣布）。四件不齐即 `E-H2-INCOMPLETE` 并列出缺哪件。校准记录 `calibration_log` 做前后值与裁决引用一致性断言。对外说明用 `templates/delivery-note.template.md` 生成，只承诺分档结论，内部评分字段不外露。
 
-两条证据轨，不得混用：默认是**完整链**（`mode=full`、`grading_entered=true`，H1–H4 全判并进入评级）；`--landing-only` 是**只取 H1 证据的窄轨**（`mode=landing-only`，h2、tier、grade、h3、h4 全为 `null`，`h2_status=not_evaluated`，不进入评级），仅用于「机器上只跑得动落地、跑不动完整链」时留存原生 `.ai` 结构证据。伪造 `mode=full` 却带 `grading_entered=false`，或 `landing-only` 却带档位词，一律 `E-EXEMPTION-ABUSE`。
+**判决是三值的**（判据版本 2.0.0 起，见 `MIGRATION.md`）：
+
+| `grade` | `tier` | 含义 | 什么时候 |
+|---|---|---|---|
+| 达标 | `pass` | 必需维全部**测过**且没有一维失败，硬门全过，F 已验证 | 证据齐全且测量结果支持 |
+| 不达标 | `not-pass` | 某维**测过**且失败，或硬门明确为假（产物字节与回读对不上、自检日志坏了） | 有确定的不合格事实 |
+| 未判定 | `indeterminate` | **没测**，不是「测了没过」 | A/B 读不了图、F 未验证、quick 模式、四件产物不齐、自检证据缺失 |
+
+「没测出来」不等于「质量差」——这是 r72 最重要的一条改动。原实现把宿主读不了图（`capability_missing`）一律记成「不达标」，用户会去改一幅根本没被看过的稿子；现在这类结论记「未判定」，并由 `evidence_coverage` 说清**哪几维测过、哪几维没测、为什么、怎么修**。
+
+「能不能交付」与「质量达没达标」是两个问题，分开两个字段：`grade` 说质量结论，`deliverable_status` 说文件能不能交（`deliverable` / `deliverable_with_human_review` / `not_deliverable` / `evidence_only`）。验收日志另记 `criteria_version` 与 `thresholds_sha256`：结论只在该判据版本下有效。
+
+需要旧的两值写法时加 `--two-valued`：结论被折回旧措辞，日志标 `legacy_grading: true`，**达标 / 不达标的判定边界一个都没变**（只有「未判定 → 不达标」这一处措辞不同）。
+
+两条证据轨，不得混用：默认是**完整链**（`mode=full`、`grading_entered=true`，H1–H4 全判并进入评级）；`--landing-only` 是**只取 H1 证据的窄轨**（`mode=landing-only`，h2、tier、grade、h3、h4 全为 `null`，`h2_status=not_evaluated`，不进入评级），仅用于「机器上只跑得动落地、跑不动完整链」时留存原生 `.ai` 结构证据。伪造 `mode=full` 却带 `grading_entered=false`，或 `landing-only` 却带档位词，一律 `E-EXEMPTION-ABUSE`；**已经跑过完整链的目录也不许再走窄轨**（目录里已有 `score.json` / `judge.json` / `selftest.json` / `batch.json` 时 `--landing-only` 直接 `E-EXEMPTION-ABUSE`）——窄轨是给跑不动完整链的机器留的取证通道，不是洗白失败 run 的后门。
 
 ### 步 10.5 盲评回收与证据分级（C1 质量后验）
 
@@ -299,6 +313,25 @@ python scripts/selftest.py --fixtures --log-dir <RUN_DIR>
 python scripts/run_fixtures.py
 python scripts/smoke_ai.py
 ```
+
+### 契约与自证（r72）
+
+```
+python scripts/gen_contract.py            # 从 contract/contract.json 生成契约产物
+python scripts/gen_contract.py --check    # CI 用：生成物与契约不一致即红
+python scripts/redteam.py --json          # 随包攻击集：每个攻击都必须被拦下
+python scripts/validate_claims.py         # 对外声明 → 测试 的强制映射
+```
+
+`contract/contract.json` 是**唯一事实源**：跨文件的枚举（保真度、档位、判读字段、必需维）与「谁能写、谁接受」的接受集合都只在这里定义一次，由 `scripts/gen_contract.py` 生成到 `scripts/_contract.py`（生产侧与判据侧都 import 它）、`references/schemas/contract-enums.schema.json`、`docs/generated/contract-table.md` 与 `tests/fixtures/contract/contract-matrix.json`。生成物与契约不一致时 `--check` 报 `E-CONTRACT-DRIFT`。r71 的 P0-1（生产侧写 `full`、判据侧只认 `faithful`、六处三种说法零处校验）就是靠这条消灭的：**词表不再可能漂移，因为代码里已经没有第二份词表。**
+
+`scripts/redteam.py` 是**随包攻击集**：每个攻击是一份数据（`tests/attacks/*.json`），都写明自己攻的是什么、期望被拦还是被放（后者是**已声明的边界**，必须有反向证明）。跑一遍就知道这个技能在哪些地方会认输：
+
+```
+python scripts/redteam.py --json     # 期望：所有 expect=block 的攻击全被拦下，exit 0
+```
+
+`scripts/validate_claims.py` 把**对外声明**与**测试**绑在一起：`contract/claims.json` 登记每一条可证伪的对外承诺（原文哈希、机制、对应测试），校验器在 CI 里跑——改了文档没改契约就红；`assertion` 类声明必须挂真实存在且通过的测试；`boundary-declaration` 类必须挂一条**真的漏过去**的攻击（否则就是在低估自己）。
 
 ### 一条命令跑完单稿（推荐入口）
 
@@ -456,14 +489,16 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 - final.ai 由 VectorCraft `run --export` 产出、再由 `info` 重开回读计数；final.svg 与它同源；preview.png 为真实可解析 PNG；acceptance.json 含 A–F 各项分数、轮次记录、H1–H4 与降级标记。
 - 阈值、分档、降级文案的唯一事实源是 `config/thresholds.json`；`calibration_policy` 登记可校准白名单与审批流，判据定义类一律锁定，任何放宽必须标 `loosening: true` 且带裁决引用。
 - 判定类 JSON 不含 wall-clock，同一输入两次执行逐字节一致；时间只进 append-only 运行日志。
-- 验收日志另含 generation_count / generation_budget（运行时派生）、f_source_runs / c2_revisions / f_data_isolated、f_verified、needs_human_review、reason、h1 至 h4 等强制字段，供 QA 机械核对。
-- 对外说明由 `templates/delivery-note.template.md` 生成，只消费分档为「达标」的结论；未达标或降级时首行显式标注需人工终审，禁止宣称达标 / 完美。
+- 验收日志另含 generation_count / generation_budget（运行时派生）、f_source_runs / c2_revisions / f_data_isolated、f_verified、needs_human_review、reason、h1 至 h4 等强制字段，供 QA 机械核对；另含 `evidence_coverage`（每维测没测 / 为什么 / 怎么修）、`deliverable_status`（能不能交）、`criteria_version` 与 `thresholds_sha256`（结论的适用版本）。
+- 对外说明由 `templates/delivery-note.template.md` 生成，只消费分档结论；未判定或降级时首行显式标注需人工终审并给出证据覆盖，禁止宣称达标 / 完美。
 - 轮次与批量样本保留在各轮目录，供 F 项与人工复核追溯。
 
 ## 降级与边界
 
-- L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），仍按 §7.3 机械比较得出「不达标」、不引入额外档位；强制 degraded / needs_human_review / reason 为 capability_missing、首行「语义 / 构图判读未取证，需人工终审」；五件产物含原生 `.ai` 照常落盘、交付不阻断；L3 商业增强需用户自行提供凭据；L4 依赖缺失；L5 无风格参考时 E 记 N/A。
-- VectorCraft CLI 缺失：L4 全自动降级，H1 判不达标，仅交付净化 SVG 与 PNG 并标注「非原生 `.ai`」，`substitute` 写明安装方式或 `VECTORCRAFT_CLI`。不存在半自动兜底路径（r45 起移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
+- L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），**判据版本 2.0.0 起结论记「未判定」而不是「不达标」**（`tier=indeterminate`）——读不了图是对**测量能力**的陈述，不是对**质量**的判决；强制 degraded / needs_human_review / reason 为 capability_missing、首行「语义 / 构图判读未取证，需人工终审」，降级条目带**损失清单**（丢了什么 / 留了什么 / 怎么修，原因由触发条件派生而不是写死）；五件产物含原生 `.ai` 照常落盘、交付不阻断；L3 商业增强需用户自行提供凭据；L4 依赖缺失；L5 无风格参考时 E 记 N/A。
+- VectorCraft CLI 缺失：L4 全自动降级，H1 未取证，结论记「未判定」并把 `deliverable_status` 记为 `not_deliverable`，仅交付净化 SVG 与 PNG 并标注「非原生 `.ai`」，`substitute` 写明安装方式或 `VECTORCRAFT_CLI`。不存在半自动兜底路径（r45 起移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
+- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本无法分辨同一 run 内自己写的 `selftest.json` 与真跑出来的。H3 的断言数下界与 `run_id` 绑定只能挡跨 run 复用。`scripts/redteam.py` 的 `17-self-attested-log` 就是这条边界的**反向证明**：它必须真的漏过去，否则这条声明就是低估自己。
+- **同一份评审表换个文件名仍算两名评审人**：去重键是（绝对路径 + 内容 sha256），同内容不同名挡不住，同一个人的两份表更挡不住。`scripts/redteam.py` 的 `16-review-duplicate-new-name` 是这条边界的反向证明。
 
 ## 注意事项
 

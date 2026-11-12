@@ -1,0 +1,30 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "02-truncated-pdf",
+  "name": "截断的 PDF 容器（有头无页）",
+  "expect": "block",
+  "why": "有 %PDF- 前缀不等于有效产物：页对象与内嵌图像数必须对得上。",
+  "reference": "r71 audit / lib_pdf.ai_h1_probe",
+  "mutations": [
+    {
+      "op": "write_text",
+      "path": "final.ai",
+      "text": "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n"
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [
+    "E-H1-STRUCTURE"
+  ],
+  "expect_no_pass": true
+}

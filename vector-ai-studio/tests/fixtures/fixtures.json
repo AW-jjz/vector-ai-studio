@@ -509,7 +509,9 @@
       "want_acceptance": {
         "capability_missing": true,
         "degraded": true,
-        "grade": "不达标"
+        "grade": "未判定",
+        "tier": "indeterminate",
+        "deliverable_status": "deliverable_with_human_review"
       }
     },
     {

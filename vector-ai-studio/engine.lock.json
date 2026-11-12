@@ -1,0 +1,14 @@
+{
+  "schema": "vector-ai-studio/engine-lock-v1",
+  "note": "钉住引擎**二进制的哈希**，而不是版本号。同一版本号可以对应不同构建（官方发布页就同时给 portable zip 与 msi）；换了构建等于换了事实来源，之前的回归结论不再成立，必须重压一遍才允许继续。查找链见 scripts/trace_ref.py 的 find_cli()：VECTORCRAFT_CLI -> PATH -> 平台常见目录，不再写死任何开发机路径。",
+  "entries": [
+    {
+      "version": "0.22.0",
+      "platform": "windows-x64",
+      "sha256": "ef7860aefe57cf0ddaa4c1bc91a5bfe76f7e33c9796cda6caa7cfc8302a9ee20",
+      "measured_on": "2026-11-13",
+      "source": "vectorcraft-0.22.0-windows-x64-portable.zip（发布页 sha256 27ec6b14ea01a680b9f6758a346f06b53b0b6169b191354a362114b8b612a6e3）解包后的 vectorcraft-cli.exe",
+      "note": "这里钉的是**实际被执行的那个二进制**的哈希，与 zip 的哈希不同（解包会改变文件）。换平台或换构建方式时，本条目不适用：按 platform 分键，其它平台的构建未钉，只给提示不给硬失败。"
+    }
+  ]
+}

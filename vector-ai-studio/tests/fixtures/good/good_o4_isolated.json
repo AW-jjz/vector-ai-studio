@@ -1,31 +1,113 @@
 {
   "schema": "vector-ai-studio/acceptance-sample-v1",
   "note": "回归样例（非真机产物）：O4 跨 run 数据隔离正确、生成次数在上界内，用于验证校验器正确接受",
-  "headline": "未达质量阈值，需人工终审",
-  "grade": "不达标",
-  "degraded": false,
+  "headline": "L4 降级：四件产物不齐（H2），需人工终审",
+  "grade": "未判定",
+  "degraded": true,
   "needs_human_review": true,
-  "reason": "quality_fail",
+  "reason": "insufficient_evidence",
   "capability_missing": false,
   "f_verified": true,
   "f_data_isolated": true,
   "quick": false,
   "generation_count": 6,
   "f_source_runs": [
-    { "run_id": "run-1", "h1": true, "score": {}, "draft_sha256": "aaaa1111" },
-    { "run_id": "run-2", "h1": true, "score": {}, "draft_sha256": "bbbb2222" },
-    { "run_id": "run-3", "h1": true, "score": {}, "draft_sha256": "cccc3333" }
+    {
+      "run_id": "run-1",
+      "h1": true,
+      "score": {},
+      "draft_sha256": "aaaa1111"
+    },
+    {
+      "run_id": "run-2",
+      "h1": true,
+      "score": {},
+      "draft_sha256": "bbbb2222"
+    },
+    {
+      "run_id": "run-3",
+      "h1": true,
+      "score": {},
+      "draft_sha256": "cccc3333"
+    }
   ],
   "c2_revisions": [
-    { "run_id": "run-1", "round": 2, "score": {}, "change_only": ["C"], "draft_sha256": "dddd4444" },
-    { "run_id": "run-3", "round": 2, "score": {}, "change_only": ["D"], "draft_sha256": "ffff6666" }
+    {
+      "run_id": "run-1",
+      "round": 2,
+      "score": {},
+      "change_only": [
+        "C"
+      ],
+      "draft_sha256": "dddd4444"
+    },
+    {
+      "run_id": "run-3",
+      "round": 2,
+      "score": {},
+      "change_only": [
+        "D"
+      ],
+      "draft_sha256": "ffff6666"
+    }
   ],
   "scores": {
-    "A": { "score": 1 },
-    "B": { "score": 1 },
-    "C": { "score": 1 },
-    "D": { "score": 1 },
+    "A": {
+      "score": 1
+    },
+    "B": {
+      "score": 1
+    },
+    "C": {
+      "score": 1
+    },
+    "D": {
+      "score": 1
+    },
     "E": "N/A",
-    "F": { "score": 1 }
-  }
+    "F": {
+      "score": 1
+    }
+  },
+  "tier": "indeterminate",
+  "status": "degraded",
+  "internal_excellent": false,
+  "evidence_coverage": {
+    "A": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "B": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "C": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "D": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "F": {
+      "measured": true,
+      "why": "",
+      "fix": ""
+    },
+    "coverage": 1.0,
+    "required_dims": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "F"
+    ]
+  },
+  "deliverable_status": "not_deliverable",
+  "criteria_version": "2.0.0",
+  "legacy_grading": false
 }

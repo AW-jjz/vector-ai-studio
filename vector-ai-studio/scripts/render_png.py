@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import _contract as C
 
 SCRIPT = "render_png.py"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -66,19 +67,23 @@ def _builtin_fidelity(sig):
     squares, paths become slabs, strokes disappear, text vanishes. A "limited"
     preview must never be used to judge semantic fidelity or composition
     (design 11 item 3: fallback image that cannot support reading -> auto L2).
+
+    The words come from the contract (scripts/_contract.py, generated from
+    contract/contract.json): this producer and the judge that reads its output
+    must not be able to spell the same field differently.
     """
     els = sig.get("elements") or []
     if not els:
-        return "limited"
+        return C.FIDELITY.LIMITED
     for e in els:
         if e.get("tag") != "rect":
-            return "limited"
+            return C.FIDELITY.LIMITED
         if _rgb(e.get("fill")) is None:
-            return "limited"            # stroke-only / gradient: the outline is not drawn
+            return C.FIDELITY.LIMITED            # stroke-only / gradient: the outline is not drawn
         sw = e.get("stroke_width")
         if isinstance(sw, (int, float)) and sw > 0 and _rgb(e.get("stroke")) is not None:
-            return "limited"            # stroked edge widens the shape in any real renderer
-    return "faithful"
+            return C.FIDELITY.LIMITED            # stroked edge widens the shape in any real renderer
+    return C.FIDELITY.FAITHFUL
 
 
 def _builtin_raster(sig):
@@ -159,7 +164,10 @@ def main():
     degraded = False
     note = ""
     w = h = 0
-    fidelity = "full"      # real renderer: pixel-faithful by construction
+    # A real renderer draws what the SVG says: pixel-faithful by construction.
+    # The word itself comes from the contract, so this producer cannot drift
+    # away from the judge that reads the value (r71's P0-1 was exactly that).
+    fidelity = C.FIDELITY.FAITHFUL
 
     if not args.force_builtin and _try_resvg(src, out):
         renderer = "resvg"
@@ -223,7 +231,7 @@ def main():
                         "note": note, "width": w, "height": h,
                         "candidates": candidates},
                   warnings=(["fallback preview fidelity is limited: " + note]
-                            if degraded and fidelity != "faithful" else []),
+                            if degraded and fidelity != C.FIDELITY.FAITHFUL else []),
                   degradation=({"level": "L4", "reason": "renderer candidates MISSING",
                                 "substitute": "builtin minimal SVG->PNG rasterizer"}
                                if degraded else None),

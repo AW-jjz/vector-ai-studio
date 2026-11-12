@@ -1,0 +1,28 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "03-missing-preview-meta",
+  "name": "删掉 preview.meta.json",
+  "expect": "block",
+  "why": "删证据不能换来放行：保真度缺失一律 fail-closed，落到未判定而不是达标。",
+  "reference": "r70 #1 / r71 report P0-2",
+  "mutations": [
+    {
+      "op": "delete",
+      "path": "preview.meta.json"
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [],
+  "expect_grade": "未判定",
+  "expect_no_pass": true
+}

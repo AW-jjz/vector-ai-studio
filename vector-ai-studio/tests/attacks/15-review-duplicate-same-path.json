@@ -1,0 +1,44 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "15-review-duplicate-same-path",
+  "name": "同一份评审表提交两次",
+  "expect": "block",
+  "why": "重复提交不是第二名评审人。",
+  "reference": "r70 #4 / E-REVIEW-INVALID",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "key.json",
+      "doc": {
+        "schema": "vector-ai-studio/review-key-v1",
+        "cases": [
+          {
+            "case": "case-01",
+            "source": "x"
+          }
+        ]
+      }
+    },
+    {
+      "op": "write_text",
+      "path": "sheet.csv",
+      "text": "case,concept,hierarchy,proportion,detail,durability,notes\ncase-01,1,1,1,1,1,ok\n"
+    }
+  ],
+  "run": {
+    "script": "review.py",
+    "args": [
+      "--sheet",
+      "@RUN@/sheet.csv",
+      "--sheet",
+      "@RUN@/sheet.csv",
+      "--key",
+      "@RUN@/key.json",
+      "--reviewer-kind",
+      "external"
+    ]
+  },
+  "expect_codes": [
+    "E-REVIEW-INVALID"
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vector-ai-studio.local/schemas/contract-enums.schema.json",
+  "title": "vector-ai-studio contract enums",
+  "description": "GENERATED from contract/contract.json by scripts/gen_contract.py. Every enum that crosses a file boundary in this skill is defined there and only there.",
+  "$defs": {
+    "degradation_level": {
+      "type": "string",
+      "enum": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5"
+      ]
+    },
+    "fidelity": {
+      "type": "string",
+      "enum": [
+        "faithful",
+        "limited",
+        "unknown"
+      ]
+    },
+    "h2_status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_evaluated"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "full",
+        "landing-only"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "none",
+        "quality_fail",
+        "capability_missing",
+        "insufficient_evidence"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "degraded",
+        "fail",
+        "error"
+      ]
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "not-pass",
+        "indeterminate"
+      ]
+    },
+    "fidelity_policy": {
+      "type": "object",
+      "description": "Who may write which fidelity, and who accepts it.",
+      "properties": {
+        "accepted_by": {
+          "type": "object"
+        },
+        "producers": {
+          "type": "object"
+        },
+        "fail_closed_default": {
+          "type": "string"
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "description": "The fields a consumer re-derives from evidence.",
+      "properties": {
+        "tiers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_dims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional_dims": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "self_attestation_forbidden": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "degradation_level": {
+      "$ref": "#/$defs/degradation_level"
+    },
+    "fidelity": {
+      "$ref": "#/$defs/fidelity"
+    },
+    "h2_status": {
+      "$ref": "#/$defs/h2_status"
+    },
+    "mode": {
+      "$ref": "#/$defs/mode"
+    },
+    "reason": {
+      "$ref": "#/$defs/reason"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "tier": {
+      "$ref": "#/$defs/tier"
+    }
+  }
+}

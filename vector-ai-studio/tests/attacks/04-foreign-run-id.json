@@ -1,0 +1,30 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "04-foreign-run-id",
+  "name": "塞进别人的 selftest.json（run_id 不匹配）",
+  "expect": "block",
+  "why": "跨 run 复用旧自检日志必须被拒：H3 把日志绑到本次运行。",
+  "reference": "design C-2 / SKILL.md 步 11",
+  "mutations": [
+    {
+      "op": "patch_json",
+      "path": "selftest.json",
+      "key": "run_id",
+      "value": "someone-elses-run"
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [],
+  "expect_grade": "不达标",
+  "expect_no_pass": true
+}

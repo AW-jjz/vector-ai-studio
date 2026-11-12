@@ -33,6 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
 import lib_pdf as LP          # reuses _observe_ai / _deliverable, one contract
+import _contract as C         # the preview-fidelity vocabulary (generated)
 
 SCRIPT = "land_vc.py"
 
@@ -265,6 +266,16 @@ def _run(args, run_dir):
     svg_out = run_dir / "final.svg"
     preview = run_dir / "preview.png"
 
+    # r72: the engine's bytes decide the .ai, so an unpinned or swapped build
+    # must not quietly produce different output than the regression covered.
+    # A build that is not pinned at all is only a NOTE; a build that IS pinned
+    # and differs is a hard stop (E-ENGINE-DRIFT).
+    from trace_ref import require_locked_engine as _locked
+    engine_lock = _locked(cli)
+    if not engine_lock.get("locked"):
+        L.append_run_log(run_dir, SCRIPT + " engine not pinned: " +
+                         str(engine_lock.get("note", "")))
+
     # Existence is the only evidence that this run produced anything, so the
     # targets are cleared before the engine runs. A CLI that exits 0 without
     # writing (silent failure, not a crash) would otherwise inherit the previous
@@ -380,6 +391,7 @@ def _run(args, run_dir):
         pass
     preview_meta = {"schema": "vector-ai-studio/preview-meta-v1",
                     "renderer": "vectorcraft-cli", "degraded": False,
+                    "fidelity": C.FIDELITY.FAITHFUL,
                     "note": "rendered by the same engine that wrote the .ai"}
     try:
         rc3, _, err3 = run_cli(cli, ["convert", str(svg_out), str(preview),
@@ -387,19 +399,22 @@ def _run(args, run_dir):
         if rc3 != 0 or not preview.is_file() or preview.stat().st_size == 0:
             preview_meta = {"schema": "vector-ai-studio/preview-meta-v1",
                             "renderer": "vectorcraft-cli", "degraded": True,
-                            "fidelity": "limited",
+                            "fidelity": C.FIDELITY.LIMITED,
                             "note": "preview export failed: " + (err3 or "")[:120]}
     except (OSError, subprocess.SubprocessError):
         preview_meta = {"schema": "vector-ai-studio/preview-meta-v1",
                         "renderer": "vectorcraft-cli", "degraded": True,
-                        "fidelity": "limited", "note": "preview export crashed"}
+                        "fidelity": C.FIDELITY.LIMITED, "note": "preview export crashed"}
     if preview_meta["degraded"] and LP._ensure_preview(run_dir, svg_out):
         # render_png.py wrote its own preview.meta.json (renderer, fidelity,
         # note). Keep that record instead of overwriting it with a guess.
         preview_meta = None
     if preview_meta is not None:
         if "fidelity" not in preview_meta:
-            preview_meta["fidelity"] = "full" if not preview_meta["degraded"] else "limited"
+            # The contract decides which word goes in, not this script: the
+            # judge downstream reads the same table (r72 / M1).
+            preview_meta["fidelity"] = (C.FIDELITY.LIMITED if preview_meta["degraded"]
+                                        else C.FIDELITY.FAITHFUL)
         L.write_json_atomic(run_dir / "preview.meta.json", preview_meta)
 
     # ---- structure readback, in the shape the rest of the chain reads ----

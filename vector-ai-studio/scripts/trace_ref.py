@@ -26,24 +26,63 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
 
 SCRIPT = "trace_ref.py"
-CANDIDATES = [
-    r"E:/Vector craft/vectorcraft-0.22.0/vectorcraft-0.22.0-windows-x64-portable/vectorcraft-cli.exe",
-    r"C:/Program Files/VectorCraft/vectorcraft-cli.exe",
-]
+# The locator is a SEARCH CHAIN, not a list of one developer's folders.
+# r72: the hardcoded `E:/Vector craft/...` path is gone -- it never worked on
+# anybody else's machine and it made the skill look installed on the author's
+# box only. The chain is: VECTORCRAFT_CLI -> PATH -> the usual install
+# locations of this platform.
+_CLI_NAMES = ("vectorcraft-cli", "vectorcraft-cli.exe")
+
+
+def _platform_dirs():
+    home = Path.home()
+    local = os.environ.get("LOCALAPPDATA", "")
+    program = os.environ.get("ProgramFiles", "")
+    program86 = os.environ.get("ProgramFiles(x86)", "")
+    dirs = []
+    if program:
+        dirs.append(Path(program) / "VectorCraft")
+    if program86:
+        dirs.append(Path(program86) / "VectorCraft")
+    if local:
+        dirs.append(Path(local) / "Programs" / "VectorCraft")
+    dirs += [home / "Applications" / "VectorCraft",
+             home / ".local" / "bin",
+             Path("/usr/local/bin"), Path("/opt/vectorcraft"),
+             Path("/usr/bin")]
+    return dirs
 
 
 def find_cli():
+    """Locate the engine: environment, then PATH, then the usual places."""
     env = os.environ.get("VECTORCRAFT_CLI")
     if env and Path(env).is_file():
         return Path(env)
-    for c in CANDIDATES:
-        if Path(c).is_file():
-            return Path(c)
-    for name in ("vectorcraft-cli", "vectorcraft-cli.exe"):
+    for name in _CLI_NAMES:
         found = shutil.which(name)
         if found:
             return Path(found)
+    for d in _platform_dirs():
+        for name in _CLI_NAMES:
+            p = d / name
+            if p.is_file():
+                return p
     return None
+
+
+def require_locked_engine(cli):
+    """Refuse to trust an engine build that is not the pinned one.
+
+    The engine decides the .ai. A swapped build (same version, different
+    bytes) invalidates every regression that was run against the old one, so
+    the chain stops here instead of quietly producing different output.
+    """
+    version = L.engine_version(cli)
+    status = L.check_engine_lock(cli, version)
+    if status.get("drift"):
+        raise L.ToolError("E-ENGINE-DRIFT", status.get("note", "engine drift"),
+                          L.EXIT_ERROR)
+    return status
 
 
 def require_cli():
@@ -56,7 +95,6 @@ def require_cli():
             "VectorCraft CLI not found; set VECTORCRAFT_CLI or install it",
             L.EXIT_MISSING)
     return cli
-
 
 def trace_params(colors, paths, corners, noise, ignore_white):
     # nested on purpose: the CLI reads the trace settings under "params"
@@ -110,8 +148,12 @@ def main():
         raise L.ToolError("E-USAGE", "trace needs a raster input", L.EXIT_USAGE)
 
     cli = require_cli()
+    lock = require_locked_engine(cli)
 
     warnings = []
+    if not lock.get("locked"):
+        warnings.append("engine build is not pinned in engine.lock.json: " +
+                        str(lock.get("note", "")))
     if args.ignore_white:
         warnings.append("ignoreWhite=true punches specular highlights out of pearls "
                         "and crystals, leaving black holes where the highlight was")
@@ -145,6 +187,9 @@ def main():
         "anchors": r.get("anchors"),
         "colors": r.get("colors"),
         "anchors_after_simplify": (simp.get("result") or {}).get("after"),
+        "engine_lock": {"sha256": lock.get("sha256"),
+                        "platform": lock.get("platform"),
+                        "locked": bool(lock.get("locked"))},
         "params": {"colors": args.colors, "paths": args.paths,
                    "corners": args.corners, "noise": args.noise,
                    "ignoreWhite": bool(args.ignore_white),

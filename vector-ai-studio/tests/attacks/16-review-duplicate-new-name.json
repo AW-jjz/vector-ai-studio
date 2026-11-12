@@ -1,0 +1,47 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "16-review-duplicate-new-name",
+  "name": "同一份评审表换个文件名再交一次",
+  "expect": "leak",
+  "why": "已声明的边界：去重键含路径，同内容不同名仍是两个人。",
+  "reference": "r71 audit P0-2 / plan M4-2",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "key.json",
+      "doc": {
+        "schema": "vector-ai-studio/review-key-v1",
+        "cases": [
+          {
+            "case": "case-01",
+            "source": "x"
+          }
+        ]
+      }
+    },
+    {
+      "op": "write_text",
+      "path": "sheet.csv",
+      "text": "case,concept,hierarchy,proportion,detail,durability,notes\ncase-01,1,1,1,1,1,ok\n"
+    },
+    {
+      "op": "copy",
+      "from": "sheet.csv",
+      "to": "sheet-copy.csv"
+    }
+  ],
+  "run": {
+    "script": "review.py",
+    "args": [
+      "--sheet",
+      "@RUN@/sheet.csv",
+      "--sheet",
+      "@RUN@/sheet-copy.csv",
+      "--key",
+      "@RUN@/key.json",
+      "--reviewer-kind",
+      "external"
+    ]
+  },
+  "expect_codes": []
+}

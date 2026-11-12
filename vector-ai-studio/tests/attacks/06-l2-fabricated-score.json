@@ -1,0 +1,123 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "06-l2-fabricated-score",
+  "name": "L2 却给出 A/B 数字分",
+  "expect": "block",
+  "why": "没读到图就编数字分，必须被伪造检测拦下。",
+  "reference": "A16 / E-FABRICATED-SCORE",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "acceptance.json",
+      "doc": {
+        "schema": "vector-ai-studio/acceptance-v1",
+        "note": "ATTACK SAMPLE -- not a real machine run",
+        "run_id": "attack",
+        "mode": "full",
+        "grading_entered": true,
+        "headline": "语义 / 构图判读未取证，需人工终审",
+        "grade": "未判定",
+        "internal_excellent": false,
+        "tier": "indeterminate",
+        "degraded": true,
+        "needs_human_review": true,
+        "reason": "capability_missing",
+        "capability_missing": true,
+        "status": "degraded",
+        "quick": false,
+        "f_verified": true,
+        "f_data_isolated": true,
+        "generation_count": 3,
+        "generation_budget": {
+          "pass": 9,
+          "excellent": 15
+        },
+        "h1": true,
+        "h2": true,
+        "h2_status": "pass",
+        "h3": true,
+        "h4": true,
+        "scores": {
+          "A": {
+            "score": 2
+          },
+          "B": {
+            "score": 2
+          },
+          "C": {
+            "score": 1
+          },
+          "D": {
+            "score": 1
+          },
+          "E": "N/A",
+          "F": {
+            "score": 1
+          }
+        },
+        "hard_gates": {
+          "H1": {
+            "pass": true
+          },
+          "H2": {
+            "pass": true
+          },
+          "H3": {
+            "pass": true
+          },
+          "H4": {
+            "pass": true
+          }
+        },
+        "evidence_coverage": {
+          "A": {
+            "measured": false,
+            "why": "宿主 LLM 读不了预览图（judge.readable=false）",
+            "fix": "让宿主 LLM 真读一次预览图并写出 readable=true 的 judge.json"
+          },
+          "B": {
+            "measured": false,
+            "why": "宿主 LLM 读不了预览图（judge.readable=false）",
+            "fix": "让宿主 LLM 真读一次预览图并写出 readable=true 的 judge.json"
+          },
+          "C": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "D": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "F": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "coverage": 0.6,
+          "required_dims": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "F"
+          ]
+        },
+        "deliverable_status": "deliverable_with_human_review",
+        "criteria_version": "2.0.0",
+        "legacy_grading": false
+      }
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--validate-case",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [
+    "E-FABRICATED-SCORE"
+  ]
+}

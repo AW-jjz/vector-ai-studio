@@ -1,0 +1,103 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "14-exemption-abuse",
+  "name": "full 轨道却声明 grading_entered=false",
+  "expect": "block",
+  "why": "跨轨滥用豁免必须从两侧都被拒。",
+  "reference": "A21 / E-EXEMPTION-ABUSE",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "acceptance.json",
+      "doc": {
+        "schema": "vector-ai-studio/acceptance-v1",
+        "note": "ATTACK SAMPLE -- not a real machine run",
+        "run_id": "attack",
+        "mode": "full",
+        "grading_entered": false,
+        "headline": "已达质量阈值，可进入人工终审（可选）",
+        "grade": null,
+        "internal_excellent": false,
+        "tier": null,
+        "degraded": false,
+        "needs_human_review": false,
+        "reason": null,
+        "capability_missing": null,
+        "status": "ok",
+        "quick": false,
+        "f_verified": true,
+        "f_data_isolated": true,
+        "generation_count": 3,
+        "generation_budget": {
+          "pass": 9,
+          "excellent": 15
+        },
+        "h1": true,
+        "h2": null,
+        "h2_status": "not_evaluated",
+        "h3": true,
+        "h4": true,
+        "scores": {},
+        "hard_gates": {
+          "H2": {
+            "pass": true
+          },
+          "H3": {
+            "pass": true
+          },
+          "H4": {
+            "pass": true
+          }
+        },
+        "evidence_coverage": {
+          "A": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "B": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "C": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "D": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "F": {
+            "measured": true,
+            "why": "",
+            "fix": ""
+          },
+          "coverage": 1.0,
+          "required_dims": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "F"
+          ]
+        },
+        "deliverable_status": "deliverable",
+        "criteria_version": "2.0.0",
+        "legacy_grading": false
+      }
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--validate-case",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [
+    "E-EXEMPTION-ABUSE"
+  ]
+}

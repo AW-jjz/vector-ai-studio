@@ -1,0 +1,57 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "05-mini-selftest",
+  "name": "手写一份 3/3 的迷你自检日志",
+  "expect": "block",
+  "why": "「断言数下界」必须挡住一份自洽但极小的日志。",
+  "reference": "r70 #3 / H3 count lower bound",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "selftest.json",
+      "doc": {
+        "schema": "vector-ai-studio/selftest-v1",
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "skipped": [],
+        "run_id": "attack",
+        "capability_skips": [],
+        "assertions": [
+          {
+            "id": "x0",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "x1",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          },
+          {
+            "id": "x2",
+            "ok": true,
+            "detail": "",
+            "skipped": false
+          }
+        ]
+      }
+    }
+  ],
+  "run": {
+    "script": "aggregate_log.py",
+    "args": [
+      "--run-dir",
+      "@RUN@",
+      "--run-id",
+      "attack",
+      "--out",
+      "@RUN@/acceptance.json"
+    ]
+  },
+  "expect_codes": [],
+  "expect_grade": "不达标",
+  "expect_no_pass": true
+}
