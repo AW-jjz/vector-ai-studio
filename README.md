@@ -2,7 +2,7 @@
 
 把一句自然语言需求，做成**可继续编辑的 VectorCraft PDF 兼容 `.ai`**，并且**只在判决层自己复算过、这份文件真的达到判据时才给出可复核的质量结论**。
 
-这不是又一个"AI 画图"封装。它的重点在反面：**防止"看起来达标、其实很烂"**。v1.4.0（r70）起，判决层不再只读日志里的结论：H1 会第二次打开 `.ai` 做字节断言，`--validate-case` 会用与主路径同一函数重推分档。
+这不是又一个"AI 画图"封装。它的重点在反面：**防止"看起来达标、其实很烂"**。v1.4.0（r70）起，判决层不再只读日志里的结论：H1 会第二次打开 `.ai` 做字节断言，`--validate-case` 会用与主路径同一函数重推分档；v1.4.1（r71）起，安装自检同样不说谎——`smoke_ai` 的结论由验收链定档， degraded 就写 degraded。
 
 ## 它解决的具体问题
 
@@ -38,7 +38,7 @@ python vector-ai-studio/scripts/run_fixtures.py
 
 | 环境 | `selftest --fixtures` | `run_fixtures` |
 |---|---|---|
-| 装了 VectorCraft CLI | **79/79**（`--fixtures` 为 **80/80**，含 A13），`status=ok`，**exit 0** | **34/34**，exit 0 |
+| 装了 VectorCraft CLI | **81/81**（`--fixtures` 为 **82/82**，含 A13），`status=ok`，**exit 0** | **37/37**，exit 0 |
 | 没装 | 依赖引擎或 Pillow 的断言转 skipped，`status=partial`，**exit 3** | 该组合在 34 条后**未单独实测**，不作承诺 |
 
 **`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。
