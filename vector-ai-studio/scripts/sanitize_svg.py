@@ -38,7 +38,11 @@ def main():
 
     src = Path(args.inp)
     if not src.is_file():
-        raise L.ToolError("E-XML", "input SVG not found: " + src.name, L.EXIT_USAGE)
+        # F5 (r71): a missing file is an input problem, not an XML parse
+        # failure. E-SCHEMA ("input file not found", same as lib_common.
+        # read_json) sends the user to the path, not to their SVG syntax;
+        # E-XML stays reserved for actual parse failures below.
+        raise L.ToolError("E-SCHEMA", "input SVG not found: " + src.name, L.EXIT_USAGE)
     text = _clean_text(src.read_text(encoding="utf-8"))
     sig = L.analyze_svg(text)
 

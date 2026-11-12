@@ -324,4 +324,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # F2 (r71): argument parsing and the usage checks in main() raise
+    # L.ToolError BEFORE the inner run_cli around _run_chain exists, so they
+    # must be caught at the entry: E-USAGE -> 9-field envelope + exit 2, no
+    # traceback. The inner run_cli keeps covering the chain itself.
+    sys.exit(L.run_cli(SCRIPT, main))

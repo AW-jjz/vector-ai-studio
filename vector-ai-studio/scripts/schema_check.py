@@ -16,6 +16,12 @@ silently ignoring a constraint is how a validator becomes decorative.
 
 Usage:  python scripts/schema_check.py <schema.json> <doc.json> [--json]
 Exit:   0 valid, 1 invalid, 2 usage / unreadable input.
+
+F3 (r71): the output is ALWAYS the shared 9-field envelope (L.emit via
+L.run_cli), like every other CLI in this skill. The `--json` flag is kept for
+call compatibility; the VALID / INVALID semantics live in `data`:
+{"schema", "doc", "valid", "problems"}. An unreadable file or malformed JSON
+is a code=2 envelope, never a bare stderr line.
 """
 
 import argparse
@@ -23,6 +29,11 @@ import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lib_common as L
+
+SCRIPT = "schema_check.py"
 
 TYPES = {
     "object": dict,
@@ -121,28 +132,34 @@ def main():
     ap = argparse.ArgumentParser(description="validate a JSON document against a schema subset")
     ap.add_argument("schema")
     ap.add_argument("doc")
-    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--json", action="store_true",
+                    help="kept for call compatibility; the envelope is always emitted")
     args = ap.parse_args()
 
+    sp, dp = Path(args.schema), Path(args.doc)
     try:
-        schema = json.loads(Path(args.schema).read_text(encoding="utf-8"))
-        doc = json.loads(Path(args.doc).read_text(encoding="utf-8"))
+        schema = json.loads(sp.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
-        print("cannot read input: " + type(e).__name__ + ": " + str(e), file=sys.stderr)
-        return 2
+        raise L.ToolError("E-SCHEMA",
+                          "cannot read schema: " + type(e).__name__ + ": " + str(e),
+                          L.EXIT_USAGE)
+    try:
+        doc = json.loads(dp.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise L.ToolError("E-SCHEMA",
+                          "cannot read input: " + type(e).__name__ + ": " + str(e),
+                          L.EXIT_USAGE)
 
     problems = validate(doc, schema)
-    out = {"schema": Path(args.schema).name, "doc": Path(args.doc).name,
-           "valid": not problems, "problems": problems}
-    if args.json:
-        print(json.dumps(out, ensure_ascii=False, indent=2))
-    else:
-        print(("VALID   " if not problems else "INVALID ") + out["doc"] +
-              " against " + out["schema"])
-        for p in problems:
-            print("   " + p)
-    return 0 if not problems else 1
+    data = {"schema": sp.name, "doc": dp.name,
+            "valid": not problems, "problems": problems}
+    if problems:
+        return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL, data=data,
+                      errors=[L.err("E-SCHEMA",
+                                    "document does not conform to the schema: " +
+                                    " | ".join(problems[:5]))])
+    return L.emit(SCRIPT, status="ok", code=L.EXIT_OK, data=data)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(L.run_cli(SCRIPT, main))

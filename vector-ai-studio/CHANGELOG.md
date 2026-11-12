@@ -4,6 +4,38 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.4.1 — 2026-11-12 [r71]
+
+Bug-fix round from the full external audit of r70 (findings F1-F7). No new
+features, no threshold changes.
+
+- **F1** `scripts/smoke_ai.py` no longer lies about the install: the self-test inside
+  the smoke chain now receives the SAME content-derived `--run-id` as
+  `scripts/aggregate_log.py`, so H3's run-id binding is satisfiable; and the smoke
+  verdict is derived from the acceptance chain's own exit code and grade
+  (`rate_acceptance`) instead of being asserted unconditionally. An internal
+  verdict that is not a clean pass now surfaces as `status != ok`.
+- **F2** `scripts/studio.py` usage errors (`--review-pack` with fewer than two
+  candidates, missing `--spec/--svg/--out`, no args) go through the shared
+  `L.run_cli` entry: `E-USAGE` 9-field envelope + exit 2, no traceback.
+- **F3** `scripts/schema_check.py` now emits the shared 9-field envelope on every path
+  (VALID / INVALID semantics preserved in `data`); an unreadable file or
+  malformed JSON is a `code=2` envelope instead of a bare stderr line.
+- **F4** `E-REGRESSION` registered in `references/error-codes.md` (warnings-only, exit
+  code unchanged); the A28 registry scan now also sees codes carried as
+  `"E-X: message"` strings, and a new A80 assertion proves an unregistered
+  code is caught while the `E-XXX` placeholder and prose stay out.
+- **F5** `scripts/sanitize_svg.py` reports `E-SCHEMA` (not `E-XML`) when the input
+  file does not exist, matching `lib_common.read_json` semantics.
+- **F7** Documentation drift fixed: the assertion-count lower bound now
+  matches `EXPECTED_ASSERTIONS` (81), and the step-10 / command-reference
+  `scripts/aggregate_log.py` invocations show the content-derived `--run-id` usage
+  that H3 requires.
+- Coverage: three new negative fixtures (`bad-sanitize-missing-input`,
+  `bad-studio-usage-envelope`, `bad-schema-check-unreadable`) and two new
+  selftest assertions (A80, A81); selftest 81/81, `--fixtures` 82/82,
+  `run_fixtures` 37/37.
+
 ## 1.4.0 — 2026-11-12 [r70]
 
 Judgment-layer hardening round, following the independent deep-research report

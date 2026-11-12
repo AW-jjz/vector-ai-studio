@@ -47,7 +47,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # including A60 (the guard that checks this number) but excluding A13, which
 # only runs with --fixtures. Add or remove an assertion -> bump this number
 # too; A60 turns a stale count red instead of leaving it to a human.
-EXPECTED_ASSERTIONS = 79
+# r71: +A80 (registry scan catches unregistered codes), +A81 (smoke rating
+# follows the acceptance verdict) -> 79 + 2 = 81.
+EXPECTED_ASSERTIONS = 81
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

@@ -37,10 +37,11 @@
 | `E-OUTPUT-STALE` | 调用引擎前清不掉上一轮的产物（`output/<run-id>/final.ai`、`output/<run-id>/print.pdf`、`output/<run-id>/preview.png`），拒绝继续：旧文件会让「文件存在」被误当成本轮产出 | land_vc, land_craft |
 | `E-PDFX-PROOF` | `../scripts/smoke_ai.py --print` 落到真机的 PDF/X 主文件没有兑现声明：无 PDF/X 版本串、无输出意图、意图对象数不等于 1、仍含 DeviceRGB 算子、CMYK 算子为 0，或 deliverable 的 unverified 非空 | smoke_ai |
 | `E-QUICK-UNVERIFIED` | quick 模式（F 未验证）宣称达标 | aggregate_log |
+| `E-REGRESSION` | 与 `--prev` 的 passed-item 结构比对发现变化（g ids / 元素数 / 颜色），或 `--prev` 文件缺失跳过比对；仅作为 `warnings` 条目发出（`"E-REGRESSION: 说明"` 形式），不改变退出码，也不单独终止流程 | sanitize_svg |
 | `E-RENDERER-MISSING` | 渲染器全部缺失且内置兜底也产不出真实 PNG；或 Pillow 缺失导致 PNG 无法读取，小尺寸三检保持未测量 | render_png, legibility |
 | `E-REVIEW-EMPTY` | 盲评表每一个分数格都是空的：空表不是证据，退出 1，不出汇总 | review |
 | `E-REVIEW-INVALID` | 盲评表不可用：缺格、非 0–2 整数、case 缺失或重复、表头缺维；r70 起含「同一份表重复提交（`--sheet` 按绝对路径 + 内容 sha256 去重命中）」——重复表不计入评审人数；逐条列出后退出 1，`usable_for_claim=false` | review |
-| `E-SCHEMA` | 输入结构不符合 schema；含 deal 历史文件损坏或 schema 不符（此时代码拒绝继续且不覆盖原文件，不做静默重置） | aggregate_log, deal, lib_common, run_fixtures, score |
+| `E-SCHEMA` | 输入结构不符合 schema；含 deal 历史文件损坏或 schema 不符（此时代码拒绝继续且不覆盖原文件，不做静默重置）、输入文件不存在或 JSON 损坏（lib_common.read_json、schema_check、r71 起 sanitize_svg 的 ENOENT） | aggregate_log, deal, lib_common, run_fixtures, score, sanitize_svg, schema_check |
 | `E-STUDIO-STAGE` | studio.py 的某阶段以非零码结束但未带更具体的码（如 score.py 因零分维返回 1）；消息里列出停链的阶段 | studio.py |
 | `E-SELFTEST` | 自检断言失败（附失败断言 id 列表） | selftest |
 | `E-SEMI-MANUAL-NOT-ALLOWED` | 未确认 COM 不可用却要求半自动路径（已废弃：r45 移除 Adobe/COM 链路，半自动路径不复存在；保留供下游按码分流） | （已废弃） |
@@ -50,7 +51,7 @@
 | `E-DELIGHT-EMPTY` | 去光照找不到主体像素（掩膜为空） | delight |
 | `E-RENDER` | 矢量转位图失败（引擎返回非零或未产出文件） | export_print |
 | `E-TRACE` | 参考图描摹失败（引擎报错或未产出文件） | trace_ref |
-| `E-USAGE` | 参数非法（取值越界 / 缺少必填 / 扩展名不支持） | delight, export_print, trace_ref |
+| `E-USAGE` | 参数非法（取值越界 / 缺少必填 / 扩展名不支持） | delight, export_print, trace_ref, studio |
 
 ## 约定
 

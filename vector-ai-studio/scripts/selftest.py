@@ -2761,6 +2761,35 @@ def _stage_alt_engine(tmp, add):
     add("A31-deliverable-schema-no-drift", a31_ok, a31_detail, skipped=a31_skip)
 
 
+# ---- error-code literal scanning (A28 / A80, r71) ---------------------------
+# A code literal counts when it is quoted AND immediately closed by a quote or
+# followed by a colon (E-X: message, without quotes around the code), so
+# warnings written as plain strings (E-REGRESSION: ...) are visible to the
+# registry check too -- the old quote-delimited pattern could only see fully
+# quoted codes. The E-XXX placeholder is a documentation convention, never a
+# real code, and stays out of the scan; prose ("E- mail") never matches
+# because the pattern requires uppercase alphanumerics right after "E-".
+_CODE_PLACEHOLDERS = frozenset({"E-XXX"})
+_CODE_RE = re.compile(r"""["'](E-[A-Z0-9-]+)(?::|["'])""")
+
+
+def scan_code_literals(src):
+    """Error-code literals in one source text, placeholder-free."""
+    return set(_CODE_RE.findall(src)) - _CODE_PLACEHOLDERS
+
+
+def registry_codes():
+    """Registered live codes from error-codes.md (已废弃 rows are display-only)."""
+    reg_path = ROOT / "references" / "error-codes.md"
+    reg_set = set()
+    if reg_path.is_file():
+        for line in reg_path.read_text(encoding="utf-8").splitlines():
+            if "已废弃" in line:
+                continue
+            reg_set |= set(re.findall(r"`(E-[A-Z0-9-]+)`", line))
+    return reg_set
+
+
 def _stage_contract_registry(tmp, add, w1):
     """A26-A28: the contract documents must agree with the artefacts.
 
@@ -2843,26 +2872,78 @@ def _stage_contract_registry(tmp, add, w1):
     code_set = set()
     for sp in sorted((ROOT / "scripts").glob("*.py")):
         _src = sp.read_text(encoding="utf-8")
-        # Either quote style counts. Matching only double quotes let a new code
-        # written with single quotes be invisible to both sides of the
-        # comparison. (Quoted examples in comments are why this scan uses a
-        # strict E- pattern: anything that looks like a code must be registered.)
-        code_set |= set(re.findall(r"""["'](E-[A-Z0-9-]+)["']""", _src))
-    reg_set = set()
-    if reg_path.is_file():
-        # The registry keeps retired codes on purpose (downstream code may still
-        # branch on them), so a row marked 已废弃 is documentation, not a claim
-        # that some script can emit it. Counting it as live made the two sets
-        # impossible to satisfy at once.
-        for line in reg_path.read_text(encoding="utf-8").splitlines():
-            if "已废弃" in line:
-                continue
-            reg_set |= set(re.findall(r"`(E-[A-Z0-9-]+)`", line))
+        # Either quote style counts, and a quoted code followed by a colon
+        # (E-X: message) counts too -- the strict fully-quoted pattern was
+        # blind to codes carried in plain-string warnings, which is how
+        # E-REGRESSION stayed unregistered for a whole round.
+        code_set |= scan_code_literals(_src)
+    # The registry keeps retired codes on purpose (downstream code may still
+    # branch on them), so a row marked 已废弃 is documentation, not a claim
+    # that some script can emit it. Counting it as live made the two sets
+    # impossible to satisfy at once.
+    reg_set = registry_codes()
     reg_ok = bool(code_set) and code_set == reg_set
     add("A28-error-code-registry", reg_ok,
         "in_code=" + str(len(code_set)) + " in_registry=" + str(len(reg_set)) +
         " unregistered=" + ",".join(sorted(code_set - reg_set)[:6]) +
         " stale=" + ",".join(sorted(reg_set - code_set)[:6]))
+
+    # A80 (F4 / r71): the widened scan must actually catch an unregistered
+    # code, must not swallow the E-XXX placeholder, and must leave prose
+    # alone. The sample is assembled from pieces so this file's own source
+    # contains no quoted E-NEW-CODE literal (A28 scans selftest.py as well).
+    _p1, _p2, _p3 = "E-", "NEW-CODE", "XXX:"
+    _sample = ("x = err(\"" + _p1 + _p2 + "\", \"m\")   # see \"" + _p1 + _p3 +
+               " placeholder, and E- mail prose")
+    _got80 = scan_code_literals(_sample)
+    _unreg80 = _got80 - registry_codes()
+    _reg80 = scan_code_literals("'E-SCHEMA'") - registry_codes()
+    # The expected set is assembled at runtime: a quoted E-NEW-CODE literal in
+    # this file's source would itself be scanned by A28 above.
+    _new_code = _p1 + _p2
+    add("A80-registry-scan-catches-unregistered",
+        bool(_got80 == {_new_code} and _unreg80 == {_new_code}
+             and _reg80 == set()),
+        "got=" + ",".join(sorted(_got80)) +
+        " unregistered=" + ",".join(sorted(_unreg80)) +
+        " registered_clean=" + str(_reg80 == set()))
+
+
+def _stage_smoke_rating(tmp, add):
+    """A81 (F1-B / r71): smoke's verdict must follow the acceptance verdict.
+
+    The whole smoke chain needs a real engine, but the rating decision itself
+    is a pure function (smoke_ai.rate_acceptance) -- pin it directly. An
+    internal verdict that is not a clean pass must never surface as smoke's
+    self-reported ok; that silent flip was the F1 defect."""
+
+    # ---- A81: 内部评级非 clean pass 时不得自报 ok ----
+    try:
+        _spec81 = importlib.util.spec_from_file_location("smoke_a81",
+                                                         SCRIPTS / "smoke_ai.py")
+        _sm81 = importlib.util.module_from_spec(_spec81)
+        _spec81.loader.exec_module(_sm81)
+        _pass = "达标"
+        _ok81 = _sm81.rate_acceptance(0, "ok", _pass, _pass) == ("ok", None)
+        _f1 = _sm81.rate_acceptance(1, "fail", "不达标", _pass)[0] == "fail"
+        # The exact F1 shape: H1 passed (exit could even be 0 for a
+        # non-grading path) but the grade is not the pass grade -> never ok.
+        _f2 = _sm81.rate_acceptance(0, "ok", "不达标", _pass)[0] != "ok"
+        _f3 = _sm81.rate_acceptance(2, "error", None, _pass)[0] != "ok"
+        # aggregate_log's own L2 verdict (status "degraded", exit 1) is an
+        # honest degradation for smoke too, mirroring the same vocabulary.
+        _s, _d = _sm81.rate_acceptance(1, "degraded", "不达标", _pass,
+                                       {"level": "L2", "reason": "r"})
+        _d1 = _s == "degraded" and isinstance(_d, dict) and _d.get("level") == "L2"
+        _d2 = _sm81.rate_acceptance(3, "degraded", None, _pass)[0] == "degraded"
+        add("A81-smoke-rating-follows-acceptance",
+            bool(_ok81 and _f1 and _f2 and _f3 and _d1 and _d2),
+            "ok_pass=%s fail_exit1=%s fail_grade=%s fail_exit2=%s"
+            " degraded_l2=%s degraded_exit3=%s"
+            % (_ok81, _f1, _f2, _f3, _d1, _d2))
+    except Exception as e:                      # noqa: BLE001
+        add("A81-smoke-rating-follows-acceptance", False,
+            type(e).__name__ + ": " + str(e)[:140])
 
 
 def _stage_perceptual(tmp, add):
@@ -3597,6 +3678,7 @@ def main():
     w1, _, chain, optional = _stage_pure_chain(tmp, add, th)
     budget = _stage_grading(tmp, add, th, w1)
     _stage_contract_registry(tmp, add, w1)
+    _stage_smoke_rating(tmp, add)
     _stage_measurement(tmp, add)
     _stage_alt_engine(tmp, add)
     _stage_perceptual(tmp, add)

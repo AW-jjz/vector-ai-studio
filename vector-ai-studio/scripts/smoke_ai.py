@@ -30,6 +30,28 @@ def _run(cmd, timeout=240):
         return -1, "", type(e).__name__ + ": " + str(e)[:160]
 
 
+def rate_acceptance(agg_exit, agg_status, grade, pass_grade, degradation=None):
+    """F1-B (r71): the smoke verdict follows the acceptance verdict.
+
+    A clean pass requires aggregate exit 0, its own status "ok" AND the pass
+    grade. Landing a real .ai (H1) is necessary but never sufficient: an
+    internal verdict that is not a clean pass must surface here as status
+    != ok, never as a self-reported ok (the module docstring's "NEVER writes
+    ok" promise). The rating mirrors aggregate_log's own verdict vocabulary:
+    its "degraded" (e.g. L2, A/B unreadable, human review required) is an
+    honest degradation, not a failure; a criterion failure stays a fail.
+    Returns (status, degradation).
+    """
+    if agg_exit == 0 and agg_status == "ok" and grade == pass_grade:
+        return "ok", None
+    if agg_exit >= L.EXIT_MISSING or agg_status == "degraded":
+        return "degraded", (degradation or
+                            {"level": "L4",
+                             "reason": "acceptance chain ended degraded (exit=%d)" % agg_exit,
+                             "missing": [], "substitute": ["inspect acceptance.json"]})
+    return "fail", None
+
+
 def main():
     ap = argparse.ArgumentParser(description="real-machine landing smoke test")
     ap.add_argument("--json", action="store_true")
@@ -149,8 +171,12 @@ def main():
         _run([sys.executable, str(SCRIPTS / "score.py"),
               "--svg", str(run_dir / "final.svg"), "--judge", str(run_dir / "judge.json"),
               "--spec", str(run_dir / "spec.json"), "--out", str(run_dir / "score.json")])
+        # F1-A (r71): the SAME content-derived run id goes to selftest.py and
+        # aggregate_log.py. Without it selftest writes its default id and H3's
+        # binding check (selftest.json.run_id == --run-id) is structurally
+        # always red.
         _run([sys.executable, str(SCRIPTS / "selftest.py"), "--fixtures",
-              "--log-dir", str(run_dir)])
+              "--log-dir", str(run_dir), "--run-id", rid])
         agg_cmd = [sys.executable, str(SCRIPTS / "aggregate_log.py"),
                    "--run-dir", str(run_dir), "--run-id", rid]
     agg_exit, agg_out, agg_err = _run(agg_cmd)
@@ -171,11 +197,36 @@ def main():
         "scores_keys": sorted((acc.get("scores") or {}).keys()),
     }
 
-    smoke["status"] = "ok"
-    smoke["degradation"] = None
+    # F1-B (r71): the verdict is decided by the acceptance chain's own exit
+    # code, envelope status and grade, not asserted unconditionally. The
+    # landing-only track does not grade (grade is null by design), so its only
+    # honest claim is "H1 evidence was taken" -- exit 0 means exactly that.
+    try:
+        agg_env = json.loads(agg_out)
+        agg_status = str(agg_env.get("status", ""))
+        agg_degradation = agg_env.get("degradation")
+    except json.JSONDecodeError:
+        agg_status, agg_degradation = "", None
+    if args.landing_only:
+        chain_status, chain_degr = ("ok", None) if agg_exit == 0 else ("fail", None)
+    else:
+        chain_status, chain_degr = rate_acceptance(
+            agg_exit, agg_status, acc.get("grade"), th["messages"]["grade_pass"],
+            agg_degradation)
+    smoke["status"] = chain_status
+    smoke["degradation"] = chain_degr
     smoke["ai_produced"] = True
     smoke["h1_pass"] = True
     smoke["structure_readback"] = sr
+    if chain_status != "ok":
+        smoke["note"] = ("H1 已过，但验收链未达 clean pass（exit=%d, status=%s, grade=%s）；"
+                         "不自报 ok" % (agg_exit, agg_status, acc.get("grade")))
+        L.write_json_atomic(log_dir / "smoke.json", smoke)
+        L.append_run_log(log_dir, SCRIPT + " acceptance not a clean pass exit=%d status=%s grade=%s"
+                         % (agg_exit, agg_status, acc.get("grade")))
+        return L.emit(SCRIPT, status=chain_status,
+                      code=L.EXIT_MISSING if chain_status == "degraded" else L.EXIT_FAIL,
+                      run_id=rid, data=smoke, degradation=chain_degr)
     smoke["note"] = "VectorCraft 真实产出 .ai 并通过 H1 重开回读"
 
     # ---- print track: a real PDF/X-1a master, then the facts read from it ----

@@ -1,281 +1,616 @@
 {
   "schema": "vector-ai-studio/fixtures-v1",
   "note": "Good cases exercise the pure-script chain and compliant acceptance-log samples; bad cases must hit the expected E-* codes. JSON samples labelled non-real-machine are validator regression inputs, never proof of a real pass. @F@ = fixtures dir, @OUT@ = temp out dir.",
-  "cases_expected": 34,
+  "cases_expected": 37,
   "cases": [
     {
       "id": "good-freeze-spec",
       "expect": "pass",
       "script": "freeze_spec.py",
-      "args": ["--spec", "@F@/good/spec.json", "--validate", "--out", "@OUT@/spec.json"],
-      "want_exit": [0]
+      "args": [
+        "--spec",
+        "@F@/good/spec.json",
+        "--validate",
+        "--out",
+        "@OUT@/spec.json"
+      ],
+      "want_exit": [
+        0
+      ]
     },
     {
       "id": "good-sanitize",
       "expect": "pass",
       "script": "sanitize_svg.py",
-      "args": ["--in", "@F@/good/sample.svg", "--out", "@OUT@/final.svg"],
-      "want_exit": [0]
+      "args": [
+        "--in",
+        "@F@/good/sample.svg",
+        "--out",
+        "@OUT@/final.svg"
+      ],
+      "want_exit": [
+        0
+      ]
     },
     {
       "id": "good-judge",
       "expect": "pass",
       "script": "llm_judge.py",
-      "args": ["--judge", "@F@/good/judge.json", "--validate", "--spec", "@OUT@/spec.json", "--out", "@OUT@/judge.json"],
-      "want_exit": [0]
+      "args": [
+        "--judge",
+        "@F@/good/judge.json",
+        "--validate",
+        "--spec",
+        "@OUT@/spec.json",
+        "--out",
+        "@OUT@/judge.json"
+      ],
+      "want_exit": [
+        0
+      ]
     },
     {
       "id": "good-score",
       "expect": "pass",
       "script": "score.py",
-      "args": ["--svg", "@OUT@/final.svg", "--judge", "@OUT@/judge.json", "--spec", "@OUT@/spec.json", "--out", "@OUT@/score.json"],
-      "want_exit": [0]
+      "args": [
+        "--svg",
+        "@OUT@/final.svg",
+        "--judge",
+        "@OUT@/judge.json",
+        "--spec",
+        "@OUT@/spec.json",
+        "--out",
+        "@OUT@/score.json"
+      ],
+      "want_exit": [
+        0
+      ]
     },
     {
       "id": "good-render-png-fallback",
       "expect": "pass",
       "script": "render_png.py",
-      "args": ["--in", "@OUT@/final.svg", "--out", "@OUT@/preview.png"],
-      "want_exit": [0]
+      "args": [
+        "--in",
+        "@OUT@/final.svg",
+        "--out",
+        "@OUT@/preview.png"
+      ],
+      "want_exit": [
+        0
+      ]
     },
     {
       "id": "bad-bitmap",
       "expect": "error",
       "script": "sanitize_svg.py",
-      "args": ["--in", "@F@/bad/raster.svg", "--out", "@OUT@/raster-out.svg"],
-      "want_exit": [1],
-      "want_codes": ["E-BITMAP"]
+      "args": [
+        "--in",
+        "@F@/bad/raster.svg",
+        "--out",
+        "@OUT@/raster-out.svg"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-BITMAP"
+      ]
     },
     {
       "id": "bad-empty-spec",
       "expect": "error",
       "script": "freeze_spec.py",
-      "args": ["--spec", "@F@/bad/empty_spec.json", "--validate", "--out", "@OUT@/empty-out.json"],
-      "want_exit": [1],
-      "want_codes": ["E-EMPTY-SPEC"]
+      "args": [
+        "--spec",
+        "@F@/bad/empty_spec.json",
+        "--validate",
+        "--out",
+        "@OUT@/empty-out.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-EMPTY-SPEC"
+      ]
     },
     {
       "id": "bad-degenerate-forbidden",
       "expect": "error",
       "script": "sanitize_svg.py",
-      "args": ["--in", "@F@/bad/degenerate.svg", "--out", "@OUT@/deg-out.svg"],
-      "want_exit": [1],
-      "want_codes": ["E-DEGENERATE", "E-FORBIDDEN"]
+      "args": [
+        "--in",
+        "@F@/bad/degenerate.svg",
+        "--out",
+        "@OUT@/deg-out.svg"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-DEGENERATE",
+        "E-FORBIDDEN"
+      ]
     },
     {
       "id": "bad-palette-overflow",
       "expect": "error",
       "script": "score.py",
-      "args": ["--svg", "@F@/bad/palette_overflow.svg", "--judge", "@OUT@/judge.json", "--spec", "@OUT@/spec.json", "--out", "@OUT@/palette-score.json"],
-      "want_exit": [1],
-      "want_codes": ["E-C-PALETTE-OVERFLOW"]
+      "args": [
+        "--svg",
+        "@F@/bad/palette_overflow.svg",
+        "--judge",
+        "@OUT@/judge.json",
+        "--spec",
+        "@OUT@/spec.json",
+        "--out",
+        "@OUT@/palette-score.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-C-PALETTE-OVERFLOW"
+      ]
     },
     {
       "id": "good-l2-degraded",
       "expect": "pass",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/good/good_l2_degraded.json"],
-      "want_exit": [0],
+      "args": [
+        "--validate-case",
+        "@F@/good/good_l2_degraded.json"
+      ],
+      "want_exit": [
+        0
+      ],
       "want_codes": []
     },
     {
       "id": "good-o4-isolated",
       "expect": "pass",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/good/good_o4_isolated.json"],
-      "want_exit": [0],
+      "args": [
+        "--validate-case",
+        "@F@/good/good_o4_isolated.json"
+      ],
+      "want_exit": [
+        0
+      ],
       "want_codes": []
     },
     {
       "id": "bad-l2-fabricated",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_l2_fabricated.json"],
-      "want_exit": [1],
-      "want_codes": ["E-FABRICATED-SCORE"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_l2_fabricated.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-FABRICATED-SCORE"
+      ]
     },
     {
       "id": "bad-budget-exceeded",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_budget_exceeded.json"],
-      "want_exit": [1],
-      "want_codes": ["E-BUDGET-EXCEEDED"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_budget_exceeded.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-BUDGET-EXCEEDED"
+      ]
     },
     {
       "id": "bad-f-backfill",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_f_backfill.json"],
-      "want_exit": [1],
-      "want_codes": ["E-F-DATA-ISOLATION"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_f_backfill.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-F-DATA-ISOLATION"
+      ]
     },
     {
       "id": "bad-quick-claimed-pass",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_quick_claimed_pass.json"],
-      "want_exit": [1],
-      "want_codes": ["E-QUICK-UNVERIFIED"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_quick_claimed_pass.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-QUICK-UNVERIFIED"
+      ]
     },
     {
       "id": "good-acceptance-reachable",
       "expect": "pass",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/good/good_acceptance_reachable.json"],
-      "want_exit": [0],
+      "args": [
+        "--validate-case",
+        "@F@/good/good_acceptance_reachable.json"
+      ],
+      "want_exit": [
+        0
+      ],
       "want_codes": []
     },
     {
       "id": "bad-no-score",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_no_score.json"],
-      "want_exit": [1],
-      "want_codes": ["E-NO-SCORE"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_no_score.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-NO-SCORE"
+      ]
     },
     {
       "id": "good-landing-only",
       "expect": "pass",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/good/good_landing_only.json"],
-      "want_exit": [0],
+      "args": [
+        "--validate-case",
+        "@F@/good/good_landing_only.json"
+      ],
+      "want_exit": [
+        0
+      ],
       "want_codes": []
     },
     {
       "id": "bad-exemption-abuse-full",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_exemption_abuse_full.json"],
-      "want_exit": [1],
-      "want_codes": ["E-EXEMPTION-ABUSE"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_exemption_abuse_full.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-EXEMPTION-ABUSE"
+      ]
     },
     {
       "id": "bad-exemption-abuse-lo",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_exemption_abuse_lo.json"],
-      "want_exit": [1],
-      "want_codes": ["E-EXEMPTION-ABUSE", "E-NO-SCORE"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_exemption_abuse_lo.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-EXEMPTION-ABUSE",
+        "E-NO-SCORE"
+      ]
     },
     {
       "id": "bad-missing-f",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_missing_f.json"],
-      "want_exit": [1],
-      "want_codes": ["E-NO-SCORE"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_missing_f.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-NO-SCORE"
+      ]
     },
     {
       "id": "bad-missing-a",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_missing_a.json"],
-      "want_exit": [1],
-      "want_codes": ["E-NO-SCORE"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_missing_a.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-NO-SCORE"
+      ]
     },
     {
       "id": "good-render-png-rect-faithful",
       "expect": "pass",
       "script": "render_png.py",
-      "args": ["--in", "@F@/good/rect-only.svg", "--out", "@OUT@/rect-preview.png", "--force-builtin"],
-      "want_exit": [0]
+      "args": [
+        "--in",
+        "@F@/good/rect-only.svg",
+        "--out",
+        "@OUT@/rect-preview.png",
+        "--force-builtin"
+      ],
+      "want_exit": [
+        0
+      ]
     },
     {
       "id": "bad-pass-missing-e",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_pass_missing_e.json"],
-      "want_exit": [1],
-      "want_codes": ["E-NO-SCORE"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_pass_missing_e.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-NO-SCORE"
+      ]
     },
     {
       "id": "bad-grade-v1-e-zero",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_grade_v1_e_zero.json"],
-      "want_exit": [1],
-      "want_codes": ["E-GRADE-MISMATCH"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_grade_v1_e_zero.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-GRADE-MISMATCH"
+      ]
     },
     {
       "id": "bad-grade-v2-a-zero",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_grade_v2_a_zero.json"],
-      "want_exit": [1],
-      "want_codes": ["E-GRADE-MISMATCH"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_grade_v2_a_zero.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-GRADE-MISMATCH"
+      ]
     },
     {
       "id": "bad-grade-v3-h1-false",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_grade_v3_h1_false.json"],
-      "want_exit": [1],
-      "want_codes": ["E-GRADE-MISMATCH"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_grade_v3_h1_false.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-GRADE-MISMATCH"
+      ]
     },
     {
       "id": "bad-grade-v7-all-zero",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_grade_v7_all_zero.json"],
-      "want_exit": [1],
-      "want_codes": ["E-GRADE-MISMATCH"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_grade_v7_all_zero.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-GRADE-MISMATCH"
+      ]
     },
     {
       "id": "bad-grade-v8-no-gates",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_grade_v8_no_gates.json"],
-      "want_exit": [1],
-      "want_codes": ["E-GRADE-MISMATCH"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_grade_v8_no_gates.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-GRADE-MISMATCH"
+      ]
     },
     {
       "id": "bad-grade-v9-excellent",
       "expect": "error",
       "script": "aggregate_log.py",
-      "args": ["--validate-case", "@F@/bad/bad_grade_v9_excellent.json"],
-      "want_exit": [1],
-      "want_codes": ["E-GRADE-MISMATCH"]
+      "args": [
+        "--validate-case",
+        "@F@/bad/bad_grade_v9_excellent.json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-GRADE-MISMATCH"
+      ]
     },
     {
       "id": "run-dir-fake-ai",
       "expect": "error",
       "script": "aggregate_log.py",
       "setup_dir": "runs/fake-ai",
-      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
-      "want_exit": [1],
-      "want_codes": ["E-H1-STRUCTURE"],
-      "want_acceptance": {"hard_gates.H1.pass": false, "grade": "不达标"}
+      "args": [
+        "--run-dir",
+        "@RUN@",
+        "--run-id",
+        "runfixture",
+        "--out",
+        "@RUN@/acceptance.json",
+        "--json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-H1-STRUCTURE"
+      ],
+      "want_acceptance": {
+        "hard_gates.H1.pass": false,
+        "grade": "不达标"
+      }
     },
     {
       "id": "run-dir-no-meta",
       "expect": "error",
       "script": "aggregate_log.py",
       "setup_dir": "runs/no-meta",
-      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
-      "want_exit": [1],
+      "args": [
+        "--run-dir",
+        "@RUN@",
+        "--run-id",
+        "runfixture",
+        "--out",
+        "@RUN@/acceptance.json",
+        "--json"
+      ],
+      "want_exit": [
+        1
+      ],
       "want_codes": [],
-      "want_acceptance": {"capability_missing": true, "degraded": true, "grade": "不达标"}
+      "want_acceptance": {
+        "capability_missing": true,
+        "degraded": true,
+        "grade": "不达标"
+      }
     },
     {
       "id": "run-dir-one-assertion",
       "expect": "error",
       "script": "aggregate_log.py",
       "setup_dir": "runs/one-assertion",
-      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
-      "want_exit": [1],
+      "args": [
+        "--run-dir",
+        "@RUN@",
+        "--run-id",
+        "runfixture",
+        "--out",
+        "@RUN@/acceptance.json",
+        "--json"
+      ],
+      "want_exit": [
+        1
+      ],
       "want_codes": [],
-      "want_acceptance": {"hard_gates.H3.pass": false, "grade": "不达标"}
+      "want_acceptance": {
+        "hard_gates.H3.pass": false,
+        "grade": "不达标"
+      }
     },
     {
       "id": "run-dir-raster-image-mismatch",
       "expect": "error",
       "script": "aggregate_log.py",
       "setup_dir": "runs/raster-image-mismatch",
-      "args": ["--run-dir", "@RUN@", "--run-id", "runfixture", "--out", "@RUN@/acceptance.json", "--json"],
-      "want_exit": [1],
-      "want_codes": ["E-H1-STRUCTURE"],
-      "want_acceptance": {"hard_gates.H1.pass": false, "grade": "不达标"}
+      "args": [
+        "--run-dir",
+        "@RUN@",
+        "--run-id",
+        "runfixture",
+        "--out",
+        "@RUN@/acceptance.json",
+        "--json"
+      ],
+      "want_exit": [
+        1
+      ],
+      "want_codes": [
+        "E-H1-STRUCTURE"
+      ],
+      "want_acceptance": {
+        "hard_gates.H1.pass": false,
+        "grade": "不达标"
+      }
+    },
+    {
+      "id": "bad-sanitize-missing-input",
+      "expect": "error",
+      "script": "sanitize_svg.py",
+      "args": [
+        "--in",
+        "@F@/bad/no-such-input.svg",
+        "--out",
+        "@OUT@/missing-out.svg",
+        "--json"
+      ],
+      "want_exit": [
+        2
+      ],
+      "want_codes": [
+        "E-SCHEMA"
+      ]
+    },
+    {
+      "id": "bad-studio-usage-envelope",
+      "expect": "error",
+      "script": "studio.py",
+      "args": [
+        "--review-pack",
+        "@OUT@/rp-studio",
+        "--candidate",
+        "@F@/good",
+        "--json"
+      ],
+      "want_exit": [
+        2
+      ],
+      "want_codes": [
+        "E-USAGE"
+      ]
+    },
+    {
+      "id": "bad-schema-check-unreadable",
+      "expect": "error",
+      "script": "schema_check.py",
+      "args": [
+        "@F@/good/spec.json",
+        "@F@/bad/no-such-doc.json",
+        "--json"
+      ],
+      "want_exit": [
+        2
+      ],
+      "want_codes": [
+        "E-SCHEMA"
+      ]
     }
   ]
 }

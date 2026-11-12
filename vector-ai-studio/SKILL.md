@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.4.0
+version: 1.4.1
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.4.0"
+  version: "1.4.1"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -242,7 +242,10 @@ python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
 ### 步 10 验收日志聚合（H2 / H3 / H4）
 
 ```
-python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptance.json
+# RUN_ID 与步 11 是同一个内容派生值（sha256(spec + svg + thresholds.version) 前 12 位，
+# 单一实现在 scripts/studio.py 的 content_run_id()；不含时间 / 随机数 / 签名）。
+# 不传 --run-id 时 H3 的 run_id 绑定必判 fail（selftest.json.run_id 无法绑定到本次运行）。
+python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptance.json --run-id "$RUN_ID"
 ```
 
 读全部轮次与 run 产物，汇总 A–F 分数、轮次记录、H1–H4 结论与降级标记，按 `config/thresholds.json` 机械比较得出分档（数值判定，LLM 不得宣布）。四件不齐即 `E-H2-INCOMPLETE` 并列出缺哪件。校准记录 `calibration_log` 做前后值与裁决引用一致性断言。对外说明用 `templates/delivery-note.template.md` 生成，只承诺「达标」，内部评分字段不外露。
@@ -280,7 +283,7 @@ python scripts/smoke_ai.py --run-id "$RUN_ID"
 
 H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生（`--log-dir` 必须指向运行目录，`--run-id` 写进日志的 `run_id`）；`scripts/aggregate_log.py` 校验 `selftest.json.run_id == 本次 --run-id`，两者取值必须一致。只给 `scripts/aggregate_log.py` 传 `--run-id`、却让 `scripts/selftest.py` 用默认固定值，会让所有正常日志 H3 全红。也可用 `--selftest-log <path>` 显式指定日志路径。
 
-这条绑定拦住的是**跨 run 复用旧日志**：把上一次 / 别处的 `output/<run-id>/selftest.json` 塞进本次 run-dir，其 `run_id` 与本次内容派生值不符 → H3 fail。它**拦不住**「同一次 run 内生成方自写一份 run_id 匹配的假 `output/<run-id>/selftest.json`」——`output/<run-id>/` 是生成方可写的、`run_id` 本身公开可推导，属已声明的威胁模型边界；同 run 内自证这一层由「断言总数下界 ≥ 75」+「#2 产物字节复算」+「#5 grade 单一函数复算」共同收紧，不靠绑定宣称「不可伪造」。`scripts/studio.py` 的 `content_run_id()` 是生成该值的单一实现，编排各阶段与步 11 都复用它。
+这条绑定拦住的是**跨 run 复用旧日志**：把上一次 / 别处的 `output/<run-id>/selftest.json` 塞进本次 run-dir，其 `run_id` 与本次内容派生值不符 → H3 fail。它**拦不住**「同一次 run 内生成方自写一份 run_id 匹配的假 `output/<run-id>/selftest.json`」——`output/<run-id>/` 是生成方可写的、`run_id` 本身公开可推导，属已声明的威胁模型边界；同 run 内自证这一层由「断言总数下界 ≥ 81」+「#2 产物字节复算」+「#5 grade 单一函数复算」共同收紧，不靠绑定宣称「不可伪造」。`scripts/studio.py` 的 `content_run_id()` 是生成该值的单一实现，编排各阶段与步 11 都复用它。
 
 `scripts/selftest.py` 是纯脚本层，零外部依赖必能跑；`scripts/run_fixtures.py` 跑随包 good / bad 回归；`scripts/smoke_ai.py` 是独立的真机冒烟命令，真实探测并调用 VectorCraft 落地，引擎不可用按 L4 显式降级并留真实日志，绝不编造 `.ai`。
 
@@ -359,7 +362,8 @@ python scripts/batch_check.py --runs-dir path/to/run --out path/to/run/batch.jso
 
 ```
 python scripts/land_vc.py --svg path/to/round/sanitized.svg --out path/to/run --profile print
-python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptance.json
+# RUN_ID：内容派生（见步 11），由 scripts/studio.py 的 content_run_id() 生成；缺省必 H3=fail
+python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptance.json --run-id "$RUN_ID"
 ```
 
 快速预览用 `scripts/aggregate_log.py --quick`；只取 H1 证据、不评级用 `scripts/aggregate_log.py --landing-only`。
