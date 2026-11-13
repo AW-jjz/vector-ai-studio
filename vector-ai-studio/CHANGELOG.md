@@ -4,6 +4,25 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.18.0 — 2026-11-13 [r84]
+
+M3 measurement correction: the Pillow reference renderer had two bugs, so two
+divergence ratios were measured against a wrong reference.
+
+- **`rect-stroked`**: SVG strokes are centred on the path; Pillow's
+  `rectangle(outline=, width=)` draws the outline INSIDE the box. The
+  reference was 2 px narrower on every side. It now draws the outer stroke
+  edge and the visible fill explicitly.
+- **`transform`**: the SVG matrix is `[cos -sin; sin cos]` with y DOWN, so
+  `rotate(45)` turns clockwise on screen. The reference used `-pi/4` and
+  produced a mirrored bbox. The sign is fixed; the geometry was already right.
+- The committed capability matrix is re-measured: `rect-stroked` 0.0567 ->
+  0.0560, `transform` 0.0751 -> 0.0745. Both are still divergent, because the
+  builtin ignores stroke and transform entirely -- the classifications do not
+  change, only the numbers are now measured against a correct reference.
+- No threshold, gate or claim changed. A94 (`scripts/fidelity_matrix.py --check`)
+  passes on the new matrix.
+
 ## 1.17.0 — 2026-11-13 [r83]
 
 4.3, follow-up: PDF/X identification and a sourced requirement ledger. The

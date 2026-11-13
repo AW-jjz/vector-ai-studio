@@ -125,7 +125,12 @@ def _pil_reference(kind, w, h):
     if kind == "rect_solid":
         dr.rectangle((20, 20, 60 - 1, 50 - 1), fill=col)
     elif kind == "rect_stroked":
-        dr.rectangle((20, 20, 60 - 1, 50 - 1), fill=col, outline=(17, 17, 17), width=4)
+        # SVG stroke is CENTRED on the path: half outside, half inside. Pillow's
+        # rectangle(outline=, width=) draws the outline INSIDE the box, which
+        # made the old reference 2 px narrower on every side and inflated the
+        # divergence. Draw the outer edge and the visible fill explicitly.
+        dr.rectangle((18, 18, 61, 51), fill=(17, 17, 17))
+        dr.rectangle((22, 22, 57, 47), fill=col)
     elif kind == "circle":
         dr.ellipse((25, 25, 75 - 1, 75 - 1), fill=col)
     elif kind == "ellipse":
@@ -151,9 +156,12 @@ def _pil_reference(kind, w, h):
         dr.text((20, 36), "ABC", fill=col, font=fnt)
     elif kind == "transform":
         import math
-        # rotate(45 50 50): the rect corners rotated about (50,50)
+        # rotate(45 50 50): SVG's matrix is [cos -sin; sin cos] with y DOWN, so
+        # a positive angle turns clockwise on screen. The old reference used
+        # -pi/4 and produced a mirrored bbox; cairosvg (and SVG) go the other
+        # way. The sign is the bug, not the geometry.
         pts = [(25, 25), (65, 25), (65, 55), (25, 55)]
-        a = -3.14159265358979 / 4.0
+        a = 3.14159265358979 / 4.0
         cx, cy = 50.0, 50.0
         rot = [(cx + (x - cx) * math.cos(a) - (y - cy) * math.sin(a),
                 cy + (x - cx) * math.sin(a) + (y - cy) * math.cos(a)) for x, y in pts]

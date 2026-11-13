@@ -25,13 +25,13 @@
       "feature": "rect-stroked",
       "claim": "limited",
       "measured": "divergent",
-      "diff_ratio": 0.0567,
+      "diff_ratio": 0.056,
       "interior_ok": false,
       "diff_bbox": [
-        20,
-        20,
-        61,
-        51
+        18,
+        18,
+        62,
+        52
       ],
       "note": ""
     },
@@ -137,13 +137,13 @@
       "feature": "transform",
       "claim": "limited",
       "measured": "divergent",
-      "diff_ratio": 0.0751,
+      "diff_ratio": 0.0745,
       "interior_ok": false,
       "diff_bbox": [
+        25,
         14,
-        21,
-        66,
-        72
+        79,
+        65
       ],
       "note": ""
     },
