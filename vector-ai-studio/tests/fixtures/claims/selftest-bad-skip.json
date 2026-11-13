@@ -1,0 +1,438 @@
+{
+ "data": {
+  "assertions": [
+   {
+    "id": "A1-envelope-exit-codes",
+    "ok": true
+   },
+   {
+    "id": "A4-cwd-independent",
+    "ok": true
+   },
+   {
+    "id": "A3-idempotent-byte-identical",
+    "ok": true
+   },
+   {
+    "id": "A2-thresholds-single-source",
+    "ok": true
+   },
+   {
+    "id": "A5-no-inline-source-and-mapping",
+    "ok": true
+   },
+   {
+    "id": "A6-O3-no-excellent-wording",
+    "ok": true
+   },
+   {
+    "id": "A7-H4-no-credential-value-read",
+    "ok": true
+   },
+   {
+    "id": "A8-dual-runtime-consistent",
+    "ok": true
+   },
+   {
+    "id": "A9-calibration-policy",
+    "ok": true
+   },
+   {
+    "id": "A10-quick-f-not-verified",
+    "ok": true
+   },
+   {
+    "id": "A11-fallback-png-strict-H2",
+    "ok": true
+   },
+   {
+    "id": "A12-L2-indeterminate-not-fail",
+    "ok": true
+   },
+   {
+    "id": "A14-generation-budget-derived",
+    "ok": true
+   },
+   {
+    "id": "A15-F-data-isolation",
+    "ok": true
+   },
+   {
+    "id": "A16-L2-anti-fabrication",
+    "ok": true
+   },
+   {
+    "id": "A17-quick-not-graded",
+    "ok": true
+   },
+   {
+    "id": "A18-F-merged-reachable",
+    "ok": true
+   },
+   {
+    "id": "A18c-fake-ai-h1-fails",
+    "ok": true
+   },
+   {
+    "id": "A18b-validator-accepts-pass",
+    "ok": true
+   },
+   {
+    "id": "A19-full-track-no-score-rejected",
+    "ok": true
+   },
+   {
+    "id": "A20-landing-only-unevaluated",
+    "ok": true
+   },
+   {
+    "id": "A21-exemption-abuse-both-ways",
+    "ok": true
+   },
+   {
+    "id": "A22-package-hygiene",
+    "ok": true
+   },
+   {
+    "id": "A23-L2-six-keys",
+    "ok": true
+   },
+   {
+    "id": "A24-full-required-dims",
+    "ok": true
+   },
+   {
+    "id": "A25-pass-missing-e-rejected",
+    "ok": true
+   },
+   {
+    "id": "A26-frontmatter-metadata-mirror",
+    "ok": true
+   },
+   {
+    "id": "A27-schema-accepts-real-rejects-broken",
+    "ok": true
+   },
+   {
+    "id": "A28-error-code-registry",
+    "ok": true
+   },
+   {
+    "id": "A80-registry-scan-catches-unregistered",
+    "ok": true
+   },
+   {
+    "id": "A81-smoke-rating-follows-acceptance",
+    "ok": true
+   },
+   {
+    "id": "A29-content-ops-measurement",
+    "ok": true
+   },
+   {
+    "id": "A30-vectorcraft-chain-h1-h2",
+    "ok": null
+   },
+   {
+    "id": "A31-deliverable-schema-no-drift",
+    "ok": null
+   },
+   {
+    "id": "A33-perceptual-reference-vectors",
+    "ok": true
+   },
+   {
+    "id": "A34-contrast-catches-cvd-collapse",
+    "ok": true
+   },
+   {
+    "id": "A35-dense-path-keeps-evidence",
+    "ok": true
+   },
+   {
+    "id": "A36-icc-request-not-claimed",
+    "ok": true
+   },
+   {
+    "id": "A37-tool-warnings-deduplicated",
+    "ok": true
+   },
+   {
+    "id": "A38-engine-version-parser",
+    "ok": true
+   },
+   {
+    "id": "A39-font-probe-carried",
+    "ok": true
+   },
+   {
+    "id": "A40-failed-landing-clears-stale-evidence",
+    "ok": true
+   },
+   {
+    "id": "A41-brand-reference-jaccard",
+    "ok": true
+   },
+   {
+    "id": "A47-failed-preview-clears-stale-png",
+    "ok": true
+   },
+   {
+    "id": "A48-silent-cli-cannot-inherit-outputs",
+    "ok": true
+   },
+   {
+    "id": "A49-design-archetypes-are-legal-vectors",
+    "ok": true
+   },
+   {
+    "id": "A50-studio-chain-orders-and-stops",
+    "ok": true
+   },
+   {
+    "id": "A51-review-pack-anonymous-and-deterministic",
+    "ok": true
+   },
+   {
+    "id": "A52-deal-no-repeat-and-no-silent-reset",
+    "ok": true
+   },
+   {
+    "id": "A53-legibility-fails-what-the-eye-misses",
+    "ok": true
+   },
+   {
+    "id": "A54-failed-dimension-names-its-action",
+    "ok": true
+   },
+   {
+    "id": "A55-review-sheet-empty-is-not-evidence",
+    "ok": true
+   },
+   {
+    "id": "A56-conformance-checks-brief-and-reports-unchecked",
+    "ok": true
+   },
+   {
+    "id": "A59-inherited-presentation-attrs",
+    "ok": true
+   },
+   {
+    "id": "A61-inline-style-is-read-and-inherited",
+    "ok": true
+   },
+   {
+    "id": "A62-style-sheets-are-applied-or-refused",
+    "ok": true
+   },
+   {
+    "id": "A63-unreadable-rules-fail-closed",
+    "ok": true
+   },
+   {
+    "id": "A64-style-cascade-follows-specificity",
+    "ok": true
+   },
+   {
+    "id": "A65-unrendered-content-is-not-measured",
+    "ok": true
+   },
+   {
+    "id": "A66-unmeasurable-geometry-fails-the-rule",
+    "ok": true
+   },
+   {
+    "id": "A67-currentcolor-resolves-through-color",
+    "ok": true
+   },
+   {
+    "id": "A68-stroke-is-measured-as-ink",
+    "ok": true
+   },
+   {
+    "id": "A69-a-picture-with-no-ink-fails",
+    "ok": true
+   },
+   {
+    "id": "A70-shipped-examples-pass-their-rules",
+    "ok": true
+   },
+   {
+    "id": "A71-one-inline-style-parser",
+    "ok": true
+   },
+   {
+    "id": "A72-unmeasurable-length-is-not-zero",
+    "ok": true
+   },
+   {
+    "id": "A73-colour-identity-and-default-fill",
+    "ok": true
+   },
+   {
+    "id": "A74-syntax-variants-are-measured",
+    "ok": true
+   },
+   {
+    "id": "A75-malformed-rule-numbers-exit-2",
+    "ok": true
+   },
+   {
+    "id": "A57-source-ledger-tracks-what-enters-the-artwork",
+    "ok": true
+   },
+   {
+    "id": "A58-licence-claim-needs-source-and-date",
+    "ok": true
+   },
+   {
+    "id": "A42-delight-flattens-lighting",
+    "ok": true
+   },
+   {
+    "id": "A43-export-print-dimensions",
+    "ok": true
+   },
+   {
+    "id": "A44-trace-ref-contract",
+    "ok": true
+   },
+   {
+    "id": "A45-uniform-error-envelope",
+    "ok": true
+   },
+   {
+    "id": "A46-craft-only-landing",
+    "ok": null
+   },
+   {
+    "id": "A82-redteam-attacks-all-blocked",
+    "ok": true
+   },
+   {
+    "id": "A83-contract-is-the-single-source",
+    "ok": true
+   },
+   {
+    "id": "A84-claims-registry-holds",
+    "ok": null
+   },
+   {
+    "id": "A89-claims-skip-optional-policy",
+    "ok": true
+   },
+   {
+    "id": "A90-install-verifier-cannot-fake-green",
+    "ok": true
+   },
+   {
+    "id": "A91-journal-chains-and-replays-clean",
+    "ok": true
+   },
+   {
+    "id": "A92-replay-catches-tampering",
+    "ok": true
+   },
+   {
+    "id": "A85-narrow-track-cannot-launder",
+    "ok": true
+   },
+   {
+    "id": "A86-three-valued-verdict",
+    "ok": true
+   },
+   {
+    "id": "A87-degradation-loss-list",
+    "ok": true
+   },
+   {
+    "id": "A88-engine-lock-detects-swapped-binary",
+    "ok": true
+   },
+   {
+    "id": "A93-witness-anchors-certification",
+    "ok": true
+   },
+   {
+    "id": "A94-fidelity-claims-measured",
+    "ok": true
+   },
+   {
+    "id": "A95-krippendorff-anchored-to-publication",
+    "ok": true
+   },
+   {
+    "id": "A96-review-protocol-preregistered",
+    "ok": true
+   },
+   {
+    "id": "A97-bradleyterry-properties",
+    "ok": true
+   },
+   {
+    "id": "A98-pairwise-roundtrip",
+    "ok": true
+   },
+   {
+    "id": "A99-reviewer-token-identity",
+    "ok": true
+   },
+   {
+    "id": "A100-threshold-promotion-guard",
+    "ok": true
+   },
+   {
+    "id": "A101-calibration-bench",
+    "ok": true
+   },
+   {
+    "id": "A102-ruling-record",
+    "ok": true
+   },
+   {
+    "id": "A103-pdf-independent-preflight",
+    "ok": true
+   },
+   {
+    "id": "A104-pdfx-print-preflight",
+    "ok": null
+   },
+   {
+    "id": "A105-cross-renderer-cairosvg",
+    "ok": true
+   },
+   {
+    "id": "A106-verdict-kit-vendored",
+    "ok": true
+   },
+   {
+    "id": "A107-envelope-facade-byte-parity",
+    "ok": true
+   },
+   {
+    "id": "A77-single-grade-derivation",
+    "ok": true
+   },
+   {
+    "id": "A78-rundir-fixtures-coverage",
+    "ok": true
+   },
+   {
+    "id": "A79-validator-recomputes-internal-excellent",
+    "ok": true
+   },
+   {
+    "id": "A13-fixtures-regression",
+    "ok": true
+   },
+   {
+    "id": "A76-capability-skips-are-declared",
+    "ok": true
+   },
+   {
+    "id": "A60-assertion-count-declared",
+    "ok": true
+   }
+  ]
+ }
+}

@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.21.1
+version: 1.22.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.21.1"
+  version: "1.22.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -319,6 +319,8 @@ H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生
 **verdict-kit Phase 0（r86）**：`scripts/_vendor/verdict-kit/` 是 vendored 的判定工具骨架（信封 / claims / 断言 / 契约），A106 在异目录跑 25 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 一个都没改。
 
 **verdict-kit Phase 1a（r87/r88）**：`scripts/lib_common.py` 的 `envelope()` / `emit()` 改为调用 vendored `verdict_kit.envelope`，schema 仍是 vector-ai-studio/v1；`ToolError` 与 `run_cli` 暂不动。A107 用改动前冻结的 golden bytes 逐字节比对（13 组，含 Linux 上常见的 `partial` / unicode / degraded / missing / fail / error / ok+code1 / artifacts），不是拿同一份代码自证。
+
+**verdict-kit Phase 1b（r89）**：`scripts/validate_claims.py` 也变成 vendored `ClaimRegistry` 的适配器——CLI flags 与结果 schema 不变；A108 用改动前冻结的 4 组 golden（无日志 / 通过日志 / 坏跳过 / 哈希漂移）做语义 parity（`by_mechanism` 的键序不是承诺）。
 
 `scripts/verify_install.py` 回答的是另一个问题：**这台机器上的引擎路径通不通**。自检里 A30 / A31 / A46 三条依赖真实引擎，没有引擎时它们是 *skipped*（跳过是「没测」，不是「通过」）——所以「自检全绿」并不证明引擎能用。`scripts/verify_install.py` 复用这三条断言（不另立判据），再真跑一次 `land_vc` 与 `land_craft` 留下产物证据，并核对引擎二进制哈希与 `engine.lock.json` 里钉的那一个是否一致。**引擎缺席时它只报「无法复测」并退 3，绝不报 ok**；哈希对不上则报 `E-ENGINE-DRIFT`（同版本、不同构建，之前的回归结论不再成立）。
 

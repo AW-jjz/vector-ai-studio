@@ -1,0 +1,13 @@
+{
+ "schema": "vector-ai-studio/claims-v1",
+ "claims": [
+  {
+   "id": "CLAIM-TAMPER",
+   "file": "SKILL.md",
+   "anchor": "description: 把一句",
+   "text_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+   "mechanism": "unverified",
+   "note": "fixture"
+  }
+ ]
+}

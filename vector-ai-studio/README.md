@@ -123,6 +123,7 @@ python scripts/verify_install.py --json
 - 保真度矩阵有可选的第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只对 `faithful` 特征要求像素一致，`limited` 只要求渲染非空；cairosvg/原生 cairo 缺席退 3。
 - Phase 0 的 verdict-kit 骨架 vendored 在 `scripts/_vendor/verdict-kit/`：A106 跑 25 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 未改。
 - Phase 1a 起 `lib_common` 的 `envelope()` / `emit()` 委托给 vendored 信封；A107 用 13 组冻结 golden（含 `partial`）做逐字节 parity，`ToolError`/`run_cli` 暂不动。
+- Phase 1b 起 `scripts/validate_claims.py` 委托给 vendored `ClaimRegistry`；A108 用 4 组冻结 golden（无日志 / 通过日志 / 坏跳过 / 哈希漂移）做语义 parity。
 
 
 ## 自检说明

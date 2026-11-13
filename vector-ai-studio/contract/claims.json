@@ -606,9 +606,9 @@
     {
       "id": "CLAIM-061",
       "file": "SKILL.md",
-      "anchor": "`scripts/validat",
+      "anchor": "`scripts/validate_claims.py` 把**对外声明**",
       "text_hash": "sha256:c11305cc39fba955843da8fc611d9487d0e73852601d93022dd3c09865a2b8a6",
-      "claim": "`scripts/validate_claims.py` 把**对外声明**与**测试**绑在一起：`contract/claims.json` 登记每一条可证伪的对外承诺（原文哈希、机制、对应测试），校验器在 CI 里跑——改了文档没改契约就红；`assertion` 类声明必须挂真实存在且通过的测试；`bounda",
+      "claim": "`scripts/validate_claims.py` 把**对外声明**与**测试**绑在一起：`contract/claims.json` 登记每一条可证伪的对外承诺（原文哈希、机制、对应测试），校验器在 CI 里跑——改了文档没改契约就红；`assertion` 类声明必须挂真实存在且通过的测试；`boundary-declaration` 类必须挂一条**真的漏过去**的攻击（否则就是在低估自己）",
       "mechanism": "assertion",
       "tests": [
         "A84-claims-registry-holds"

@@ -5110,6 +5110,36 @@ def _stage_r87(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r89(tmp, add):
+    """A108: validate_claims is an adapter over the vendored ClaimRegistry.
+
+    The four golden envelopes were frozen BEFORE the adapter switch: the
+    happy path without a log, the happy path with a passing log, a skipped
+    guard that is not a declared capability skip, and a tampered hash. The
+    comparison is semantic JSON equality (by_mechanism key order is not a
+    promise), and it checks the envelope status/code too.
+    """
+    try:
+        fix = ROOT / "tests" / "fixtures" / "claims"
+        cases = [
+            ("expected-no-log", []),
+            ("expected-with-log", ["--selftest-json", str(fix / "selftest-pass.json")]),
+            ("expected-bad-skip", ["--selftest-json", str(fix / "selftest-bad-skip.json")]),
+            ("expected-tampered", ["--claims", str(fix / "tampered.json")]),
+        ]
+        bad = []
+        for name, args in cases:
+            rc, env, _ = _call("validate_claims.py", ["--json"] + args, tmp)
+            want = json.loads((fix / (name + ".json")).read_text(encoding="utf-8"))
+            if env != want or env.get("code") != want.get("code"):
+                bad.append(name)
+        add("A108-claims-adapter-parity", not bad,
+            "cases=%d bad=%s" % (len(cases), ",".join(bad) or "-"))
+    except Exception as e:                      # noqa: BLE001
+        add("A108-claims-adapter-parity", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -5175,6 +5205,7 @@ def main():
     _stage_r85(tmp, add)
     _stage_r86(tmp, add)
     _stage_r87(tmp, add)
+    _stage_r89(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

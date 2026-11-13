@@ -4,6 +4,30 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.22.0 — 2026-11-13 [r89]
+
+verdict-kit, phase 1b: the claims adapter. `scripts/validate_claims.py` is now a thin
+CLI adapter over the vendored `ClaimRegistry`; the flags (`--claims`,
+`--selftest-json`, `--json`) and the result schema
+(vector-ai-studio/claims-result-v1) are unchanged.
+
+- **Golden first**: four envelopes were frozen BEFORE the switch -- the happy
+  path without a log, the happy path with a passing log, a skipped guard that
+  is not a declared capability skip, and a tampered hash. A108 replays each
+  and compares the parsed JSON plus the envelope status/code. Semantic
+  equality is the contract; `by_mechanism` key order is not a promise.
+- **What moved**: sentence splitting, anchor resolution, hash comparison,
+  mechanism checks (assertion / boundary / unverified), capability-skip
+  policy and the coverage ratchet now live in `verdict_kit.registry`. The
+  skill still injects its scan files, mandatory words, assertion ids, attack
+  map and `CAPABILITY_SKIPS`.
+- **Two stricter behaviours from the kit** are intentional: claim file paths
+  may not escape the skill root, and a claim without `text_hash` is refused
+  (the current 143 all carry one).
+- **A108** pins the four cases. `EXPECTED_ASSERTIONS` 107 -> 108
+  (--fixtures 109/109; plain 108/108); claims stay 143. No threshold value
+  changed.
+
 ## 1.21.1 — 2026-11-13 [r88]
 
 Patch: 1.21.0 was withdrawn after Linux CI turned red. `lib_common` now emits

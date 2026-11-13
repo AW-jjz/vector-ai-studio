@@ -1,0 +1,890 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "validate_claims.py",
+  "run_id": "",
+  "status": "ok",
+  "code": 0,
+  "data": {
+    "schema": "vector-ai-studio/claims-result-v1",
+    "claims": 143,
+    "ok": 143,
+    "by_mechanism": {
+      "unverified": 68,
+      "assertion": 67,
+      "boundary-declaration": 8
+    },
+    "coverage": {
+      "mandatory_sentences": 138,
+      "registered": 138,
+      "ratio": 1.0,
+      "floor": 1.0
+    },
+    "problems": [],
+    "results": [
+      {
+        "id": "CLAIM-001",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-002",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-003",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-004",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-005",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-006",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-007",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-008",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-009",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-010",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-011",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-012",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-013",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-014",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-015",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-016",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-017",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-018",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-019",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-020",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-021",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-022",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-023",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-024",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-025",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-026",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-027",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-028",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-029",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-030",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-031",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-032",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-033",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-034",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-035",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-036",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-037",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-038",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-039",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-040",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-041",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-042",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-043",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-044",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-045",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-046",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-047",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-048",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-049",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-050",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-051",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-052",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-053",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-054",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-055",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-056",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-057",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-058",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-059",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-060",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-061",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-062",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-063",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-064",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-065",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-066",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-067",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-068",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-069",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-070",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-071",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-072",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-073",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-074",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-075",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-076",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-077",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-078",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-079",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-080",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-081",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": [],
+        "skipped_optional": [
+          "A31-deliverable-schema-no-drift"
+        ]
+      },
+      {
+        "id": "CLAIM-082",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-083",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-084",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-085",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-086",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-087",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-088",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-089",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-090",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-091",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-092",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-093",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-094",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-095",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-096",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-097",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-098",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-099",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-100",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-101",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-102",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-103",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-104",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-105",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-106",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-107",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-108",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-109",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-110",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-111",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-112",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-113",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-114",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-115",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-116",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-117",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-118",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-119",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-120",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-121",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-122",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-123",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-124",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-125",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-126",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-127",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-128",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-129",
+        "mechanism": "boundary-declaration",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-130",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-131",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-132",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-133",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-134",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-135",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-136",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-137",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-138",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-139",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-140",
+        "mechanism": "unverified",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-141",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-142",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      },
+      {
+        "id": "CLAIM-143",
+        "mechanism": "assertion",
+        "ok": true,
+        "problems": []
+      }
+    ]
+  },
+  "errors": [],
+  "warnings": [],
+  "artifacts": {}
+}

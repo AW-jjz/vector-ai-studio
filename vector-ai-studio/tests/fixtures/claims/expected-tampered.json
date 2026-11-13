@@ -1,0 +1,43 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "validate_claims.py",
+  "run_id": "",
+  "status": "fail",
+  "code": 1,
+  "data": {
+    "schema": "vector-ai-studio/claims-result-v1",
+    "claims": 1,
+    "ok": 0,
+    "by_mechanism": {
+      "unverified": 1
+    },
+    "coverage": {
+      "mandatory_sentences": 138,
+      "registered": 1,
+      "ratio": 0.0072,
+      "floor": 1.0
+    },
+    "problems": [
+      "CLAIM-TAMPER: text changed: registry says sha256:0000000000000000000000000000000000000000000000000000000000000000, file says sha256:3b3d0b87bbd9ae3fe06a113641b9153c89c25520c0cd7cc24a5700bd40bc86a6",
+      "claim coverage 0.007 is below the declared floor 1.000"
+    ],
+    "results": [
+      {
+        "id": "CLAIM-TAMPER",
+        "mechanism": "unverified",
+        "ok": false,
+        "problems": [
+          "text changed: registry says sha256:0000000000000000000000000000000000000000000000000000000000000000, file says sha256:3b3d0b87bbd9ae3fe06a113641b9153c89c25520c0cd7cc24a5700bd40bc86a6"
+        ]
+      }
+    ]
+  },
+  "errors": [
+    {
+      "code": "E-CLAIMS-DRIFT",
+      "msg": "claim registry does not hold: CLAIM-TAMPER: text changed: registry says sha256:0000000000000000000000000000000000000000000000000000000000000000, file says sha256:3b3d0b87bbd9ae3fe06a113641b9153c89c25520c0cd7cc24a5700bd40bc86a6; claim coverage 0.007 is below the declared floor 1.000"
+    }
+  ],
+  "warnings": [],
+  "artifacts": {}
+}
