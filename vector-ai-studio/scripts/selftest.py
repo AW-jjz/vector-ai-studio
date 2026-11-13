@@ -3896,6 +3896,103 @@ def _stage_r72(tmp, add, th):
         " exit=" + str(rc90) + " status=" + str(env90.get("status")) +
         " verdict=" + verdict90[:64] + " checks=" + str(len(checks90)))
 
+    # ---- A91: the evidence journal chains a real run and replays clean -----
+    # M2: aggregate now hashes every file in the run dir into journal.jsonl
+    # (production-time binding), and replay.py re-runs the PUBLIC aggregator
+    # on a copy and byte-compares both the acceptance log and the journal.
+    # The base run must replay byte-identically -- and the journal must
+    # cover the shipped acceptance.json itself, not just the side files.
+    d91 = tmp / "journal-base"
+    RT.base_run(d91, "attack")
+    rc_a91, _, _ = _call("aggregate_log.py",
+                         ["--run-dir", str(d91), "--run-id", "attack",
+                          "--out", str(d91 / "acceptance.json")], tmp)
+    journal_path = d91 / "journal.jsonl"
+    n_entries = 0
+    acceptance_bound = False
+    if journal_path.is_file():
+        for _line in journal_path.read_text(encoding="utf-8").splitlines():
+            if not _line.strip():
+                continue
+            n_entries += 1
+            try:
+                if json.loads(_line).get("path") == "acceptance.json":
+                    acceptance_bound = True
+            except json.JSONDecodeError:
+                pass
+    rc_j, env_j, _ = _call("journal.py",
+                           ["--verify", str(journal_path), "--root", str(d91),
+                            "--json"], tmp)
+    rc_r, env_r, _ = _call("replay.py",
+                           ["--run-dir", str(d91), "--json"], tmp)
+    d_r = env_r.get("data") or {}
+    add("A91-journal-chains-and-replays-clean",
+        rc_a91 == 0 and journal_path.is_file() and n_entries >= 8
+        and acceptance_bound and rc_j == 0 and rc_r == 0
+        and d_r.get("verdict") == "REPLAYED AND IDENTICAL",
+        "agg_exit=" + str(rc_a91) + " entries=" + str(n_entries) +
+        " acceptance_bound=" + str(acceptance_bound) +
+        " journal_exit=" + str(rc_j) + " replay_exit=" + str(rc_r) +
+        " verdict=" + str(d_r.get("verdict"))[:40])
+
+    # ---- A92: replay must catch every cheap forgery ------------------------
+    # score/preview edits (M1/M4 in the design notes), a forged verdict (M2)
+    # and a journal edit (M3) each have to turn replay red with a precise
+    # code. One assertion bundles the four mutants because they share the
+    # base run -- but each mutant is its own replay subprocess, so a single
+    # fluke cannot green the bundle.
+    mutant_results = []
+
+    def _replay_tampered(tag, mutate):
+        d92 = tmp / ("journal-tamper-" + tag)
+        RT.base_run(d92, "attack")
+        rc_t, _, _ = _call("aggregate_log.py",
+                           ["--run-dir", str(d92), "--run-id", "attack",
+                            "--out", str(d92 / "acceptance.json")], tmp)
+        mutate(d92)
+        rc_r92, env_r92, _ = _call("replay.py", ["--run-dir", str(d92), "--json"], tmp)
+        codes = _codes(env_r92)
+        mutant_results.append((tag, rc_t, rc_r92, codes))
+
+    def _mut_score(d92):
+        sp = d92 / "selftest.json"
+        doc = json.loads(sp.read_text(encoding="utf-8"))
+        doc["passed"] = 1
+        sp.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                      encoding="utf-8")
+
+    def _mut_accept(d92):
+        ap = d92 / "acceptance.json"
+        doc = json.loads(ap.read_text(encoding="utf-8"))
+        doc["grade"] = "达标"
+        doc["needs_human_review"] = False
+        ap.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                      encoding="utf-8")
+
+    def _mut_journal(d92):
+        jp = d92 / "journal.jsonl"
+        lines = jp.read_text(encoding="utf-8").splitlines()
+        e0 = json.loads(lines[0])
+        e0["sha256"] = "0" * 64
+        lines[0] = json.dumps(e0, ensure_ascii=False, sort_keys=True,
+                              separators=(",", ":"))
+        jp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def _mut_preview(d92):
+        (d92 / "preview.png").write_bytes(b"not a png at all")
+
+    _replay_tampered("evidence", _mut_score)
+    _replay_tampered("verdict", _mut_accept)
+    _replay_tampered("journal", _mut_journal)
+    _replay_tampered("preview", _mut_preview)
+    # every mutant must exit 1 AND carry a replay-family code
+    a92_ok = all(rc == 1 and any(c in ("E-ARTIFACT-DRIFT", "E-REPLAY-MISMATCH",
+                                       "E-JOURNAL-BROKEN") for c in codes)
+                 for _tag, _rc_a, rc, codes in mutant_results)
+    add("A92-replay-catches-tampering", bool(a92_ok),
+        ";".join("%s:exit=%d:%s" % (t, rc, ",".join(codes[:2]))
+                 for t, _ra, rc, codes in mutant_results))
+
     # ---- A85: the narrow track may not launder a full run ----------------
     d5 = tmp / "narrow"
     RT.base_run(d5, "attack")

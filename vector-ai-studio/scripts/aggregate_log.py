@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
 import lib_pdf  # r70 #2: byte-only H1 probe, no engine subprocess
 import _contract as C
+import journal  # r73 (M2): production-time evidence hash chain
 
 SCRIPT = "aggregate_log.py"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -996,7 +997,15 @@ def main():
         if cand.is_file():
             d = _load_optional(cand)
             if isinstance(d, dict):
-                selftest_log, h3_source = d, str(cand)
+                # r73 (M2): record WHERE the log is relative to the run dir,
+                # never the absolute path. acceptance.json must be determined
+                # by the run's CONTENT, not by where the directory happens to
+                # live -- an absolute path here made the same bytes replay to
+                # different bytes from a different location, which is an
+                # idempotency violation the replay byte-compare caught.
+                h3_source = (cand.relative_to(run_dir).as_posix()
+                             if cand.is_relative_to(run_dir) else cand.name)
+                selftest_log = d
                 break
     h3_status = "unverified"
     h3_reason = "no selftest.json next to the run artifacts"
@@ -1260,6 +1269,11 @@ def main():
                    "note": "default chain checks names only, never reads values"},
         },
         "degradation": degradation,
+        # r73 (M2): the name of the production-time evidence journal, written
+        # next to this file by the code below. The name only -- the journal's
+        # content varies with the run (it binds final.ai / run.log-era files),
+        # and acceptance.json must stay byte-idempotent (A3).
+        "evidence_journal": "journal.jsonl",
         "artifacts": {
             "final_ai": final_ai.name if ai_ok else "",
             "final_svg": final_svg.name if final_svg.is_file() else "",
@@ -1304,8 +1318,19 @@ def main():
                      "）"),
     }
     L.write_text_atomic(run_dir / "delivery-note.md", _template_note(th, note_values))
+
+    # r73 (M2): production-time evidence binding. EVERY file in the run dir
+    # (minus the journal itself and the wall-clock run.log) is hashed into a
+    # chain. replay.py verifies the chain, re-hashes the artifacts, and
+    # byte-compares a fresh aggregation -- so a verdict or an evidence file
+    # edited after this point is detectable by the consumer, not just by us.
+    # Written AFTER acceptance.json / delivery-note.md so the chain binds the
+    # exact bytes that ship.
+    journal_entries = journal.build_entries(run_dir)
+    journal.write_journal(run_dir / "journal.jsonl", journal_entries)
     L.append_run_log(run_dir, SCRIPT + " mode=" + mode + " grade=" + str(grade) +
-                     " h2=" + str(h2_ok))
+                     " h2=" + str(h2_ok) +
+                     " journal_entries=" + str(len(journal_entries)))
 
     errors = calib_problems + validation_problems
     # r70 #2: reuse E-H1-STRUCTURE for a failed independent byte probe (both

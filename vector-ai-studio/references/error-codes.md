@@ -61,6 +61,9 @@
 | `E-TRACE` | 参考图描摹失败（引擎报错或未产出文件） | trace_ref |
 | `E-USAGE` | 参数非法（取值越界 / 缺少必填 / 扩展名不支持） | delight, export_print, trace_ref, studio |
 | `E-VERIFY-FAILED` | 安装自验（`../scripts/verify_install.py`）有一项未达预期：引擎不可定位 / 版本读不出 / 二进制哈希与 `../engine.lock.json` 不符 / 引擎相关断言未真执行 / 真机落地未产出合格产物；逐项列出。引擎缺席时退 3（无法复测，不是失败） | verify_install |
+| `E-JOURNAL-BROKEN` | 证据哈希链不成立：journal 缺失 / 某行不是 JSON / seq 断号 / prev 链断裂 / 条目自哈希不符 | journal, replay |
+| `E-ARTIFACT-DRIFT` | 证据工件在入链之后字节变了：当前 sha256 与 journal 记录不符，或重算出的 journal 与随包 journal 不一致 | journal, replay |
+| `E-REPLAY-MISMATCH` | 证据重放不一致：对 run 目录副本重跑聚合器，产物与随包验收日志逐字节比对不符（附 JSON 字段级差异清单） | replay |
 
 ## 约定
 

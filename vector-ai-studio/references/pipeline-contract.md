@@ -33,7 +33,8 @@
 | landing.json | vector-ai-studio/landing-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | automation / status / degradation / ai_produced |
 | studio.json | vector-ai-studio/studio-v1 | `../scripts/studio.py` | status / stages[]（stage / status / code / errors / detail）；单稿编排的阶段流水，不参与评级 |
 | key.json | vector-ai-studio/review-key-v1 | `../scripts/studio.py --review-pack` | seed / cases[]（case → source）；盲评映射，只给归档、不给评审人 |
-| acceptance.json | vector-ai-studio/acceptance-v1 | `../scripts/aggregate_log.py` | headline(首行) / grade / tier / scores / rounds / hard_gates / degradation / evidence_coverage / deliverable_status / criteria_version / thresholds_sha256 / legacy_grading |
+| acceptance.json | vector-ai-studio/acceptance-v1 | `../scripts/aggregate_log.py` | headline(首行) / grade / tier / scores / rounds / hard_gates / degradation / evidence_coverage / deliverable_status / criteria_version / thresholds_sha256 / legacy_grading / evidence_journal |
+| journal.jsonl | 证据哈希链（r73） | `../scripts/aggregate_log.py` | 每行一条 `{seq, prev, kind, path, sha256, bytes, hash}`；覆盖 run 目录全部文件（除 journal 自身与 run.log），含 acceptance.json 自身；无 wall-clock，同输入逐字节一致 |
 | deal.json | vector-ai-studio/deal-v1 | `../scripts/deal.py` | seed / tones / excluded_from_previous_rounds / directions[]（archetype / palette / composition / why / risk） |
 | deal-history.json | vector-ai-studio/deal-history-v1 | `../scripts/deal.py` | rounds[]，只保留最近两轮；损坏或 schema 不符即 `E-SCHEMA` 退出 2，不覆盖原文件 |
 | legibility.json | vector-ai-studio/legibility-v1 | `../scripts/legibility.py` | measured（contrast / coverage / coverage_small / components / gray_bands）/ verdicts[] / gates |
@@ -133,6 +134,18 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 - **判据版本随日志走**：`output/<run-id>/acceptance.json` 记 `criteria_version`（当前 2.0.0）与 `thresholds_sha256`——结论只在该判据版本与该阈值文件下有效。旧日志的处理与下游脚本改法见 `../MIGRATION.md`。
 - **兼容开关**：`--two-valued` 把「未判定」折回旧措辞（日志标 `legacy_grading: true`），达标 / 不达标的判定边界一个都不变。这是给暂时读不懂三值的下游留的措辞开关，不是免重算的通行证——新字段照常写入。
 - **窄轨防洗白**：目录里已有 `output/<run-id>/score.json` / `output/<run-id>/judge.json` / `output/<run-id>/selftest.json` / `output/<run-id>/batch.json` 任何一件时，`--landing-only` 直接 `E-EXEMPTION-ABUSE`——窄轨是给跑不动完整链的机器留的取证通道，不是把完整 run 的判决藏起来的后门。
+
+## 证据哈希链与重放（r73 / M2）
+
+聚合时（`../scripts/aggregate_log.py`）把 run 目录里**每个文件**哈希进一条链，写 `output/<run-id>/journal.jsonl`：每行 `{seq, prev, kind, path, sha256, bytes, hash}`，`hash` = 该条目规范 JSON（排序键、紧凑分隔符、去 hash 字段）的 sha256，`prev` 指向上一条，创世 `prev = 0…0`。链里**不含 wall-clock**（同输入两次聚合逐字节一致），只排除 journal 自身与 run.log；acceptance.json 与 deliverable.json 都在链里——**判决文件本身被生产时绑定**。final.ai 也入链（非幂等，但其哈希只进 journal、不进 acceptance.json，A3 不受影响）。
+
+消费侧 `../scripts/replay.py`（**角色分离**：生产侧写证据与 journal，消费侧重放）：
+
+1. **验链**：prev 链、seq 顺序、逐条自哈希（`E-JOURNAL-BROKEN`）；
+2. **验证据**：每个入链文件现算 sha256 与 journal 比对（`E-ARTIFACT-DRIFT`——含 acceptance.json 自身）；
+3. **重放**：把 run 目录**复制到临时副本**（原件只读，绝不回写），在副本上重跑**公共聚合器**（同一份 `../scripts/aggregate_log.py`，判据只有一份实现），逐字节比对随包验收日志与随包 journal（`E-REPLAY-MISMATCH` / `E-ARTIFACT-DRIFT`）；重放旗标从随包日志自身重建（`legacy_grading` → `--two-valued`、`grading_entered=false` → `--landing-only`、`quick` → `--quick`、`run_id` → `--run-id`）。
+
+**已声明边界**：run 目录由生成方可写——能同时重造证据、journal、验收日志三者的伪造仍拦不住，与 H3 的同 run 自证边界同一威胁模型。replay 消灭的是所有**廉价**伪造：改一个文件、换一张预览、抬一个分。
 
 ## 证据轨道分层（H1 与 H2–H4）
 

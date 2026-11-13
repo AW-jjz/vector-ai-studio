@@ -57,7 +57,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # supplied selftest log) -> 88 + 1 = 89.
 # r72 (install-verifier round): +A90 (the shipped install verifier may not
 # report a green it did not earn) -> 89 + 1 = 90.
-EXPECTED_ASSERTIONS = 90
+# r73 (M2): +A91 (the evidence journal chains a real run and replays clean),
+# +A92 (replay catches every cheap forgery) -> 90 + 2 = 92.
+EXPECTED_ASSERTIONS = 92
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

@@ -4,6 +4,39 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.7.0 — 2026-11-13 [r73]
+
+M2, first slice: evidence becomes REPLAYABLE. The consumer no longer has to
+choose between trusting the shipped log and re-implementing the criteria.
+
+- **Production-time evidence journal (M2)**: `scripts/aggregate_log.py` now
+  hashes EVERY file in the run directory into a chain
+  (`output/<run-id>/journal.jsonl`) at aggregation time -- including the
+  shipped acceptance log itself. No wall-clock in the journal (the same
+  input twice yields byte-identical journals; A3's byte-idempotency is
+  untouched), the only exclusions are the journal and the run's wall-clock
+  log.
+- **`scripts/replay.py`** (consumer side): verifies the chain, re-hashes
+  every journaled artifact, then re-runs the PUBLIC aggregator
+  (`scripts/aggregate_log.py`, one implementation, two roles) on a COPY of
+  the run directory and byte-compares both the acceptance log and the
+  journal. A forged verdict re-derives to the truth (`grade: 达标 ->
+  不达标` in the field diff); an edited score shows up three ways
+  (artifact hash, acceptance diff, journal diff). Flags are reconstructed
+  from the shipped log (`legacy_grading` / `grading_entered` / `quick` /
+  `run_id`), so the replay reproduces the original aggregation exactly.
+- **New codes**: `E-JOURNAL-BROKEN` (chain), `E-ARTIFACT-DRIFT` (evidence
+  changed after journaling), `E-REPLAY-MISMATCH` (byte-compare), registered
+  in `references/error-codes.md`.
+- **A91** pins chain + clean replay (the journal must bind the acceptance
+  log itself); **A92** pins the forgeries: four mutants (evidence / verdict /
+  journal / preview) must each exit 1 with a replay-family code.
+  `EXPECTED_ASSERTIONS` 90 -> 92.
+- The replay byte-compare immediately caught a real idempotency bug: the
+  acceptance log embedded the ABSOLUTE path of the selftest log (the
+  hard_gates H3 source field), so the same content at a different location
+  produced different bytes. Now recorded relative to the run dir.
+
 ## 1.6.1 — 2026-11-13 [r72]
 
 Doc-consistency pass over the 1.6.0 candidate, found by scanning the package

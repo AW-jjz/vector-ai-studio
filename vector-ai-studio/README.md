@@ -95,6 +95,10 @@ python scripts/verify_install.py --json
 
 下游暂时只能处理两个值时，聚合器加 `--two-valued`：结论折回旧措辞、日志标 `legacy_grading: true`，**达标 / 不达标的判定边界一个都没变**。迁移说明见 `MIGRATION.md`。
 
+## 证据可重放（r73）
+
+聚合时 run 目录里每个文件都被哈希进 `output/<run-id>/journal.jsonl`（验收日志自身也在链里）；拿包的人用 `python scripts/replay.py --run-dir output/<run-id>` 在副本上重跑同一个聚合器、逐字节比对——篡改证据、直改判决、偷换预览都会被重放打回真实结论。不要信任随包日志，重算它。
+
 ## 边界
 
 - 不承诺一次直出即达到阈值；达标由验收日志按 `config/thresholds.json` 机械比较裁定。
