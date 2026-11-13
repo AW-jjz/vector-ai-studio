@@ -1,0 +1,19 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "degraded",
+  "code": 3,
+  "data": {
+    "renderer": "builtin"
+  },
+  "errors": [],
+  "warnings": [
+    "builtin fallback"
+  ],
+  "artifacts": {},
+  "degradation": {
+    "level": "L4",
+    "reason": "engine missing"
+  }
+}

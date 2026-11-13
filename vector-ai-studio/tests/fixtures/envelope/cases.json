@@ -1,0 +1,180 @@
+{
+  "schema": "vector-ai-studio/envelope-cases-v1",
+  "cases": [
+    {
+      "id": "c01-ok",
+      "args": {
+        "script": "demo.py",
+        "status": "ok",
+        "code": 0,
+        "data": {
+          "n": 1,
+          "s": "达标"
+        }
+      }
+    },
+    {
+      "id": "c02-degraded",
+      "args": {
+        "script": "demo.py",
+        "status": "degraded",
+        "code": 3,
+        "data": {
+          "renderer": "builtin"
+        },
+        "warnings": [
+          "builtin fallback"
+        ],
+        "degradation": {
+          "level": "L4",
+          "reason": "engine missing"
+        }
+      }
+    },
+    {
+      "id": "c03-missing",
+      "args": {
+        "script": "demo.py",
+        "status": "missing",
+        "code": 3,
+        "data": {
+          "capability": "pymupdf"
+        }
+      }
+    },
+    {
+      "id": "c04-fail",
+      "args": {
+        "script": "demo.py",
+        "status": "fail",
+        "code": 1,
+        "errors": [
+          {
+            "code": "E-DEMO",
+            "msg": "criterion failed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "c05-error-usage",
+      "args": {
+        "script": "demo.py",
+        "status": "error",
+        "code": 2,
+        "errors": [
+          {
+            "code": "E-USAGE",
+            "msg": "bad input"
+          }
+        ]
+      }
+    },
+    {
+      "id": "c06-error-internal",
+      "args": {
+        "script": "demo.py",
+        "status": "error",
+        "code": 4,
+        "errors": [
+          {
+            "code": "E-INTERNAL",
+            "msg": "internal error: KeyError: 'x'"
+          }
+        ]
+      }
+    },
+    {
+      "id": "c07-artifacts",
+      "args": {
+        "script": "demo.py",
+        "status": "ok",
+        "code": 0,
+        "data": {
+          "rows": [
+            1,
+            2,
+            3
+          ]
+        },
+        "artifacts": {
+          "report": "out/report.json"
+        },
+        "run_id": "run-abc"
+      }
+    },
+    {
+      "id": "c08-legacy-ok-code1",
+      "args": {
+        "script": "demo.py",
+        "status": "ok",
+        "code": 1,
+        "data": {
+          "legacy": true
+        }
+      }
+    },
+    {
+      "id": "c09-unicode",
+      "args": {
+        "script": "demo.py",
+        "status": "ok",
+        "code": 0,
+        "data": {
+          "text": "达标 / 未判定 / ünïcode",
+          "nested": {
+            "a": [
+              "x",
+              "y"
+            ]
+          }
+        },
+        "warnings": [
+          "警告：仅报告"
+        ]
+      }
+    },
+    {
+      "id": "c10-empty",
+      "args": {
+        "script": "demo.py"
+      }
+    },
+    {
+      "id": "c11-multi-error",
+      "args": {
+        "script": "demo.py",
+        "status": "fail",
+        "code": 1,
+        "errors": [
+          {
+            "code": "E-A",
+            "msg": "first"
+          },
+          {
+            "code": "E-B",
+            "msg": "second"
+          }
+        ],
+        "data": {
+          "n": 0
+        }
+      }
+    },
+    {
+      "id": "c12-degraded-ok",
+      "args": {
+        "script": "demo.py",
+        "status": "degraded",
+        "code": 0,
+        "data": {
+          "partial": true
+        },
+        "degradation": {
+          "level": "L2",
+          "reason": "preview unreadable"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "ok",
+  "code": 0,
+  "data": {},
+  "errors": [],
+  "warnings": [],
+  "artifacts": {}
+}

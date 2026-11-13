@@ -1,0 +1,16 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "error",
+  "code": 4,
+  "data": {},
+  "errors": [
+    {
+      "code": "E-INTERNAL",
+      "msg": "internal error: KeyError: 'x'"
+    }
+  ],
+  "warnings": [],
+  "artifacts": {}
+}

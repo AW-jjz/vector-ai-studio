@@ -1,0 +1,17 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "degraded",
+  "code": 0,
+  "data": {
+    "partial": true
+  },
+  "errors": [],
+  "warnings": [],
+  "artifacts": {},
+  "degradation": {
+    "level": "L2",
+    "reason": "preview unreadable"
+  }
+}

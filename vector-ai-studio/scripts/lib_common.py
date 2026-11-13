@@ -77,7 +77,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # r85 (M3 slice 3): +A105 (optional cairosvg cross-check) -> 104 + 1 = 105.
 # r86 (verdict-kit phase 0): +A106 (vendored kit runs; manifest matches) ->
 # 105 + 1 = 106.
-EXPECTED_ASSERTIONS = 106
+# r87 (verdict-kit phase 1a): +A107 (envelope facade byte parity) ->
+# 106 + 1 = 107.
+EXPECTED_ASSERTIONS = 107
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
@@ -346,29 +348,49 @@ def engine_version(cli_path, timeout=30):
     return m.group(0) if m else ""
 
 
+_VK_ENV = None
+
+
+def _vk_envelope():
+    """Load the vendored verdict_kit.envelope by path (Phase 1a).
+
+    The vendor directory carries a hyphen in its project name, so it is not an
+    importable package. Loading the single module by path keeps this facade
+    from inserting a global sys.path entry for all 35 importers of lib_common.
+    """
+    global _VK_ENV
+    if _VK_ENV is None:
+        import importlib.util
+        p = (Path(__file__).resolve().parent / "_vendor" / "verdict-kit" /
+             "verdict_kit" / "envelope.py")
+        spec = importlib.util.spec_from_file_location("_vector_vk_envelope", p)
+        mod = importlib.util.module_from_spec(spec)
+        # Loading by path must not create a nested __pycache__: A22 only
+        # ignores a cache whose parent is exactly scripts/.
+        _old = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
+        try:
+            spec.loader.exec_module(mod)
+        finally:
+            sys.dont_write_bytecode = _old
+        _VK_ENV = mod
+    return _VK_ENV
+
+
 def envelope(script, status="ok", code=0, data=None, errors=None, warnings=None,
              degradation=None, artifacts=None, run_id=""):
-    env = {
-        "schema": SCHEMA,
-        "script": script,
-        "run_id": run_id,
-        "status": status,
-        "code": code,
-        "data": data or {},
-        "errors": errors or [],
-        "warnings": warnings or [],
-        "artifacts": artifacts or {},
-    }
-    if degradation is not None:
-        env["degradation"] = degradation
-    return env
+    # Phase 1a: the vendored kit owns the envelope shape and key order. The
+    # schema stays this skill's; A107 compares the bytes with frozen goldens.
+    return _vk_envelope().envelope(
+        script, status, code, data, errors, warnings, degradation,
+        artifacts, run_id, schema=SCHEMA)
 
 
 def emit(script, status="ok", code=0, data=None, errors=None, warnings=None,
          degradation=None, artifacts=None, run_id=""):
     env = envelope(script, status, code, data, errors, warnings,
                    degradation, artifacts, run_id)
-    sys.stdout.write(json.dumps(env, ensure_ascii=False, indent=2) + "\n")
+    sys.stdout.write(_vk_envelope().dumps(env))
     return code
 
 

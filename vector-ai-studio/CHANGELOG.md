@@ -4,6 +4,28 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.21.0 — 2026-11-13 [r87]
+
+verdict-kit, phase 1a: the envelope facade. `lib_common.envelope()` and
+`emit()` now delegate to the vendored `verdict_kit.envelope`; the schema stays
+vector-ai-studio/v1 and the output bytes are unchanged.
+
+- **Golden bytes first**: before the switch, 12 representative envelopes were
+  frozen under `tests/fixtures/envelope/` (ok / degraded / missing / fail /
+  error / ok+code=1 / unicode / artifacts / multi-error / empty). A107
+  replays each case through `lib_common`'s `emit()` and compares the bytes with the
+  frozen file; a mismatch is a real regression, not the kit agreeing with
+  itself.
+- **Compatibility seam**: `ToolError` and `run_cli` are untouched in this
+  phase, so exception classes and callers keep their behavior. The kit's
+  stricter error-code validation exposed one test stub that emitted
+  `COLLAPSED` (a verdict id, not an E-* code); the stub now uses `E-INTERNAL`.
+- **No nested bytecode**: the vendor module is loaded by path with
+  `sys.dont_write_bytecode` temporarily set, so no nested `__pycache__`
+  is created under the vendor directory (A22 would flag it).
+- `EXPECTED_ASSERTIONS` 106 -> 107; claims stay 143. No threshold value
+  changed.
+
 ## 1.20.0 — 2026-11-13 [r86]
 
 verdict-kit, phase 0: vendor the reusable skeleton without changing a single

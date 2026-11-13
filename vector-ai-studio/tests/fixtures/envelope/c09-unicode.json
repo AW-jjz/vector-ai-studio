@@ -1,0 +1,21 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "ok",
+  "code": 0,
+  "data": {
+    "text": "达标 / 未判定 / ünïcode",
+    "nested": {
+      "a": [
+        "x",
+        "y"
+      ]
+    }
+  },
+  "errors": [],
+  "warnings": [
+    "警告：仅报告"
+  ],
+  "artifacts": {}
+}

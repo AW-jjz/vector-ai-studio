@@ -1,0 +1,16 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "fail",
+  "code": 1,
+  "data": {},
+  "errors": [
+    {
+      "code": "E-DEMO",
+      "msg": "criterion failed"
+    }
+  ],
+  "warnings": [],
+  "artifacts": {}
+}

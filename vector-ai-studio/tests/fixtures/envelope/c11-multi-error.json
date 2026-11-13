@@ -1,0 +1,22 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "fail",
+  "code": 1,
+  "data": {
+    "n": 0
+  },
+  "errors": [
+    {
+      "code": "E-A",
+      "msg": "first"
+    },
+    {
+      "code": "E-B",
+      "msg": "second"
+    }
+  ],
+  "warnings": [],
+  "artifacts": {}
+}

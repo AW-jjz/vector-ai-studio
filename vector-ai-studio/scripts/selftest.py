@@ -2144,8 +2144,8 @@ def _stage_studio_chain(tmp, add):
                 return 0, {"status": "degraded", "errors": []}
             if stage == "legible" and _state50["legible_fail"]:
                 return 1, {"status": "ok",
-                           "errors": [{"code": "COLLAPSED",
-                                       "msg": "no ink left at 16px"}]}
+                           "errors": [{"code": "E-INTERNAL",
+                                       "msg": "16px check failed: no ink left"}]}
             if stage == "land" and _state50["land_missing"]:
                 return 3, {"status": "degraded",
                            "errors": [{"code": "E-CAPABILITY-MISSING", "msg": "no cli"}]}
@@ -5081,6 +5081,35 @@ def _stage_r86(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r87(tmp, add):
+    """A107: the vendored envelope facade is byte-identical to frozen goldens.
+
+    Phase 1a changed lib_common.envelope/emit to delegate to the vendored
+    verdict_kit.envelope. The expected bytes were frozen BEFORE the switch, so
+    this is a real regression gate, not the kit agreeing with itself.
+    """
+    try:
+        import io as _io
+        from contextlib import redirect_stdout as _rs
+        fix = ROOT / "tests" / "fixtures" / "envelope"
+        cases = json.loads((fix / "cases.json").read_text(encoding="utf-8"))["cases"]
+        bad = []
+        for case in cases:
+            buf = _io.StringIO()
+            with _rs(buf):
+                rc = L.emit(**case["args"])
+            got = buf.getvalue().encode("utf-8")
+            want = (fix / (case["id"] + ".json")).read_bytes()
+            if got != want or rc != case["args"].get("code", 0):
+                bad.append(case["id"])
+        add("A107-envelope-facade-byte-parity",
+            len(cases) == 12 and not bad,
+            "cases=%d bad=%s" % (len(cases), ",".join(bad[:4]) or "-"))
+    except Exception as e:                      # noqa: BLE001
+        add("A107-envelope-facade-byte-parity", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -5145,6 +5174,7 @@ def main():
     _stage_r82(tmp, add)
     _stage_r85(tmp, add)
     _stage_r86(tmp, add)
+    _stage_r87(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

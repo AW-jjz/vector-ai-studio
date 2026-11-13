@@ -1,0 +1,19 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "run-abc",
+  "status": "ok",
+  "code": 0,
+  "data": {
+    "rows": [
+      1,
+      2,
+      3
+    ]
+  },
+  "errors": [],
+  "warnings": [],
+  "artifacts": {
+    "report": "out/report.json"
+  }
+}
