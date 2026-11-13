@@ -119,7 +119,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 
 ## 三值判决与证据覆盖（r72 / 判据 2.0.0）
 
-`../scripts/aggregate_log.py` 的判决是三值，不是两值。`grade` 的词取自 `../config/thresholds.json` 的 `messages`（达标 / 不达标 / 未判定）；机器档位 `tier` 是契约枚举 `pass` / `not-pass` / `indeterminate`（`../contract/contract.json` 的 `enums.tier`）：
+`../scripts/aggregate_log.py` 的判决是三值，不是两值。`grade` 的词取自 `../config/thresholds.json` 的 `messages`（达标 / 不达标 / 未判定）；机器档位 `tier` 是契约枚举 `pass` / `not-pass` / `indeterminate`（`../contract/contract.json` 里 `enums` 的 `tier` 子键）：
 
 | `grade` | `tier` | 判定 |
 |---|---|---|
@@ -130,9 +130,9 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 - **没测 ≠ 质量差**：L2（`capability_missing`）记「未判定」，不再记「不达标」（校验器 `E-L2-GRADE` 强制，`--two-valued` 例外）；同样地，未被评估的硬门不是失败的门——「没测」与「测了没过」从这一版起是两个不同的结论。
 - **两个新字段由证据重推**（已进 `_VERDICT_FIELDS`，声明值与重推不一致报 `E-GRADE-MISMATCH`）：`evidence_coverage`（每个必需维 `{measured, why, fix}` + `coverage` 比值 + `required_dims`——哪几维测过、哪几维没测、为什么、怎么修）与 `deliverable_status`（`deliverable` / `deliverable_with_human_review` / `not_deliverable` / `evidence_only`——文件能不能交，与质量结论分开回答）。
 - **未判定的护栏**：`grade=未判定` 必须带 `tier=indeterminate`，不得自称 `deliverable_status=deliverable`，headline 不得含达标词（`E-INDETERMINATE-FIELDS`）；未知的 `deliverable_status` 取值同样拒绝。
-- **判据版本随日志走**：`acceptance.json` 记 `criteria_version`（当前 2.0.0）与 `thresholds_sha256`——结论只在该判据版本与该阈值文件下有效。旧日志的处理与下游脚本改法见 `MIGRATION.md`。
+- **判据版本随日志走**：`output/<run-id>/acceptance.json` 记 `criteria_version`（当前 2.0.0）与 `thresholds_sha256`——结论只在该判据版本与该阈值文件下有效。旧日志的处理与下游脚本改法见 `../MIGRATION.md`。
 - **兼容开关**：`--two-valued` 把「未判定」折回旧措辞（日志标 `legacy_grading: true`），达标 / 不达标的判定边界一个都不变。这是给暂时读不懂三值的下游留的措辞开关，不是免重算的通行证——新字段照常写入。
-- **窄轨防洗白**：目录里已有 `score.json` / `judge.json` / `selftest.json` / `batch.json` 任何一件时，`--landing-only` 直接 `E-EXEMPTION-ABUSE`——窄轨是给跑不动完整链的机器留的取证通道，不是把完整 run 的判决藏起来的后门。
+- **窄轨防洗白**：目录里已有 `output/<run-id>/score.json` / `output/<run-id>/judge.json` / `output/<run-id>/selftest.json` / `output/<run-id>/batch.json` 任何一件时，`--landing-only` 直接 `E-EXEMPTION-ABUSE`——窄轨是给跑不动完整链的机器留的取证通道，不是把完整 run 的判决藏起来的后门。
 
 ## 证据轨道分层（H1 与 H2–H4）
 

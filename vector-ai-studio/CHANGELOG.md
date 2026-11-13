@@ -60,17 +60,19 @@ wording, use `--two-valued` instead.
   VECTORCRAFT_CLI -> PATH -> known install dirs (no hardcoded dev-machine
   path), and a pinned-but-different build is a hard stop
   (`E-ENGINE-DRIFT`) while an unpinned build is a logged note. A88 pins the
-  lock logic; `detect_deps.py` now reports the pin status and `land_craft.py`
-  runs the same check `land_vc.py` does.
+  lock logic; `scripts/detect_deps.py` now reports the pin status and `scripts/land_craft.py`
+  runs the same check `scripts/land_vc.py` does.
 - **P1** The narrow track cannot launder a graded run: `--landing-only`
-  refuses a run directory that already holds any of `score.json` /
-  `judge.json` / `selftest.json` / `batch.json` with `E-EXEMPTION-ABUSE`
-  (A85). The exemption is for machines that could not run the full chain,
-  not a way to hide a verdict that exists.
-- **CI** carries the new gates: `gen_contract.py --check`, `redteam.py
-  --json`, and `validate_claims.py --json --selftest-json` against the
-  selftest.json the pure-script step produced -- so a hand-edited generated
-  file, a regressed attack or a drifted promise is red in CI, not a surprise.
+  refuses a run directory that already holds any of `output/<run-id>/score.json` /
+  `output/<run-id>/judge.json` / `output/<run-id>/selftest.json` /
+  `output/<run-id>/batch.json` with `E-EXEMPTION-ABUSE` (A85). The exemption is
+  for machines that could not run the full chain, not a way to hide a verdict
+  that exists.
+- **CI** carries the new gates: `scripts/gen_contract.py --check`,
+  `scripts/redteam.py --json`, and `scripts/validate_claims.py --json
+  --selftest-json` against the `output/<run-id>/selftest.json` the pure-script
+  step produced -- so a hand-edited generated file, a regressed attack or a
+  drifted promise is red in CI, not a surprise.
 - **Docs**: `MIGRATION.md` (criteria 2.0.0: the three grades, the new fields,
   what happens to old logs, what downstream scripts change);
   `references/pipeline-contract.md` gained the r72 section and lost the stale

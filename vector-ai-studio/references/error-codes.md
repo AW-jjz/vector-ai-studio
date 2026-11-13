@@ -17,16 +17,16 @@
 | `E-CONFIG-KEYS` | 配置键缺失或存在多余键 | lib_common |
 | `E-CONFIG-MISSING` | 配置文件不存在 | lib_common |
 | `E-CONFIG-PARSE` | 配置文件无法解析 | lib_common |
-| `E-CONTRACT-MISSING` | 契约文件 `contract/contract.json` 不存在 | gen_contract |
+| `E-CONTRACT-MISSING` | 契约文件 `../contract/contract.json` 不存在 | gen_contract |
 | `E-CONTRACT-PARSE` | 契约文件无法解析为 JSON | gen_contract |
 | `E-CONTRACT-SCHEMA` | 契约文件缺少必需键或 schema 不符 | gen_contract |
 | `E-CLAIMS-DRIFT` | 对外声明登记册与文档对不上：原文哈希变了（改了文档没改契约）、anchor 找不到、assertion 类没挂测试、boundary 类没挂反向证明、或承诺句登记覆盖率低于契约里声明的下限 | validate_claims |
-| `E-CONTRACT-DRIFT` | 契约生成物（`scripts/_contract.py` / schema / 文档 / 夹具）与 `contract/contract.json` 不一致，或 thresholds.json 缺少契约声明的文案键；必须重跑 `python scripts/gen_contract.py` | gen_contract |
+| `E-CONTRACT-DRIFT` | 契约生成物（`../scripts/_contract.py` / schema / 文档 / 夹具）与 `../contract/contract.json` 不一致，或 thresholds.json 缺少契约声明的文案键；必须重跑 `python scripts/gen_contract.py` | gen_contract |
 | `E-CONFORMANCE` | 需求符合度的机械检查未通过（颜色、色面积、描边宽度、图元种类/数量、留白、禁用构造）；逐条列出失败 id 与实测值，退出 1 | conformance |
 | `E-DEGENERATE` | 存在退化路径（零长度/零面积） | sanitize_svg |
 | `E-EMPTY-SPEC` | spec 为空或缺少必需项 | freeze_spec |
 | `E-EXEMPTION-ABUSE` | mode 与 grading_entered 组合非法（跨轨滥用豁免） | aggregate_log |
-| `E-ENGINE-DRIFT` | 引擎二进制与 `engine.lock.json` 里钉的哈希不符（同版本、不同构建）：引擎是产物的事实来源，构建换了就等于事实变了，必须重压一遍引擎回归并更新锁文件后才允许继续 | trace_ref, land_vc |
+| `E-ENGINE-DRIFT` | 引擎二进制与 `../engine.lock.json` 里钉的哈希不符（同版本、不同构建）：引擎是产物的事实来源，构建换了就等于事实变了，必须重压一遍引擎回归并更新锁文件后才允许继续 | trace_ref, land_vc |
 | `E-F-DATA-ISOLATION` | F 统计与 C2 收敛产物跨 run 混用 | aggregate_log, batch_check |
 | `E-FABRICATED-SCORE` | L2 下出现数字分（伪造读图判读） | aggregate_log |
 | `E-FIXTURE-MISMATCH` | fixture 的期望值与实际结果不符 | run_fixtures |

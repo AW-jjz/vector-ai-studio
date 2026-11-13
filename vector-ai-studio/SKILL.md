@@ -264,7 +264,7 @@ python scripts/aggregate_log.py --run-dir path/to/run --out path/to/run/acceptan
 
 需要旧的两值写法时加 `--two-valued`：结论被折回旧措辞，日志标 `legacy_grading: true`，**达标 / 不达标的判定边界一个都没变**（只有「未判定 → 不达标」这一处措辞不同）。
 
-两条证据轨，不得混用：默认是**完整链**（`mode=full`、`grading_entered=true`，H1–H4 全判并进入评级）；`--landing-only` 是**只取 H1 证据的窄轨**（`mode=landing-only`，h2、tier、grade、h3、h4 全为 `null`，`h2_status=not_evaluated`，不进入评级），仅用于「机器上只跑得动落地、跑不动完整链」时留存原生 `.ai` 结构证据。伪造 `mode=full` 却带 `grading_entered=false`，或 `landing-only` 却带档位词，一律 `E-EXEMPTION-ABUSE`；**已经跑过完整链的目录也不许再走窄轨**（目录里已有 `score.json` / `judge.json` / `selftest.json` / `batch.json` 时 `--landing-only` 直接 `E-EXEMPTION-ABUSE`）——窄轨是给跑不动完整链的机器留的取证通道，不是洗白失败 run 的后门。
+两条证据轨，不得混用：默认是**完整链**（`mode=full`、`grading_entered=true`，H1–H4 全判并进入评级）；`--landing-only` 是**只取 H1 证据的窄轨**（`mode=landing-only`，h2、tier、grade、h3、h4 全为 `null`，`h2_status=not_evaluated`，不进入评级），仅用于「机器上只跑得动落地、跑不动完整链」时留存原生 `.ai` 结构证据。伪造 `mode=full` 却带 `grading_entered=false`，或 `landing-only` 却带档位词，一律 `E-EXEMPTION-ABUSE`；**已经跑过完整链的目录也不许再走窄轨**（目录里已有 `output/<run-id>/score.json` / `output/<run-id>/judge.json` / `output/<run-id>/selftest.json` / `output/<run-id>/batch.json` 时 `--landing-only` 直接 `E-EXEMPTION-ABUSE`）——窄轨是给跑不动完整链的机器留的取证通道，不是洗白失败 run 的后门。
 
 ### 步 10.5 盲评回收与证据分级（C1 质量后验）
 
@@ -497,7 +497,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 
 - L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），**判据版本 2.0.0 起结论记「未判定」而不是「不达标」**（`tier=indeterminate`）——读不了图是对**测量能力**的陈述，不是对**质量**的判决；强制 degraded / needs_human_review / reason 为 capability_missing、首行「语义 / 构图判读未取证，需人工终审」，降级条目带**损失清单**（丢了什么 / 留了什么 / 怎么修，原因由触发条件派生而不是写死）；五件产物含原生 `.ai` 照常落盘、交付不阻断；L3 商业增强需用户自行提供凭据；L4 依赖缺失；L5 无风格参考时 E 记 N/A。
 - VectorCraft CLI 缺失：L4 全自动降级，H1 未取证，结论记「未判定」并把 `deliverable_status` 记为 `not_deliverable`，仅交付净化 SVG 与 PNG 并标注「非原生 `.ai`」，`substitute` 写明安装方式或 `VECTORCRAFT_CLI`。不存在半自动兜底路径（r45 起移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
-- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本无法分辨同一 run 内自己写的 `selftest.json` 与真跑出来的。H3 的断言数下界与 `run_id` 绑定只能挡跨 run 复用。`scripts/redteam.py` 的 `17-self-attested-log` 就是这条边界的**反向证明**：它必须真的漏过去，否则这条声明就是低估自己。
+- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本无法分辨同一 run 内自己写的 `output/<run-id>/selftest.json` 与真跑出来的。H3 的断言数下界与 `run_id` 绑定只能挡跨 run 复用。`scripts/redteam.py` 的 `17-self-attested-log` 就是这条边界的**反向证明**：它必须真的漏过去，否则这条声明就是低估自己。
 - **同一份评审表换个文件名仍算两名评审人**：去重键是（绝对路径 + 内容 sha256），同内容不同名挡不住，同一个人的两份表更挡不住。`scripts/redteam.py` 的 `16-review-duplicate-new-name` 是这条边界的反向证明。
 
 ## 注意事项

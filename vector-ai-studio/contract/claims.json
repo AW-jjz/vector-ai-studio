@@ -492,7 +492,7 @@
       "id": "CLAIM-050",
       "file": "SKILL.md",
       "anchor": "伪造 `mode=full` 却",
-      "text_hash": "sha256:9266aafc28e42d65f53e5bde65f8d0d49c66e92734fec50808064efec13a559e",
+      "text_hash": "sha256:8aea2c53bdabb352272037be63d3831b9a6c728add9cafc9437402a312cdf59c",
       "claim": "伪造 `mode=full` 却带 `grading_entered=false`，或 `landing-only` 却带档位词，一律 `E-EXEMPTION-ABUSE`；**已经跑过完整链的目录也不许再走窄轨**（目录里已有 `score.json` / `judge.json` / `selftest.json",
       "mechanism": "unverified",
       "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住（见 claims.lock 的机制说明）"
@@ -861,7 +861,7 @@
       "id": "CLAIM-087",
       "file": "SKILL.md",
       "anchor": "- **同一次 run 内的自证",
-      "text_hash": "sha256:cf1fe213d36163c34deba1dbda3f5e7ccdf932709aadafdb0e1a1a2334f51807",
+      "text_hash": "sha256:f137a2c53e90fb63ac168832ab5471224819d3e9c47a5f87aad89edf89665fa1",
       "claim": "- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本无法分辨同一 run 内自己写的 `selftest.json` 与真跑出来的",
       "mechanism": "boundary-declaration",
       "boundary_proof": "attack:17-self-attested-log"
@@ -1075,7 +1075,7 @@
       "id": "CLAIM-109",
       "file": "README.md",
       "anchor": "- **同一次 run 内的自证",
-      "text_hash": "sha256:7724fdf57e083e6708013fd3a0c102046ba8f535dd571dc2d10f17704678de75",
+      "text_hash": "sha256:9963ec8d8505220e395d2758a68109bb426b1e27790d7abddfca5bdcc9d6e636",
       "claim": "- **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用",
       "mechanism": "boundary-declaration",
       "boundary_proof": "attack:17-self-attested-log"
