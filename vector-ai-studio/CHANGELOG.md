@@ -4,6 +4,20 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.6.1 — 2026-11-13 [r72]
+
+Doc-consistency pass over the 1.6.0 candidate, found by scanning the package
+for numbers and wordings that no longer match the code. Still unsigned; the
+package was rebuilt rather than released with contradictions inside it.
+
+- **Two contradictions between `references/pipeline-contract.md` and the
+  code**, both fixed: the assertion lower bound still said 89 (the code says
+  90 since A90 landed), and the L2 wording still said the verdict comes out
+  「不达标」 -- which is the pre-2.0.0 two-valued semantics. Since r72, an
+  unreadable preview yields 「未判定」, and the contract document said
+  otherwise. A contract document that contradicts the code is worse than no
+  contract document: consumers will implement the wrong thing.
+
 ## 1.6.0 — 2026-11-13 [r72]
 
 The 1.5.0 candidate was never signed off (its engine path could not be

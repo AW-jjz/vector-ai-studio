@@ -106,7 +106,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 
 - 只在 `../scripts/detect_deps.py` 真机确认 `vectorcraft_cli` 为 `FOUND` 时才进入落地；`MISSING` 时 `../scripts/land_vc.py` 把降级级别写为 L4、`status: degraded`、`automation: none`，只交净化 SVG 与 PNG。不存在人工半自动兜底路径（r45 移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
 - 兜底 PNG 计入 H2 的严格条件：真实可解析 PNG（非零字节、魔数 `89 50 4E 47 0D 0A 1A 0A`、可读宽高、IEND），日志标 `renderer: builtin-fallback` / `degraded: true` / 保真度受限；产不出真实 PNG 则 PNG 判缺失、H2 不达标；零字节或占位文件禁止凑数。
-- L2 口径：A/B 记 N/A (capability_missing)（禁几何折算，违例 E-FABRICATED-SCORE）；仍按 §7.3 机械比较得出「不达标」、不引入额外档位；强制 `degraded: true` / `needs_human_review: true` / reason=capability_missing、首行「语义 / 构图判读未取证，需人工终审」；四件产物含原生 .ai 照常落盘、交付不阻断；对外说明禁达标 / 优秀 / 完美字样。
+- L2 口径：A/B 记 N/A (capability_missing)（禁几何折算，违例 E-FABRICATED-SCORE）；**判据 2.0.0 起结论记「未判定」而不是「不达标」**——读不了图是测量能力的缺失，不是质量结论（校验器 `E-L2-GRADE` 强制；`--two-valued` 例外）；不引入额外档位；强制 `degraded: true` / `needs_human_review: true` / reason=capability_missing、首行「语义 / 构图判读未取证，需人工终审」；四件产物含原生 .ai 照常落盘、交付不阻断；对外说明禁达标 / 优秀 / 完美字样。
 
 ## 验收日志强制字段（需求 §7.5 / O4）
 
@@ -234,7 +234,7 @@ schemas/acceptance.schema.json 与 deliverable.schema.json（draft 2020-12）。
 ### H3 证据强度与 run-id 绑定（r70 / #3 新增）
 
 - **白名单单一来源**：可跳过断言集合取自 `../scripts/lib_common.py` 的 `L.CAPABILITY_SKIPS`，`../scripts/selftest.py` 与 `../scripts/aggregate_log.py` 都从 L 引用。被校验日志自带的 `capability_skips` 字段降级为展示 / 审计，不再作为判据输入（否则日志可自证哪些守卫「可选」）；与 L 不一致时只输出一条 warning 候选信号，最终裁决归人。
-- **断言总数下界**：`len(assertions) >= L.EXPECTED_ASSERTIONS`（当前 89，随断言增减同步）。手写「1/1 ok」的伪日志直接 H3 fail。判定用 `>=` 而非 `==`，兼容 `--fixtures` 时多出 A13 的正常形态。
+- **断言总数下界**：`len(assertions) >= L.EXPECTED_ASSERTIONS`（当前 90，随断言增减同步）。手写「1/1 ok」的伪日志直接 H3 fail。判定用 `>=` 而非 `==`，兼容 `--fixtures` 时多出 A13 的正常形态。
 - **绑定**：`selftest.json.run_id == aggregate_log 的 --run-id`，且 `--run-id` 非空（空则 fail-closed）。两者均为内容派生（`L.sha_run_id`，输入 = spec / run 内容 + `thresholds.version`），**不是** `datetime.now()` / 随机 nonce / 签名——时间与随机值会破坏判定 JSON 逐字节幂等，签名密钥会引入凭据。编排三处（`../scripts/studio.py` 的 `content_run_id()`、`SKILL.md` 步 11、`本节`）显式把**同一个**值同时传给 `../scripts/selftest.py` 与 `../scripts/aggregate_log.py`；只改校验不改编排会让所有正常日志 H3 全红。
 - **边界（必须写明，不得夸大）**：`output/<run-id>/` 是生成方可写的、`run_id` 公开可推导，因此**拦不住「同一次 run 内生成方自写一份 run_id 匹配的假 selftest.json」**。那属威胁模型外边界。同 run 内自证靠 #2（产物字节复算）+ #5（grade 单一函数复算）+ 断言总数下界共同收紧，而不是靠绑定谎称「不可伪造」。
 - H3 fail 通过 `hard_gates.H3.pass=false` + `h3_status=fail` + exit 1 表达，不新增错误码。
