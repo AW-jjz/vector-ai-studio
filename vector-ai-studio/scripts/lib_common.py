@@ -59,7 +59,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # report a green it did not earn) -> 89 + 1 = 90.
 # r73 (M2): +A91 (the evidence journal chains a real run and replays clean),
 # +A92 (replay catches every cheap forgery) -> 90 + 2 = 92.
-EXPECTED_ASSERTIONS = 92
+# r74 (M2 slice 2): +A93 (the witness anchors certification: create/verify,
+# tamper, and no-record all behave) -> 92 + 1 = 93.
+EXPECTED_ASSERTIONS = 93
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

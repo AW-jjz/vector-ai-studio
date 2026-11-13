@@ -4,6 +4,31 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.8.0 — 2026-11-13 [r74]
+
+M2, second slice: the witness layer -- role separation's missing half. Replay
+declared its own hole (the run directory is writable by the producer); the
+anchor that closes it lives OUTSIDE the run directory.
+
+- **New `scripts/witness.py`** (keyless by design -- H4's zero-credential
+  principle rules out key signing, and the identity this project actually
+  has is its repository history): `witness create` appends a record
+  (run_id, acceptance/journal sha256, journal tail, criteria_version) to an
+  append-only trail that lives outside the run dir and gets COMMITTED and
+  PUSHED; `witness verify` re-hashes the run's files and compares against
+  the last record for that run_id.
+- **replay.py gains check R5** (`--witness <file>`): a certified run whose
+  acceptance log changed after certification is red on the spot
+  (`E-WITNESS-MISMATCH`); a run_id with no record fails too -- an anchor
+  that vouches for everything vouches for nothing.
+- **A93** pins the cycle: create -> verify -> tamper (must fail) -> unknown
+  run (must fail). `EXPECTED_ASSERTIONS` 92 -> 93.
+- The declared boundary, stated in the docs: the anchor is repo history, so
+  whoever can force-push that history can forge the anchor; the tag makes
+  that visible. Nothing more is claimed.
+- Note: the witness trail allows wall-clock (it is an append-only TRAIL like
+  sha256.txt -- a record of certifications, not a reproducible artifact).
+
 ## 1.7.0 — 2026-11-13 [r73]
 
 M2, first slice: evidence becomes REPLAYABLE. The consumer no longer has to

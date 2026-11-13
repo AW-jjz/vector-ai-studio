@@ -147,6 +147,13 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 
 **已声明边界**：run 目录由生成方可写——能同时重造证据、journal、验收日志三者的伪造仍拦不住，与 H3 的同 run 自证边界同一威胁模型。replay 消灭的是所有**廉价**伪造：改一个文件、换一张预览、抬一个分。
 
+## 见证层（r74 / M2 第二片：角色分离的落点）
+
+这个边界的出口在 run 目录**外面**。签收一个 run 时，`../scripts/witness.py create` 把它的验收日志与 journal 哈希写进一条**独立于 run 目录**的 append-only 见证链：每行 `{seq, time, run_id, acceptance_sha256, journal_sha256, journal_tail, criteria_version, note?}`（**time 在这里是合法的**——见证文件是签收留痕，与 sha256.txt 同类，不是可复现工件）。见证文件随仓库提交、推送、打 tag 发布。
+
+- `../scripts/witness.py verify`（或 `../scripts/replay.py --witness <见证文件>` 的 R5 项）：当前字节对锚核验——**签收之后再动验收日志，`E-WITNESS-MISMATCH` 当场红**；无见证记录的 run_id 同样不给过（**为一切作保的锚等于什么都没保**）。
+- **密钥取舍（与 H4 的零凭据原则一致）**：不用密钥，**仓库历史就是身份**——append-only、已推送、有 tag，谁都能独立核。能 force-push 那条历史的人能伪造锚，这是已声明的边界；tag 把它压到「必须在 tag 里可见」。仅此而已，不多宣称。
+
 ## 证据轨道分层（H1 与 H2–H4）
 
 - full 轨（默认）：grading_entered=true，H1–H4 全判，h2 为 bool，grade 为三值之一（达标 / 不达标 / 未判定，见下节），scores 五键齐全（L2 下 A/B 为 capability_missing 状态枚举、C/D 为数字、E/F 为 N/A 或数字）。

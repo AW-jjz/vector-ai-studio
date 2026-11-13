@@ -1157,6 +1157,15 @@
         "A90-install-verifier-cannot-fake-green",
         "A88-engine-lock-detects-swapped-binary"
       ]
+    },
+    {
+      "id": "CLAIM-117",
+      "file": "SKILL.md",
+      "anchor": "本项目不用密",
+      "text_hash": "sha256:af35945a235b9068ed1645a9ad27f8d9f7a03383f0dd91cec9a19b5a4e93358c",
+      "claim": "本项目不用密钥（H4 零凭据原则）：**仓库历史就是身份**——append-only、已推送、有 tag，谁都能核；能 force-push 那条历史的人能伪造锚，这是已声明的边界，tag 把它压到\"必须在 tag 里可见\"",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
     }
   ]
 }

@@ -95,9 +95,11 @@ python scripts/verify_install.py --json
 
 下游暂时只能处理两个值时，聚合器加 `--two-valued`：结论折回旧措辞、日志标 `legacy_grading: true`，**达标 / 不达标的判定边界一个都没变**。迁移说明见 `MIGRATION.md`。
 
-## 证据可重放（r73）
+## 证据可重放（r73 / r74）
 
 聚合时 run 目录里每个文件都被哈希进 `output/<run-id>/journal.jsonl`（验收日志自身也在链里）；拿包的人用 `python scripts/replay.py --run-dir output/<run-id>` 在副本上重跑同一个聚合器、逐字节比对——篡改证据、直改判决、偷换预览都会被重放打回真实结论。不要信任随包日志，重算它。
+
+签收一个 run 时用 `python scripts/witness.py create --run-dir ... --witness witnesses.jsonl` 把它写进一条**提交进仓库**的见证链；之后 `witness verify`（或 `replay --witness`）对锚核验——签收后再动，当场红。仓库历史就是身份，不用密钥。
 
 ## 边界
 

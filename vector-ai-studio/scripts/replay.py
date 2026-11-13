@@ -53,6 +53,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
 import journal
+import witness  # r74 (M2 slice 2): the keyless certification anchor
 
 SCRIPT = "replay.py"
 
@@ -84,6 +85,9 @@ def main():
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--acceptance", default="",
                     help="shipped acceptance.json (default: <run-dir>/acceptance.json)")
+    ap.add_argument("--witness", default="",
+                    help="the published witness trail (r74): the run's acceptance/journal "
+                         "hashes are compared against the last record for this run_id")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -184,8 +188,32 @@ def main():
                 problems.append(L.err("E-ARTIFACT-DRIFT",
                                       "re-aggregated journal differs from the shipped one: some "
                                       "evidence file changed without the journal being regenerated"))
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+    # ---- 5. the witness anchor (r74): outside the run dir, so the producer ---
+    # ---- cannot rewrite it by rebuilding the directory ----------------------
+    if args.witness:
+        try:
+            wenv = witness.verify(argparse.Namespace(
+                run_dir=str(run_dir), witness=args.witness, json=True))
+            wdata = wenv.get("data") or {}
+            wok = wenv.get("code") == L.EXIT_OK and wdata.get("witnessed") is True
+            checks.append({"id": "R5", "name": "见证锚核验（签收后未被改）",
+                           "ok": wok,
+                           "detail": ("已见证（%s，签收时 acceptance=%s…）"
+                                      % (wdata.get("witness_time"),
+                                         str(wdata.get("acceptance_sha256"))[:12])
+                                      if wok else
+                                      "; ".join(e["msg"][:90] for e in (wenv.get("errors") or [])[:2]) or
+                                      "无该 run_id 的见证记录")})
+            if not wok:
+                problems += list(wenv.get("errors") or [])
+        except L.ToolError as e:
+            checks.append({"id": "R5", "name": "见证锚核验（签收后未被改）",
+                           "ok": False, "detail": e.msg[:90]})
+            problems.append(L.err(e.code, e.msg))
 
     ok = not problems
     doc = {"run_dir": run_dir.name,

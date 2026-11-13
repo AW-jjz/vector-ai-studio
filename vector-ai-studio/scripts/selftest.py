@@ -4077,6 +4077,55 @@ def _stage_r72(tmp, add, th):
         " platform=" + plat)
 
 
+
+
+def _stage_r74(tmp, add):
+    """A93: the keyless witness anchor (M2 slice 2 / r74).
+
+    The journal binds the run at production time, but the run directory is
+    writable by the producer -- replay itself declares that hole. The anchor
+    that closes it lives OUTSIDE the run dir: a committed, pushed, append-only
+    witness trail. create -> verify must pass; tampering the certified
+    acceptance log after certification must fail (E-WITNESS-MISMATCH); and a
+    run_id with no record must fail too -- an anchor that vouches for
+    everything vouches for nothing.
+    """
+    import redteam as RT
+    import witness as W
+    d = tmp / "witness-run"
+    RT.base_run(d, "attack")
+    rc_c, _, _ = _call("aggregate_log.py",
+                       ["--run-dir", str(d), "--run-id", "attack",
+                        "--out", str(d / "acceptance.json")], tmp)
+    wit = tmp / "witnesses.jsonl"
+    rc_c2, env_c, _ = _call("witness.py", ["create", "--run-dir", str(d),
+                                           "--witness", str(wit), "--json"], tmp)
+    rec_ok = rc_c == 0 and rc_c2 == 0 and (env_c.get("data") or {}).get("witnessed") is True
+    rc_v, env_v, _ = _call("witness.py", ["verify", "--run-dir", str(d),
+                                          "--witness", str(wit), "--json"], tmp)
+    verify_ok = rc_v == 0 and (env_v.get("data") or {}).get("witnessed") is True
+    ap = d / "acceptance.json"
+    doc = json.loads(ap.read_text(encoding="utf-8"))
+    doc["grade"] = "达标"
+    ap.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8")
+    rc_t, env_t, _ = _call("witness.py", ["verify", "--run-dir", str(d),
+                                          "--witness", str(wit), "--json"], tmp)
+    tamper_caught = (rc_t == L.EXIT_FAIL and "E-WITNESS-MISMATCH" in _codes(env_t))
+    d2 = tmp / "witness-run-2"
+    RT.base_run(d2, "other-run")
+    _call("aggregate_log.py", ["--run-dir", str(d2), "--run-id", "other-run",
+                               "--out", str(d2 / "acceptance.json")], tmp)
+    rc_n, env_n, _ = _call("witness.py", ["verify", "--run-dir", str(d2),
+                                          "--witness", str(wit), "--json"], tmp)
+    no_record = rc_n == L.EXIT_FAIL and "E-WITNESS-MISMATCH" in _codes(env_n)
+    add("A93-witness-anchors-certification",
+        rec_ok and verify_ok and tamper_caught and no_record,
+        "create=%d verify=%d tamper=%d(%s) no-record=%d(%s)" % (
+            rc_c2, rc_v, rc_t, ",".join(_codes(env_t)[:1]),
+            rc_n, ",".join(_codes(env_n)[:1])))
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -4130,6 +4179,7 @@ def main():
     _check_licence_claim(tmp, add)
     _stage_print_route(tmp, add)
     _stage_r72(tmp, add, th)
+    _stage_r74(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside
