@@ -2518,3 +2518,70 @@ sha256        : 4b46720f8bede73590cba95d09935222277b39b0bfc9945908e34c714a756e43
                 1.6.0：6b6781b4e7532111ccc930cec64d961bfd373015acfd675a6304246a6395c6ce（415,117 B / 166 文件）
                 1.5.0：16e603c271d6245f69462d3abc061d3f62ba7f8ad87c11436aae5313fa47beef（407,695 B / 165 文件）
                 （两者均未签收、均未发出，已在 archive/ 逐字节保留）
+
+────────────────────────────────────────────────────────────
+r73（2026-11-13）　M2 第一片：证据哈希链 + 消费侧重放（取代 1.6.1）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r73-168files.zip
+版本          : r73（SKILL.md 1.7.0，metadata.version "1.7.0"）
+文件数        : 168
+字节数        : 427214
+sha256        : e50949fe84b2239adcf9553d7a7b0662805dc36bc1ce40163b05c5f6d3c8da44
+冻结时刻      : 2026-11-13（源码 168 文件 / 1,194,459 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（168 条目、0 目录项）
+旧包归档      : r72-166files_v1.6.1.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 20 件）
+取代关系      : 本段取代 r72 / 1.6.1 段。1.6.1 已签收、已 tag、已推送；本轮在其上新增能力（M2 第一片）。
+
+相对 1.6.1 变更 : 4 个文件（2 新增 / 0 删除 / 2 修改）
+                对比 05-发布/archive/vector-ai-studio_r72-166files_v1.6.1.zip 逐件 md5
+新增 2        :
+                scripts/journal.py                               6b2beb8f94cdc6f36ab7cbbb92326ee0cea8ef7e8c983355d9dfacb465c1640e
+                scripts/replay.py                                8fe2c2889383f04f7e361b9f862fc725e5e2f2105bfdd38dee4a9c764ac04e81
+修改 2        :
+                CHANGELOG.md                                     0831721bbfd8f3650c6ffe9c53b9546bac2e55479e1b9a3c19a5dbfd2665bd39
+                SKILL.md                                         8424b0f307e1e5f76009551546d32e920273de8259212e1f414e23694b52ba31
+
+内容          : M2（证据可重放）第一片：
+                1) journal 哈希链：聚合时把 run 目录全部文件（除 journal 自身与
+                   wall-clock 的 run.log）哈希成链，写 output/<run-id>/journal.jsonl；
+                   acceptance.json 与 deliverable.json 都在链里——判决文件本身被
+                   生产时绑定；无 wall-clock，同输入逐字节一致（A3 不受影响）。
+                2) replay.py（消费侧角色）：验链（E-JOURNAL-BROKEN）→ 逐件复算
+                   （E-ARTIFACT-DRIFT）→ 在 run 目录副本上重跑公共聚合器、逐字节
+                   比对验收日志与 journal（E-REPLAY-MISMATCH）；旗标从随包日志
+                   重建（legacy_grading / grading_entered / quick / run_id）。
+                3) 附带修一个真 bug：验收日志曾内嵌 selftest 日志的绝对路径
+                   （hard_gates.H3.source），同内容换路径字节就变——重放的字节
+                   比对当场抓住；已改为相对 run 目录。
+                4) 新增 A91（链 + 干净重放，journal 必须绑定 acceptance.json）与
+                   A92（四种伪造必须各退 1：证据 / 判决 / journal / 预览），
+                   EXPECTED_ASSERTIONS 90 → 92（--fixtures 93）。
+
+实测证据      : 六道闸（有引擎机器，全部实跑）：
+                selftest --fixtures 93/93（92 条 + A13，skipped=0，exit 0）、
+                selftest 92/92、run_fixtures 37/37、redteam 17/15/0/2、
+                validate_claims 116/116 覆盖 111/111、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                打包器强制校验 exit 0（两轮均 168 文件、产物自检无杂质）
+                双打包 x2 sha256 一致（168 文件 / 427,214 B / e50949fe…da44）
+                zip ↔ 源码逐件 md5：missing 0 / extra 0 / diff 0；junk 0
+                冻结基线重取：00-快照/快照断言-r73.txt（168 / 1,194,459 B，PASS）
+                复测闸（对 1.7.0 包）：见 04-QA/QA重测报告-r73.md
+                篡改四变异（真机验证，均按预期退 1）：抬 selftest 分数 →
+                E-ARTIFACT-DRIFT + E-REPLAY-MISMATCH；直改 grade→达标 → 重放
+                打回「grade: 达标 -> 不达标」；篡改 journal 首条 → E-JOURNAL-BROKEN；
+                偷换 preview.png → 重放诚实降级 not_deliverable
+                阈值数值零改动
+
+已知限制      : 1) run 目录由生成方可写，能同时重造证据 + journal + 验收日志的伪造
+                   仍拦不住（与 H3 同 run 自证边界同一威胁模型，已在文档声明）
+                2) M2 后续片（角色分离的签名层 / 远程验证）未做
+                3) 声明登记册 116 条中 57 条仍为 unverified
+                4) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r73-168files.zip
+                Windows 自带 Get-FileHash -Algorithm SHA256 同上路径
+                两者均应为 e50949fe84b2239adcf9553d7a7b0662805dc36bc1ce40163b05c5f6d3c8da44
+                （427,214 B / 168 文件）
+                上一版：r72 / 1.6.1 = 4b46720f8bede73590cba95d09935222277b39b0bfc9945908e34c714a756e43
+                （415,441 B / 166 文件，已在 archive/）
