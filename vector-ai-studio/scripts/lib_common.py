@@ -55,7 +55,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # swapped binary) -> 81 + 7 = 88.
 # r72 (docs round): +A89 (validate_claims accepts only capability-skips in a
 # supplied selftest log) -> 88 + 1 = 89.
-EXPECTED_ASSERTIONS = 89
+# r72 (install-verifier round): +A90 (the shipped install verifier may not
+# report a green it did not earn) -> 89 + 1 = 90.
+EXPECTED_ASSERTIONS = 90
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

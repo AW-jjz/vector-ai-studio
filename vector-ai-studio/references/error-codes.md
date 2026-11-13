@@ -60,6 +60,7 @@
 | `E-RENDER` | 矢量转位图失败（引擎返回非零或未产出文件） | export_print |
 | `E-TRACE` | 参考图描摹失败（引擎报错或未产出文件） | trace_ref |
 | `E-USAGE` | 参数非法（取值越界 / 缺少必填 / 扩展名不支持） | delight, export_print, trace_ref, studio |
+| `E-VERIFY-FAILED` | 安装自验（`../scripts/verify_install.py`）有一项未达预期：引擎不可定位 / 版本读不出 / 二进制哈希与 `../engine.lock.json` 不符 / 引擎相关断言未真执行 / 真机落地未产出合格产物；逐项列出。引擎缺席时退 3（无法复测，不是失败） | verify_install |
 
 ## 约定
 

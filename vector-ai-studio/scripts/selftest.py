@@ -3872,6 +3872,30 @@ def _stage_r72(tmp, add, th):
         " named=" + str(red_named) +
         " problems=" + ";".join(p[:90] for p in red_problems[:2]))
 
+    # ---- A90: the install verifier may not report a green it did not earn --
+    # scripts/verify_install.py ships with the package: on a machine WITH the
+    # engine it verifies the engine path (A30/A31/A46 really executed, plus
+    # the two landing paths); on a machine WITHOUT one it must say "cannot be
+    # verified here" and exit 3 -- never "ok". This assertion checks that
+    # contract, so it holds on BOTH kinds of machine: it does not need the
+    # engine to be present, and it must not pass when the engine is absent.
+    import trace_ref as TR
+    _cli90 = TR.find_cli()
+    rc90, env90, _ = _call("verify_install.py", ["--json", "--skip-selftest"], tmp)
+    d90 = env90.get("data") or {}
+    checks90 = d90.get("checks") or []
+    verdict90 = str(d90.get("verdict") or "")
+    if _cli90 is None:
+        ok90 = (rc90 == L.EXIT_MISSING and env90.get("status") != "ok"
+                and "无法复测" in verdict90 and bool(checks90))
+    else:
+        ok90 = (rc90 in (L.EXIT_OK, L.EXIT_FAIL) and bool(checks90)
+                and bool(verdict90) and "无法复测" not in verdict90)
+    add("A90-install-verifier-cannot-fake-green", bool(ok90),
+        "engine=" + ("present" if _cli90 else "absent") +
+        " exit=" + str(rc90) + " status=" + str(env90.get("status")) +
+        " verdict=" + verdict90[:64] + " checks=" + str(len(checks90)))
+
     # ---- A85: the narrow track may not launder a full run ----------------
     d5 = tmp / "narrow"
     RT.base_run(d5, "attack")

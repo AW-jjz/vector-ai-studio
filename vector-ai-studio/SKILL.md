@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.5.0
+version: 1.6.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.5.0"
+  version: "1.6.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -297,9 +297,15 @@ python scripts/smoke_ai.py --run-id "$RUN_ID"
 
 H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生（`--log-dir` 必须指向运行目录，`--run-id` 写进日志的 `run_id`）；`scripts/aggregate_log.py` 校验 `selftest.json.run_id == 本次 --run-id`，两者取值必须一致。只给 `scripts/aggregate_log.py` 传 `--run-id`、却让 `scripts/selftest.py` 用默认固定值，会让所有正常日志 H3 全红。也可用 `--selftest-log <path>` 显式指定日志路径。
 
-这条绑定拦住的是**跨 run 复用旧日志**：把上一次 / 别处的 `output/<run-id>/selftest.json` 塞进本次 run-dir，其 `run_id` 与本次内容派生值不符 → H3 fail。它**拦不住**「同一次 run 内生成方自写一份 run_id 匹配的假 `output/<run-id>/selftest.json`」——`output/<run-id>/` 是生成方可写的、`run_id` 本身公开可推导，属已声明的威胁模型边界；同 run 内自证这一层由「断言总数下界 ≥ 81」+「#2 产物字节复算」+「#5 grade 单一函数复算」共同收紧，不靠绑定宣称「不可伪造」。`scripts/studio.py` 的 `content_run_id()` 是生成该值的单一实现，编排各阶段与步 11 都复用它。
+这条绑定拦住的是**跨 run 复用旧日志**：把上一次 / 别处的 `output/<run-id>/selftest.json` 塞进本次 run-dir，其 `run_id` 与本次内容派生值不符 → H3 fail。它**拦不住**「同一次 run 内生成方自写一份 run_id 匹配的假 `output/<run-id>/selftest.json`」——`output/<run-id>/` 是生成方可写的、`run_id` 本身公开可推导，属已声明的威胁模型边界；同 run 内自证这一层由「断言总数下界 ≥ 90」+「#2 产物字节复算」+「#5 grade 单一函数复算」共同收紧，不靠绑定宣称「不可伪造」。`scripts/studio.py` 的 `content_run_id()` 是生成该值的单一实现，编排各阶段与步 11 都复用它。
 
 `scripts/selftest.py` 是纯脚本层，零外部依赖必能跑；`scripts/run_fixtures.py` 跑随包 good / bad 回归；`scripts/smoke_ai.py` 是独立的真机冒烟命令，真实探测并调用 VectorCraft 落地，引擎不可用按 L4 显式降级并留真实日志，绝不编造 `.ai`。
+
+`scripts/verify_install.py` 回答的是另一个问题：**这台机器上的引擎路径通不通**。自检里 A30 / A31 / A46 三条依赖真实引擎，没有引擎时它们是 *skipped*（跳过是「没测」，不是「通过」）——所以「自检全绿」并不证明引擎能用。`scripts/verify_install.py` 复用这三条断言（不另立判据），再真跑一次 `land_vc` 与 `land_craft` 留下产物证据，并核对引擎二进制哈希与 `engine.lock.json` 里钉的那一个是否一致。**引擎缺席时它只报「无法复测」并退 3，绝不报 ok**；哈希对不上则报 `E-ENGINE-DRIFT`（同版本、不同构建，之前的回归结论不再成立）。
+
+```
+python scripts/verify_install.py --json     # 退出码：0 已验证 / 1 有项目失败 / 3 引擎缺席（不是通过）
+```
 
 ## 命令速查
 
@@ -312,6 +318,7 @@ python scripts/detect_deps.py --json
 python scripts/selftest.py --fixtures --log-dir <RUN_DIR>
 python scripts/run_fixtures.py
 python scripts/smoke_ai.py
+python scripts/verify_install.py --json   # 引擎路径自验：0 已验证 / 3 引擎缺席（不是通过）
 ```
 
 ### 契约与自证（r72）

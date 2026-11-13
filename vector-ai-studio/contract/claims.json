@@ -1133,6 +1133,30 @@
       "claim": "- 评审去重的**已声明边界**：`(绝对路径, 内容 sha256)` 拦得住「同一份表重复提交」，但**拦不住「同一份表换个文件名再交一次」与「同一个人把同一份表另存为两个不同文件并改动一个字节」**——那是两个人还是一个人，脚本无从判定",
       "mechanism": "boundary-declaration",
       "boundary_proof": "attack:16-review-duplicate-new-name"
+    },
+    {
+      "id": "CLAIM-115",
+      "file": "SKILL.md",
+      "anchor": "**引擎缺席",
+      "text_hash": "sha256:bb5d45b7eb565bfcaf28a7015042fe10d371b02544b9b1a600d31fb8b9aba7c5",
+      "claim": "**引擎缺席时它只报「无法复测」并退 3，绝不报 ok**；哈希对不上则报 `E-ENGINE-DRIFT`（同版本、不同构建，之前的回归结论不再成立）",
+      "mechanism": "assertion",
+      "tests": [
+        "A90-install-verifier-cannot-fake-green",
+        "A88-engine-lock-detects-swapped-binary"
+      ]
+    },
+    {
+      "id": "CLAIM-116",
+      "file": "README.md",
+      "anchor": "这条命令复用",
+      "text_hash": "sha256:756d1eb070b389dc5ac7f6551d25065808605e1deb0dab457ffb8c0903792edc",
+      "claim": "这条命令复用那三条断言、再真跑一次落地，并把引擎二进制哈希与 `engine.lock.json` 里钉的那一个比对：退出码 0 = 引擎路径已验证，**3 = 引擎缺席（无法复测，不是通过）**，1 = 有项目失败，哈希对不上时报 `E-ENGINE-DRIFT`（同版本、不同构建）",
+      "mechanism": "assertion",
+      "tests": [
+        "A90-install-verifier-cannot-fake-green",
+        "A88-engine-lock-detects-swapped-binary"
+      ]
     }
   ]
 }

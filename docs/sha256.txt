@@ -2378,3 +2378,80 @@ sha256        : 16e603c271d6245f69462d3abc061d3f62ba7f8ad87c11436aae5313fa47beef
                 Windows 自带 Get-FileHash -Algorithm SHA256 同上路径
                 两者均应为 16e603c271d6245f69462d3abc061d3f62ba7f8ad87c11436aae5313fa47beef
                 （407,695 B / 165 文件）
+
+────────────────────────────────────────────────────────────
+r72 / 1.6.0（2026-11-13）　判据 2.0.0 + 随包安装自验（取代 1.5.0 候选包）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r72-166files.zip
+版本          : r72（SKILL.md 1.6.0，metadata.version "1.6.0"）
+文件数        : 166
+字节数        : 415117
+sha256        : 6b6781b4e7532111ccc930cec64d961bfd373015acfd675a6304246a6395c6ce
+冻结时刻      : 2026-11-13 12:22（源码 166 文件 / 1,162,072 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（166 条目、0 目录项）
+旧包归档      : r72-165files.zip（1.5.0 候选，未签收）移入 05-发布/archive/（不覆盖、不删除）
+                archive 现有 18 件；该包 sha256 16e603c2…beef 逐字节保留
+取代关系      : 本段取代上一段 r72（1.5.0，165 文件 / 407,695 B / 16e603c2…beef）。1.5.0
+                候选包从未签收、从未发出，因此按「未发先改」处理，而不是发出去再打补丁。
+                两段都留在本文件里：历史段逐字未动，谁都能查到上一版是什么、为什么被换。
+
+相对 1.5.0 变更 : 8 个文件（1 新增 / 0 删除 / 7 修改）
+                对比 05-发布/archive/vector-ai-studio_r72-165files.zip 逐件 md5
+新增 1        :
+                scripts/verify_install.py                        dbc0e432ad11e80fd820d6b3927272d73b04caf59288894d4c9d02a9ebc7d0c5
+修改 7        :
+                CHANGELOG.md                                    d96fdb67e0d72c2c9636dac9393ab7594198ccdcec7ddc85d9e4449197ae7e41
+                README.md                                       5ea93f22e7bfb074300e1d9daa7c46eaf55246f7450e14317b5dc113b992a3bb
+                SKILL.md                                        50b60ebae8188a87956b492e1ec63d597e09c7778c42c3d2d96ca2ec9b276bd9
+                contract/claims.json                             d5cc0b019e317d362d826215bd8af6b19968be5e332b198c284771ccd9d09678
+                references/error-codes.md                        05f1973f38e788e89f5808f73bb1b7872753975053800335c8ef181789040c95
+                scripts/lib_common.py                            680840a64812cb37285875d22468365720424366f32d04873aa89de79042305b
+                scripts/selftest.py                              ed50ac6e0c76ad88b619d9f8b588e579c479a4370f49cf890d95241af52baf49
+
+内容          : 1.5.0 的全部内容（判据 2.0.0 三值判决 + 契约生成化 + 随包攻击集 +
+                声明登记册 + 引擎锁 + 窄轨防洗白 + 32 条断链修复），另加：
+                1) 随包安装自验 scripts/verify_install.py：复用自检里那三条依赖引擎的
+                   断言（A30 / A31 / A46，不另立判据），再真跑一次 land_vc / land_craft
+                   留产物证据，并把引擎二进制哈希与 engine.lock.json 里钉的那一个比对。
+                   **它绝不把没跑的项报成通过**：引擎缺席只报「无法复测」并退 3；哈希
+                   对不上报 E-ENGINE-DRIFT。退出码 0 已验证 / 1 有失败 / 3 引擎缺席。
+                2) 新增断言 A90（安装自验不得报出没挣到的绿），EXPECTED_ASSERTIONS
+                   89 → 90（--fixtures 91 条）。
+                3) 声明登记册 114 → 116 条（新增两条承诺句，挂 A90 与 A88），
+                   覆盖率 111/111 = 1.0。
+                4) 发布纪律由四道闸加到第五道闸（引擎路径复测，须退出码 0）。
+                5) 复测闸改为调用包内脚本，引擎与落地判据只有一份实现。
+
+实测证据      : 打包侧五道闸（本轮实跑，非复述）：
+                selftest --fixtures 88 passed / 0 failed / 3 skipped（91 条断言；本机无
+                VectorCraft CLI → status=partial exit 3）；不带 --fixtures 87/0/3（90 条）
+                run_fixtures 37/37 all_ok=true
+                redteam 17 攻击 / 15 拦下 / 0 漏拦 / 2 已声明边界
+                validate_claims 116/116，覆盖 111/111 = 1.0（带 selftest 日志跑）
+                gen_contract --check 无漂移，exit 0
+                validate_skill 0 error / 0 warning（对 03-源码 与解压副本各跑一次）
+                打包器强制校验 exit 0（两轮均 166 文件、产物自检无杂质）
+                双打包 x2 sha256 一致（166 文件 / 415,117 B / 6b6781b4…c6ce）
+                zip ↔ 源码逐件 md5：missing 0 / extra 0 / diff 0；包内 .pyc 0 /
+                __pycache__ 0 / _dev-logs 0；根前缀异常条目 0
+                冻结基线重取：00-快照/快照断言-r72.txt（166 / 1,162,072 B，PASS）+
+                04-QA/test-log-r72/00-freeze-r72-manifest.txt（166 行逐件 sha256）
+                复测闸（04-QA/r72-reaudit/run_r72_reaudit.py）：19 项，通过 7 / 失败 0 /
+                无法复测 12，结论「无法签收（引擎路径未复测）」exit 3
+                A90 实测：engine=absent exit=3 status=degraded verdict=无法复测…
+                阈值数值零改动（与 1.5.0 同）：本轮只动文案、断言与新增脚本
+
+已知限制      : 1) 判据 2.0.0 是破坏性变更，旧日志必须重算或按 MIGRATION.md 迁移
+                2) 本包仍未 QA 签收：引擎侧 12 项在打包机上无法复测，签收前不应对外发
+                3) 带引擎路径（A30 / A31 / A46、E-ENGINE-DRIFT 漂移分支）未在真引擎上执行；
+                   engine.lock.json 里的哈希仍是上一轮记录，本轮未复算
+                4) 声明登记册 116 条中 57 条仍为 unverified（已登记、未机器校验）
+                5) 外部真人评审 0 份，usable_for_claim 恒为假
+                6) PDF/X 规范原文未核（r70 起已标注）
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r72-166files.zip
+                Windows 自带 Get-FileHash -Algorithm SHA256 同上路径
+                两者均应为 6b6781b4e7532111ccc930cec64d961bfd373015acfd675a6304246a6395c6ce
+                （415,117 B / 166 文件）
+                上一版（1.5.0，未签收）：16e603c271d6245f69462d3abc061d3f62ba7f8ad87c11436aae5313fa47beef
+                （407,695 B / 165 文件，已在 archive/）

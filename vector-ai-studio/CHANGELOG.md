@@ -4,6 +4,34 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.6.0 — 2026-11-13 [r72]
+
+The 1.5.0 candidate was never signed off (its engine path could not be
+re-tested on the packaging machine), so it is superseded **before** shipping
+rather than released and then patched. One addition: the install verifier now
+travels with the package, so the check runs where the engine actually is.
+
+- **New `scripts/verify_install.py`** -- the package can verify its own
+  install against the engine it will use. It reuses the suite's own
+  engine-bound assertions (A30 / A31 / A46 -- no second set of criteria), runs
+  `land_vc` and `land_craft` once for artefacts and readable evidence, and
+  compares the engine binary's sha256 with the pinned `engine.lock.json`
+  (mismatch -> `E-ENGINE-DRIFT`). **It never reports ok for a check it did
+  not execute**: an absent engine yields "cannot be verified here" and exit 3,
+  not a pass. A90 pins that contract on both kinds of machine; A90 plus the
+  new script take `EXPECTED_ASSERTIONS` from 89 to 90.
+- **The release process gained a fifth gate** (the release discipline file in the
+  repo's docs directory, not shipped in the package): the engine-path
+  re-audit must exit 0. Exit 3 means the package is 待 QA 签收 and
+  is not sent out. The r72 release is the reason: all four original gates were
+  green on a machine with no VectorCraft CLI, so the engine-bound assertions
+  were skipped and the pinned engine hash was never re-computed.
+- **One implementation, not two**: the release-side re-audit harness now calls
+  the package script instead of keeping its own copy of the engine checks, so
+  the two cannot drift.
+- Docs: `SKILL.md` and `README.md` document the verifier and its exit codes;
+  `E-VERIFY-FAILED` is registered in `references/error-codes.md`.
+
 ## 1.5.0 — 2026-11-13 [r72]
 
 Criteria 2.0.0: the verdict becomes three-valued and every cross-file enum
