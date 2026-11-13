@@ -11,11 +11,16 @@
 | `E-BITMAP` | SVG 含位图或内联 base64，不是纯矢量 | sanitize_svg |
 | `E-BUDGET-EXCEEDED` | generation_count 超过运行时派生的预算上界 | aggregate_log, batch_check |
 | `E-C-PALETTE-OVERFLOW` | 颜色数超过 C 维阈值 | score |
+| `E-CALIB-DATASET` | 校准集 schema/字段/方向/样本非法，或文件不可读 | calibration_bench, thresholds_guard |
 | `E-CALIB-DIRECTION` | 阈值变化方向与 `calibration_direction` 不符，或区间变化同时放宽一端、收紧另一端 | thresholds_guard |
 | `E-CALIB-FIELD` | 文档没有 field，或 field 在配置里不存在 | thresholds_guard |
+| `E-CALIB-HOLDOUT-THIN` | 留出集不足（每类至少 2 个样本） | calibration_bench |
 | `E-CALIB-LOCKED` | 试图校准锁定判据（`A.*` / `grade.*` / H1–H4 等），收紧也不允许 | thresholds_guard |
 | `E-CALIB-LOOSENING` | 阈值放宽缺少裁决引用 | aggregate_log, thresholds_guard |
 | `E-CALIB-MISMATCH` | calibration_log 的 after 与当前配置不一致 | aggregate_log, thresholds_guard |
+| `E-CALIB-NO-BENCH` | 放宽没有附校准集；只有文书、没有留出集证据 | thresholds_guard |
+| `E-CALIB-NO-GAIN` | 校准集上 fit BER 变差，或 holdout BER 没有严格改善 | calibration_bench, thresholds_guard |
+| `E-CALIB-NO-HOLDOUT` | 校准集没有 holdout 样本，无法检验泛化 | calibration_bench |
 | `E-CALIB-NO-LOG` | 校准记录缺少真实样本日志引用，或引用文件不存在/为空 | aggregate_log, thresholds_guard |
 | `E-CALIB-NOOP` | before 与 after 相同，没有可晋升的变化 | thresholds_guard |
 | `E-CALIB-NOT-WHITELISTED` | 字段不匹配任何 `calibratable` 白名单模式 | thresholds_guard |

@@ -35,6 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import calibration_bench as CB
 
 SCRIPT = "thresholds_guard.py"
 RESULT_SCHEMA = "vector-ai-studio/thresholds-guard-v1"
@@ -64,6 +65,13 @@ def _direction(th, field):
 
 def _numeric(v):
     return isinstance(v, NUM) and not isinstance(v, bool)
+
+
+def _resolve(ref, base):
+    p = Path(ref)
+    cands = [p] if p.is_absolute() else [(base or Path.cwd()) / p,
+                                         L.skill_root() / p]
+    return next((c for c in cands if c.is_file()), None)
 
 
 def _effect(direction, before, after):
@@ -104,6 +112,8 @@ def check(th, doc, mode="proposal", base=None):
     field = str(doc.get("field") or "").strip()
     direction = None
     grade = None
+    bench = None
+    set_ref = str(doc.get("calibration_set") or "").strip()
     before = doc.get("before")
     after = doc.get("after")
 
@@ -118,6 +128,8 @@ def check(th, doc, mode="proposal", base=None):
             "sample_n": doc.get("sample_n"),
             "provenance": doc.get("provenance"),
             "evidence_grade": grade,
+            "calibration_set": set_ref or None,
+            "bench": bench,
             "problems": problems,
             "record": ({
                 "field": field,
@@ -127,9 +139,11 @@ def check(th, doc, mode="proposal", base=None):
                 "loosening": doc.get("loosening"),
                 "ruling_ref": doc.get("ruling_ref"),
                 "real_run_log_ref": doc.get("real_run_log_ref"),
+                "calibration_set": set_ref or None,
                 "sample_n": doc.get("sample_n"),
                 "provenance": doc.get("provenance"),
                 "evidence_grade": grade,
+                "bench_holdout": (bench or {}).get("holdout"),
             } if not problems else None),
         }
 
@@ -222,13 +236,35 @@ def check(th, doc, mode="proposal", base=None):
     if not ref:
         add("E-CALIB-NO-LOG", "missing real_run_log_ref")
     else:
-        rp = Path(ref)
-        cands = [rp] if rp.is_absolute() else [(base or Path.cwd()) / rp,
-                                               L.skill_root() / rp]
-        hit = next((c for c in cands if c.is_file() and c.stat().st_size > 0), None)
-        if hit is None:
+        hit = _resolve(ref, base)
+        if hit is None or hit.stat().st_size == 0:
             add("E-CALIB-NO-LOG",
                 "real_run_log_ref does not resolve to a non-empty file: " + ref)
+
+    # r80 (M5 slice 2): paperwork is not evidence. A loosening must ship a
+    # calibration set, and any supplied set must show a strict holdout gain.
+    if set_ref:
+        sp = _resolve(set_ref, base)
+        if sp is None:
+            add("E-CALIB-DATASET",
+                "calibration_set does not resolve to a file: " + set_ref)
+        else:
+            try:
+                setdoc = L.read_json(str(sp))
+            except L.ToolError as e:
+                add("E-CALIB-DATASET", "calibration_set unreadable: " + str(e))
+            else:
+                bench = CB.evaluate(setdoc, field, direction, before, after)
+                problems.extend(bench.get("problems") or [])
+                if (isinstance(n, int) and not isinstance(n, bool)
+                        and bench.get("n") != n):
+                    add("E-CALIB-SAMPLE",
+                        "sample_n %d != calibration set size %d"
+                        % (n, bench.get("n")))
+    elif doc.get("loosening") is True and policy.get("requires_bench_for_loosening"):
+        add("E-CALIB-NO-BENCH",
+            "a loosening needs calibration_set with a holdout gain; "
+            "paperwork alone does not show the gate improves")
 
     return result()
 

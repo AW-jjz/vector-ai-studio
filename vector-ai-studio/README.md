@@ -105,6 +105,7 @@ python scripts/verify_install.py --json
 
 - 不承诺一次直出即达到阈值；达标由验收日志按 `config/thresholds.json` 机械比较裁定。
 - 阈值晋升有守卫：`scripts/thresholds_guard.py` 在改配置前核验白名单/锁定、方向、样本数、真机日志与放宽裁决；`calibration_log` 由 `scripts/aggregate_log.py` 逐条回核。证据分级 A/B/C 只报告，不冒充「校准已成立」。
+- 放宽还要过校准台：`scripts/calibration_bench.py` 在带 holdout 的校准集上比较当前与提案阈值的平衡错误率；**fit 不变差、holdout 严格改善**才算有证据，噪声与过拟合都拒。没有校准集的放宽直接拒。
 - 默认零凭据链路下若宿主读不到渲染图，按 L2 交付：A/B 记 capability_missing 状态枚举（非分数）、**grade 记「未判定」**（读不了图不是质量结论）、五件产物照常落盘、不阻断交付。
 - 取证分工：H1 由 landing-only 轨取证（smoke_ai.py 加 --landing-only），H2/H3/H4 由完整链（默认）取证；**已经跑过完整链的目录不许再走窄轨**（否则窄轨就成了洗白失败 run 的后门）。
 - 不伪造 `.ai`；引擎缺失时明确标注「非原生 `.ai`，格式底线未满足」。

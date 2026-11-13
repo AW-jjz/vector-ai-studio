@@ -1324,6 +1324,17 @@
       "tests": [
         "A100-threshold-promotion-guard"
       ]
+    },
+    {
+      "id": "CLAIM-134",
+      "file": "SKILL.md",
+      "anchor": "样本量只报告",
+      "text_hash": "sha256:2c2ab8dacede822667f4239c8e62a9f9bba2b7289294dbe797088705ced32833",
+      "claim": "样本量只报告不闸：小留出集上的严格增益仍可能是运气，报告会说 n 是多少",
+      "mechanism": "assertion",
+      "tests": [
+        "A101-calibration-bench"
+      ]
     }
   ]
 }

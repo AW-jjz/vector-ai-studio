@@ -4516,6 +4516,31 @@ def _stage_r79(tmp, add):
         base = {"real_run_log_ref": str(log), "sample_n": 40,
                 "provenance": "internal"}
 
+        def write_set(name, field, direction, rows):
+            p = tmp / (name + ".json")
+            p.write_text(json.dumps({
+                "schema": "vector-ai-studio/calibration-set-v1",
+                "field": field, "direction": direction,
+                "samples": [{"id": "%s-%02d" % (name, i), "value": v,
+                             "label": lab, "split": sp}
+                            for i, (v, lab, sp) in enumerate(rows, 1)]},
+                ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+            return str(p)
+
+        max_set = write_set("r79-max-loose", "C.max_colors_pass", "max", [
+            (5, "pass", "fit"), (8, "pass", "fit"), (9, "pass", "fit"),
+            (10, "pass", "fit"), (12, "fail", "fit"), (15, "fail", "fit"),
+            (6, "pass", "holdout"), (8, "pass", "holdout"), (9, "pass", "holdout"),
+            (10, "pass", "holdout"), (11, "fail", "holdout"), (14, "fail", "holdout"),
+        ])
+        range_set = write_set("r79-range-loose", "B.whitespace_pass", "range", [
+            (0.05, "fail", "fit"), (0.1, "pass", "fit"), (0.15, "pass", "fit"),
+            (0.4, "pass", "fit"), (0.65, "pass", "fit"), (0.7, "fail", "fit"),
+            (0.06, "fail", "holdout"), (0.11, "pass", "holdout"),
+            (0.2, "pass", "holdout"), (0.5, "pass", "holdout"),
+            (0.62, "pass", "holdout"), (0.69, "fail", "holdout"),
+        ])
+
         def prop(field, before, after, loosening=False, **kw):
             d = dict(base, field=field, before=before, after=after,
                      loosening=loosening)
@@ -4529,11 +4554,13 @@ def _stage_r79(tmp, add):
         grade_tight = ok_tight.get("evidence_grade")
         ok_loose = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
                                      ruling_ref="RULING-r79",
-                                     provenance="external"))
+                                     provenance="external",
+                                     calibration_set=max_set, sample_n=12))
         ok_range = TG.check(th, prop("B.whitespace_pass", [0.15, 0.6],
                                      [0.1, 0.65], True,
                                      ruling_ref="RULING-r79",
-                                     provenance="external"))
+                                     provenance="external",
+                                     calibration_set=range_set, sample_n=12))
         locked = TG.check(th, prop("A.min_paths", 1, 2))
         not_white = TG.check(th, prop("C.contrast_text_ratio", 4.5, 4.0))
         stale = TG.check(th, prop("C.max_colors_pass", 7, 6))
@@ -4591,6 +4618,135 @@ def _stage_r79(tmp, add):
             "checks=%d failures=%s" % (len(checks), "; ".join(bad)))
     except Exception as e:                      # noqa: BLE001
         add("A100-threshold-promotion-guard", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_r80(tmp, add):
+    """A101: the calibration bench refuses noise and overfitting (M5 / r80).
+
+    The guard proved the paperwork; the bench is the evidence. A101 pins the
+    two failure modes that matter: labels unrelated to the measured value (no
+    strict holdout gain) and a threshold fitted to the fit split that gets
+    worse on the holdout. It also pins the structural refusals (no holdout,
+    thin holdout, wrong field, duplicate ids, sample_n mismatch, missing set)
+    and the positive path (a separable set with a real holdout gain).
+    """
+    try:
+        import calibration_bench as CB
+        import thresholds_guard as TG
+
+        th = L.load_thresholds()
+        log = tmp / "r80-run.log"
+        log.write_text("run_id: r80-fixture\nselftest: 101/101\n", encoding="utf-8")
+
+        def write_set(name, field, direction, rows):
+            p = tmp / (name + ".json")
+            p.write_text(json.dumps({
+                "schema": "vector-ai-studio/calibration-set-v1",
+                "field": field, "direction": direction,
+                "samples": [{"id": "%s-%02d" % (name, i), "value": v,
+                             "label": lab, "split": sp}
+                            for i, (v, lab, sp) in enumerate(rows, 1)]},
+                ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+            return p
+
+        valid = write_set("r80-valid", "C.max_colors_pass", "max", [
+            (5, "pass", "fit"), (8, "pass", "fit"), (9, "pass", "fit"),
+            (10, "pass", "fit"), (12, "fail", "fit"), (15, "fail", "fit"),
+            (6, "pass", "holdout"), (7, "pass", "holdout"),
+            (9, "pass", "holdout"), (10, "pass", "holdout"),
+            (11, "fail", "holdout"), (14, "fail", "holdout"),
+        ])
+        # labels alternate with the value: threshold moves cannot separate them
+        noise = write_set("r80-noise", "C.max_colors_pass", "max", [
+            (v, "pass" if v % 2 else "fail", "fit" if v <= 6 else "holdout")
+            for v in range(1, 13)])
+        # fit says pass <= 6; holdout says pass >= 7 (the proposal overfits)
+        overfit_rows = ([(v, "pass" if v <= 6 else "fail", "fit")
+                         for v in range(1, 13)]
+                        + [(v, "pass" if v >= 7 else "fail", "holdout")
+                           for v in range(1, 13)])
+        overfit = write_set("r80-overfit", "C.max_colors_pass", "max", overfit_rows)
+        nohold = write_set("r80-nohold", "C.max_colors_pass", "max", [
+            (v, "pass" if v <= 6 else "fail", "fit") for v in range(1, 13)])
+        thin = write_set("r80-thin", "C.max_colors_pass", "max", [
+            (1, "pass", "fit"), (2, "pass", "fit"), (3, "pass", "fit"),
+            (4, "pass", "fit"), (9, "fail", "fit"), (10, "fail", "fit"),
+            (11, "fail", "fit"), (12, "fail", "fit"),
+            (1, "pass", "holdout"), (9, "fail", "holdout")])
+        wrong = write_set("r80-wrongfield", "C.max_stroke_widths_pass", "max", [
+            (5, "pass", "fit"), (8, "pass", "fit"), (12, "fail", "fit"),
+            (15, "fail", "fit"), (6, "pass", "holdout"), (7, "pass", "holdout"),
+            (11, "fail", "holdout"), (14, "fail", "holdout")])
+        dupdoc = json.loads(valid.read_text(encoding="utf-8"))
+        dupdoc["samples"].append(dict(dupdoc["samples"][0]))
+        dup = tmp / "r80-dup.json"
+        dup.write_text(json.dumps(dupdoc, ensure_ascii=False, indent=1) + "\n",
+                       encoding="utf-8")
+
+        def load(p):
+            return json.loads(Path(p).read_text(encoding="utf-8"))
+
+        def prop(field, before, after, loosening=False, **kw):
+            d = {"field": field, "before": before, "after": after,
+                 "loosening": loosening, "real_run_log_ref": str(log),
+                 "sample_n": kw.pop("sample_n", 40),
+                 "provenance": kw.pop("provenance", "internal")}
+            d.update(kw)
+            return d
+
+        def codes(res):
+            return [p["code"] for p in res["problems"]]
+
+        valid_doc = load(valid)
+        bench_ok = CB.evaluate(valid_doc, "C.max_colors_pass", "max", 8, 10)
+        bench_noise = CB.evaluate(load(noise), "C.max_colors_pass", "max", 8, 10)
+        bench_overfit = CB.evaluate(load(overfit), "C.max_colors_pass", "max", 8, 6)
+        bench_nohold = CB.evaluate(load(nohold), "C.max_colors_pass", "max", 8, 10)
+        bench_thin = CB.evaluate(load(thin), "C.max_colors_pass", "max", 8, 10)
+        bench_wrong = CB.evaluate(load(wrong), "C.max_colors_pass", "max", 8, 10)
+        bench_dup = CB.evaluate(load(dup), "C.max_colors_pass", "max", 8, 10)
+
+        guard_no_bench = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
+                                           ruling_ref="RULING-r80",
+                                           provenance="external"))
+        guard_noise = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
+                                        ruling_ref="RULING-r80",
+                                        provenance="external",
+                                        calibration_set=str(noise), sample_n=12))
+        guard_overfit = TG.check(th, prop("C.max_colors_pass", 8, 6, False,
+                                          calibration_set=str(overfit), sample_n=24))
+        guard_size = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
+                                       ruling_ref="RULING-r80",
+                                       provenance="external",
+                                       calibration_set=str(valid), sample_n=40))
+        guard_missing = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
+                                          ruling_ref="RULING-r80",
+                                          provenance="external",
+                                          calibration_set=str(tmp / "r80-nope.json"),
+                                          sample_n=12))
+
+        checks = {
+            "bench_accepts_separable": not bench_ok["problems"]
+            and bench_ok["fit"]["after"]["ber"] == 0
+            and bench_ok["holdout"]["after"]["ber"] == 0,
+            "bench_refuses_noise": "E-CALIB-NO-GAIN" in codes(bench_noise),
+            "bench_refuses_overfit": "E-CALIB-NO-GAIN" in codes(bench_overfit),
+            "bench_needs_holdout": "E-CALIB-NO-HOLDOUT" in codes(bench_nohold),
+            "bench_thin_holdout": "E-CALIB-HOLDOUT-THIN" in codes(bench_thin),
+            "bench_field_match": "E-CALIB-DATASET" in codes(bench_wrong),
+            "bench_duplicate_ids": "E-CALIB-DATASET" in codes(bench_dup),
+            "guard_needs_bench": "E-CALIB-NO-BENCH" in codes(guard_no_bench),
+            "guard_refuses_noise": "E-CALIB-NO-GAIN" in codes(guard_noise),
+            "guard_refuses_overfit": "E-CALIB-NO-GAIN" in codes(guard_overfit),
+            "guard_size_matches": "E-CALIB-SAMPLE" in codes(guard_size),
+            "guard_missing_set": "E-CALIB-DATASET" in codes(guard_missing),
+        }
+        bad = [k for k, v in checks.items() if not v]
+        add("A101-calibration-bench", not bad,
+            "checks=%d failures=%s" % (len(checks), "; ".join(bad)))
+    except Exception as e:                      # noqa: BLE001
+        add("A101-calibration-bench", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
@@ -4653,6 +4809,7 @@ def main():
     _stage_r77(tmp, add)
     _stage_r78(tmp, add)
     _stage_r79(tmp, add)
+    _stage_r80(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

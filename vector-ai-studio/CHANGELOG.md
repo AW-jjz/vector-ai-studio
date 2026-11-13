@@ -4,6 +4,36 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.14.0 — 2026-11-13 [r80]
+
+M5, second slice: the calibration bench. The promotion guard proved the
+paperwork; paperwork is not evidence. A proposal could name a real run log, a
+sample count and a ruling and still make the gate worse.
+
+- **New `scripts/calibration_bench.py`** (stdlib only): a calibration set is a
+  list of samples with a measured value, a human pass/fail label and a
+  fit/holdout split. The bench applies the current and the proposed threshold
+  to both splits and computes the balanced error rate (mean of false-positive
+  and false-negative rates). A promotion needs **fit BER no worse AND holdout
+  BER strictly better** -- a threshold judged on the samples it was fitted to
+  proves nothing.
+- **Noise and overfitting are refused**: labels unrelated to the value give no
+  strict holdout gain (`E-CALIB-NO-GAIN`); a change that improves the fit
+  split and worsens the holdout is refused the same way. A loosening without
+  a calibration set is refused outright (`E-CALIB-NO-BENCH`).
+- **Structural refusals**: no holdout (`E-CALIB-NO-HOLDOUT`), fewer than two
+  samples per class in the holdout (`E-CALIB-HOLDOUT-THIN`), wrong field /
+  direction / duplicate ids (`E-CALIB-DATASET`), and a declared `sample_n` that
+  does not match the set size (`E-CALIB-SAMPLE`).
+- **Sample size is reported, not gated**: a strict gain on a tiny holdout can
+  still be luck, and the report states n. The rules are about direction and
+  generalisation, not a magic p-value.
+- **A101** pins 12 cases (separable accept, noise, overfit, no holdout, thin
+  holdout, field mismatch, duplicate ids, guard needs a bench, guard refuses
+  noise/overfit, sample_n mismatch, missing set). `A100`'s positive loosening
+  paths now carry real calibration sets too. `EXPECTED_ASSERTIONS`
+  100 -> 101; claims 133 -> 134.
+
 ## 1.13.0 — 2026-11-13 [r79]
 
 M5, first slice: the calibration policy becomes executable. `calibration_policy`
