@@ -4,6 +4,31 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.15.0 — 2026-11-13 [r81]
+
+M5 close: a ruling is a record, not a string. The guard used to check only
+that `ruling_ref` was non-empty; it could point at nothing. Now it must be
+`ruling:<ID>` and resolve to exactly one approving record in
+`config/rulings.json`.
+
+- **Ruling registry** (`config/rulings.json`, schema
+  vector-ai-studio/rulings-v1): each record carries an id, an ISO date, a
+  decider, a decision (`approve` / `reject`), the fields it covers (glob
+  patterns allowed), a rationale and `evidence_refs`.
+- **The guard resolves it**: unknown / duplicated id, non-`ruling:` format,
+  a `reject` decision, a field outside the record's scope, a malformed date,
+  an empty rationale or an evidence reference that does not resolve to a
+  non-empty file are all `E-CALIB-RULING`.
+- **Honest boundary**: `decider` is a self-asserted role, not a credential --
+  H4 keeps this pipeline keyless. The repository history is the real anchor;
+  the registry check stops dangling and out-of-scope references, not a
+  malicious owner rewriting history.
+- **A102** pins 11 cases (valid ruling, free-string ref, unknown id, rejected
+  decision, out-of-scope field, missing evidence, empty rationale, duplicate
+  id, bad date, the shipped empty registry, and the policy pointer).
+  `EXPECTED_ASSERTIONS` 101 -> 102; claims 134 -> 136. No threshold value
+  changed.
+
 ## 1.14.0 — 2026-11-13 [r80]
 
 M5, second slice: the calibration bench. The promotion guard proved the

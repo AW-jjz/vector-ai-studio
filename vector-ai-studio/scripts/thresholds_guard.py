@@ -30,6 +30,7 @@ certificate.
 """
 import argparse
 import fnmatch
+import re
 import sys
 from pathlib import Path
 
@@ -39,6 +40,7 @@ import calibration_bench as CB
 
 SCRIPT = "thresholds_guard.py"
 RESULT_SCHEMA = "vector-ai-studio/thresholds-guard-v1"
+RULING_SCHEMA = "vector-ai-studio/rulings-v1"
 NUM = (int, float)
 
 
@@ -74,6 +76,69 @@ def _resolve(ref, base):
     return next((c for c in cands if c.is_file()), None)
 
 
+def _ruling_check(policy, ref, field, base, rulings):
+    """A ruling_ref is `ruling:<ID>` and must resolve to an approving record.
+
+    The registry is a committed file, not a signature: H4 keeps this pipeline
+    keyless, so `decider` is a self-asserted role and the repository history is
+    the real anchor. What this check can do is refuse dangling references,
+    rejected decisions, out-of-scope approvals and rulings whose evidence
+    files do not exist.
+    """
+    problems = []
+    prefix = "ruling:"
+    rid = ref[len(prefix):].strip() if ref.startswith(prefix) else ""
+    if not rid:
+        return [("E-CALIB-RULING",
+                 "ruling_ref must be `ruling:<ID>`; got %r" % ref)]
+    reg = rulings
+    if reg is None:
+        path = str(policy.get("ruling_registry") or "config/rulings.json")
+        rp = _resolve(path, base)
+        if rp is None:
+            return [("E-CALIB-RULING", "ruling registry not found: " + path)]
+        try:
+            reg = L.read_json(str(rp))
+        except L.ToolError as e:
+            return [("E-CALIB-RULING", "ruling registry unreadable: " + str(e))]
+    if not isinstance(reg, dict) or reg.get("schema") != RULING_SCHEMA:
+        return [("E-CALIB-RULING",
+                 "ruling registry schema must be " + RULING_SCHEMA)]
+    rows = reg.get("rulings") or []
+    hits = [r for r in rows if isinstance(r, dict)
+            and str(r.get("id") or "") == rid]
+    if len(hits) != 1:
+        return [("E-CALIB-RULING",
+                 "ruling %r must appear exactly once in the registry (got %d)"
+                 % (rid, len(hits)))]
+    r = hits[0]
+    if r.get("decision") != "approve":
+        problems.append(("E-CALIB-RULING",
+                         "ruling %r decision is %r, not approve"
+                         % (rid, r.get("decision"))))
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(r.get("date") or "")):
+        problems.append(("E-CALIB-RULING",
+                         "ruling %r needs an ISO date (YYYY-MM-DD); got %r"
+                         % (rid, r.get("date"))))
+    fields = [str(x) for x in (r.get("fields") or [])]
+    if not any(fnmatch.fnmatchcase(field, pat) for pat in fields):
+        problems.append(("E-CALIB-RULING",
+                         "ruling %r does not cover field %r (covers %s)"
+                         % (rid, field, fields or "nothing")))
+    if not str(r.get("rationale") or "").strip():
+        problems.append(("E-CALIB-RULING", "ruling %r has no rationale" % rid))
+    refs = r.get("evidence_refs") or []
+    if not refs:
+        problems.append(("E-CALIB-RULING", "ruling %r has no evidence_refs" % rid))
+    for ev in refs:
+        ep = _resolve(str(ev), base)
+        if ep is None or ep.stat().st_size == 0:
+            problems.append(("E-CALIB-RULING",
+                             "ruling %r evidence does not resolve to a "
+                             "non-empty file: %s" % (rid, ev)))
+    return problems
+
+
 def _effect(direction, before, after):
     """loosening / tightening / noop / mixed / invalid, from the direction map."""
     if direction in ("max", "min"):
@@ -101,7 +166,7 @@ def _effect(direction, before, after):
     return "invalid"
 
 
-def check(th, doc, mode="proposal", base=None):
+def check(th, doc, mode="proposal", base=None, rulings=None):
     """Return the guard document. `mode` is proposal or entry."""
     problems = []
 
@@ -113,6 +178,7 @@ def check(th, doc, mode="proposal", base=None):
     direction = None
     grade = None
     bench = None
+    ruling_report = None
     set_ref = str(doc.get("calibration_set") or "").strip()
     before = doc.get("before")
     after = doc.get("after")
@@ -130,6 +196,7 @@ def check(th, doc, mode="proposal", base=None):
             "evidence_grade": grade,
             "calibration_set": set_ref or None,
             "bench": bench,
+            "ruling": ruling_report,
             "problems": problems,
             "record": ({
                 "field": field,
@@ -212,8 +279,15 @@ def check(th, doc, mode="proposal", base=None):
             add("E-CALIB-DIRECTION",
                 "declared loosening=%s but direction %r says %s"
                 % (declared, direction, eff))
-        if declared is True and not str(doc.get("ruling_ref") or "").strip():
+        ref = str(doc.get("ruling_ref") or "").strip()
+        if declared is True and not ref:
             add("E-CALIB-LOOSENING", "loosening without ruling_ref")
+        if ref:
+            r_problems = _ruling_check(policy, ref, field, base, rulings)
+            for code, msg in r_problems:
+                add(code, msg)
+            if not r_problems:
+                ruling_report = {"ref": ref, "id": ref.split(":", 1)[1]}
         if (declared is True and policy.get("loosening_requires_external")
                 and doc.get("provenance") != "external"):
             add("E-CALIB-PROVENANCE",
@@ -276,12 +350,16 @@ def main():
     ap.add_argument("--thresholds", default="", help="thresholds.json path")
     ap.add_argument("--entry", action="store_true",
                     help="check an existing calibration_log entry (after == current)")
+    ap.add_argument("--rulings", default="",
+                    help="ruling registry override (default from calibration_policy)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
     th = L.load_thresholds(args.thresholds or None)
     doc = L.read_json(args.proposal)
-    res = check(th, doc, mode="entry" if args.entry else "proposal")
+    rulings = L.read_json(args.rulings) if args.rulings else None
+    res = check(th, doc, mode="entry" if args.entry else "proposal",
+                rulings=rulings)
     ok = not res["problems"]
     errors = [L.err(p["code"], p["message"]) for p in res["problems"]]
     return L.emit(SCRIPT, status="ok" if ok else "fail",

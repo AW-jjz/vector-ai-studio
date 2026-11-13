@@ -1,0 +1,5 @@
+{
+  "schema": "vector-ai-studio/rulings-v1",
+  "note": "Threshold promotion rulings. A loosening's ruling_ref must be `ruling:<ID>` and resolve to exactly one approving record here. `decider` is a self-asserted role, not a credential (H4 keeps this pipeline keyless); the repository history is the real anchor. Each record needs an ISO date, a decision of approve/reject, the fields it covers (glob patterns allowed), a rationale and evidence_refs that resolve to non-empty files.",
+  "rulings": []
+}

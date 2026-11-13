@@ -4547,33 +4547,42 @@ def _stage_r79(tmp, add):
             d.update(kw)
             return d
 
+        reg = {"schema": "vector-ai-studio/rulings-v1", "rulings": [{
+            "id": "R-79", "date": "2026-11-13", "decider": "owner",
+            "decision": "approve",
+            "fields": ["C.max_colors_pass", "B.whitespace_pass"],
+            "rationale": "r79 fixture ruling",
+            "evidence_refs": [str(log)]}]}
+
         def codes(res):
             return [p["code"] for p in res["problems"]]
 
         ok_tight = TG.check(th, prop("C.max_colors_pass", 8, 6))
         grade_tight = ok_tight.get("evidence_grade")
         ok_loose = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
-                                     ruling_ref="RULING-r79",
+                                     ruling_ref="ruling:R-79",
                                      provenance="external",
-                                     calibration_set=max_set, sample_n=12))
+                                     calibration_set=max_set, sample_n=12),
+                            rulings=reg)
         ok_range = TG.check(th, prop("B.whitespace_pass", [0.15, 0.6],
                                      [0.1, 0.65], True,
-                                     ruling_ref="RULING-r79",
+                                     ruling_ref="ruling:R-79",
                                      provenance="external",
-                                     calibration_set=range_set, sample_n=12))
+                                     calibration_set=range_set, sample_n=12),
+                            rulings=reg)
         locked = TG.check(th, prop("A.min_paths", 1, 2))
         not_white = TG.check(th, prop("C.contrast_text_ratio", 4.5, 4.0))
         stale = TG.check(th, prop("C.max_colors_pass", 7, 6))
         sample0 = TG.check(th, prop("C.max_colors_pass", 8, 6, sample_n=0))
         no_ruling = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
-                                      provenance="external"))
+                                      provenance="external"), rulings=reg)
         internal_loose = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
-                                          ruling_ref="RULING-r79"))
+                                          ruling_ref="ruling:R-79"), rulings=reg)
         mislabel = TG.check(th, prop("C.max_colors_pass", 8, 9, False))
         mixed = TG.check(th, prop("B.whitespace_pass", [0.15, 0.6],
                                   [0.1, 0.55], True,
-                                  ruling_ref="RULING-r79",
-                                  provenance="external"))
+                                  ruling_ref="ruling:R-79",
+                                  provenance="external"), rulings=reg)
         no_log = TG.check(th, prop("C.max_colors_pass", 8, 6,
                                    real_run_log_ref=str(tmp / "missing.log")))
         machine = TG.check(th, prop("C.max_colors_pass", 8, 6,
@@ -4695,6 +4704,12 @@ def _stage_r80(tmp, add):
             d.update(kw)
             return d
 
+        reg = {"schema": "vector-ai-studio/rulings-v1", "rulings": [{
+            "id": "R-80", "date": "2026-11-13", "decider": "owner",
+            "decision": "approve", "fields": ["C.max_colors_pass"],
+            "rationale": "r80 fixture ruling",
+            "evidence_refs": [str(log)]}]}
+
         def codes(res):
             return [p["code"] for p in res["problems"]]
 
@@ -4708,23 +4723,25 @@ def _stage_r80(tmp, add):
         bench_dup = CB.evaluate(load(dup), "C.max_colors_pass", "max", 8, 10)
 
         guard_no_bench = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
-                                           ruling_ref="RULING-r80",
-                                           provenance="external"))
+                                           ruling_ref="ruling:R-80",
+                                           provenance="external"), rulings=reg)
         guard_noise = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
-                                        ruling_ref="RULING-r80",
+                                        ruling_ref="ruling:R-80",
                                         provenance="external",
-                                        calibration_set=str(noise), sample_n=12))
+                                        calibration_set=str(noise), sample_n=12),
+                               rulings=reg)
         guard_overfit = TG.check(th, prop("C.max_colors_pass", 8, 6, False,
                                           calibration_set=str(overfit), sample_n=24))
         guard_size = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
-                                       ruling_ref="RULING-r80",
+                                       ruling_ref="ruling:R-80",
                                        provenance="external",
-                                       calibration_set=str(valid), sample_n=40))
+                                       calibration_set=str(valid), sample_n=40),
+                              rulings=reg)
         guard_missing = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
-                                          ruling_ref="RULING-r80",
+                                          ruling_ref="ruling:R-80",
                                           provenance="external",
                                           calibration_set=str(tmp / "r80-nope.json"),
-                                          sample_n=12))
+                                          sample_n=12), rulings=reg)
 
         checks = {
             "bench_accepts_separable": not bench_ok["problems"]
@@ -4747,6 +4764,97 @@ def _stage_r80(tmp, add):
             "checks=%d failures=%s" % (len(checks), "; ".join(bad)))
     except Exception as e:                      # noqa: BLE001
         add("A101-calibration-bench", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_r81(tmp, add):
+    """A102: a ruling_ref is a resolvable, approving, scoped record (M5 / r81).
+
+    The old guard only checked that ruling_ref was a non-empty string. A102
+    pins the registry contract: `ruling:<ID>` must resolve to exactly one
+    record, the decision must be approve, the field must be inside the record's
+    scope, the date must be ISO, the rationale non-empty, and every evidence
+    reference must resolve to a non-empty file. Dangling, rejected,
+    out-of-scope, duplicated and evidence-less rulings are all refused.
+    """
+    try:
+        import thresholds_guard as TG
+
+        th = L.load_thresholds()
+        log = tmp / "r81-run.log"
+        log.write_text("run_id: r81-fixture\nselftest: 102/102\n", encoding="utf-8")
+        rows = [
+            (5, "pass", "fit"), (8, "pass", "fit"), (9, "pass", "fit"),
+            (10, "pass", "fit"), (12, "fail", "fit"), (15, "fail", "fit"),
+            (6, "pass", "holdout"), (7, "pass", "holdout"),
+            (9, "pass", "holdout"), (10, "pass", "holdout"),
+            (11, "fail", "holdout"), (14, "fail", "holdout"),
+        ]
+        cset = tmp / "r81-set.json"
+        cset.write_text(json.dumps({
+            "schema": "vector-ai-studio/calibration-set-v1",
+            "field": "C.max_colors_pass", "direction": "max",
+            "samples": [{"id": "r81-%02d" % i, "value": v, "label": lab,
+                         "split": sp} for i, (v, lab, sp) in enumerate(rows, 1)]},
+            ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+
+        def record(**kw):
+            r = {"id": "R-81", "date": "2026-11-13", "decider": "owner",
+                 "decision": "approve", "fields": ["C.max_colors_pass"],
+                 "rationale": "fixture ruling", "evidence_refs": [str(log)]}
+            r.update(kw)
+            return r
+
+        def reg(*records):
+            return {"schema": "vector-ai-studio/rulings-v1",
+                    "rulings": list(records)}
+
+        def prop(**kw):
+            d = {"field": "C.max_colors_pass", "before": 8, "after": 10,
+                 "loosening": True, "ruling_ref": "ruling:R-81",
+                 "real_run_log_ref": str(log), "sample_n": 12,
+                 "provenance": "external", "calibration_set": str(cset)}
+            d.update(kw)
+            return d
+
+        def codes(res):
+            return [p["code"] for p in res["problems"]]
+
+        good = TG.check(th, prop(), rulings=reg(record()))
+        free = TG.check(th, prop(ruling_ref="R-81"), rulings=reg(record()))
+        unknown = TG.check(th, prop(ruling_ref="ruling:R-404"),
+                           rulings=reg(record()))
+        rejected = TG.check(th, prop(), rulings=reg(record(decision="reject")))
+        out_scope = TG.check(th, prop(), rulings=reg(record(fields=["B.whitespace_pass"])))
+        no_ev = TG.check(th, prop(), rulings=reg(record(evidence_refs=[str(tmp / "r81-nope.log")])))
+        no_rationale = TG.check(th, prop(), rulings=reg(record(rationale="")))
+        duplicate = TG.check(th, prop(), rulings=reg(record(), record()))
+        bad_date = TG.check(th, prop(), rulings=reg(record(date="13/11/2026")))
+
+        default_reg = L.read_json(str(L.skill_root() / "config" / "rulings.json"))
+        policy = th.get("calibration_policy") or {}
+
+        checks = {
+            "valid_ruling": not good["problems"]
+            and (good.get("ruling") or {}).get("id") == "R-81",
+            "ref_format": "E-CALIB-RULING" in codes(free),
+            "unknown_id": "E-CALIB-RULING" in codes(unknown),
+            "rejected": "E-CALIB-RULING" in codes(rejected),
+            "out_of_scope": "E-CALIB-RULING" in codes(out_scope),
+            "missing_evidence": "E-CALIB-RULING" in codes(no_ev),
+            "no_rationale": "E-CALIB-RULING" in codes(no_rationale),
+            "duplicate_id": "E-CALIB-RULING" in codes(duplicate),
+            "bad_date": "E-CALIB-RULING" in codes(bad_date),
+            "default_registry": default_reg.get("schema") == "vector-ai-studio/rulings-v1"
+            and isinstance(default_reg.get("rulings"), list),
+            "policy_points_at_registry": policy.get("ruling_registry") == "config/rulings.json"
+            and policy.get("ruling_format") == "ruling:<ID>",
+        }
+        bad = [k for k, v in checks.items() if not v]
+        add("A102-ruling-record", not bad,
+            "checks=%d failures=%s" % (len(checks), "; ".join(bad)))
+    except Exception as e:                      # noqa: BLE001
+        add("A102-ruling-record", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
@@ -4810,6 +4918,7 @@ def main():
     _stage_r78(tmp, add)
     _stage_r79(tmp, add)
     _stage_r80(tmp, add)
+    _stage_r81(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

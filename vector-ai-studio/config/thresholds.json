@@ -158,6 +158,8 @@
     "loosening_requires_external": true,
     "requires_bench_for_loosening": true,
     "calibration_bench": "scripts/calibration_bench.py",
+    "ruling_registry": "config/rulings.json",
+    "ruling_format": "ruling:<ID>",
     "evidence_note": "证据分级只报告不闸：A=外部真人、B=内部人、C=机器。闸只做结构判定——样本数、真机日志引用、裁决引用与 loosening 方向；分级不冒充「校准已成立」。",
     "uncalibrated_perceptual": [
       "C.duplicate_delta_e_2000_max",

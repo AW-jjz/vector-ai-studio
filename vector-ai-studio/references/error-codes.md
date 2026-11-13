@@ -25,6 +25,7 @@
 | `E-CALIB-NOOP` | before 与 after 相同，没有可晋升的变化 | thresholds_guard |
 | `E-CALIB-NOT-WHITELISTED` | 字段不匹配任何 `calibratable` 白名单模式 | thresholds_guard |
 | `E-CALIB-PROVENANCE` | 证据来源缺失/非法，或放宽时不是外部真人证据 | thresholds_guard |
+| `E-CALIB-RULING` | 裁决引用不是 `ruling:<ID>`、注册表里找不到/重复、决定不是 approve、字段不在范围内、缺理由或证据文件不存在 | thresholds_guard |
 | `E-CALIB-SAMPLE` | `sample_n` 不是正整数 | thresholds_guard |
 | `E-CALIB-STALE` | 提案的 before 不等于当前值；entry 的 after 不等于当前值 | thresholds_guard |
 | `E-CONFIG-KEYS` | 配置键缺失或存在多余键 | lib_common |
