@@ -15,9 +15,13 @@ and compares what the two implementations see:
   * output-intent presence (PyMuPDF reads the catalog's /OutputIntents)
   * the file is really a PDF and renders to non-blank pixels
 
-With --require-pdfx it also enforces the print claim: an internal
-/GTS_PDFXVersion marker, at least one output intent, no encryption, and no
-non-embedded font.
+With --require-pdfx it enforces the structural print claim: a PDF/X
+identifier, at least one output intent, no encryption, and no non-embedded
+font on the rendered page. With --expect-standard x1a|x3|x4 it also checks the
+EXACT identifier from references/pdfx-requirements.md (X-1a:2001 is
+`PDF/X-1:2001` + `GTS_PDFXConformance(PDF/X-1a:2001)`; X-4 is `PDF/X-4` in
+XMP or Info). A prefix like `startswith("PDF/X")` cannot tell the levels apart
+and is no longer used.
 
 PyMuPDF is an OPTIONAL dependency. Without it the script exits 3 (declared
 missing capability), never 0: an unmeasured preflight is not a pass.
@@ -66,7 +70,38 @@ def _intents(doc):
     return len(re.findall(r"\d+\s+\d+\s+R", value)), value
 
 
-def preflight(path, require_pdfx=False):
+def _pdf_text(blob):
+    """Undo PDF literal-string escapes before reporting."""
+    return (blob.replace(b"\\\\", b"\\")
+                .replace(b"\\(", b"(").replace(b"\\)", b")")).decode("latin1")
+
+
+def _identification(raw, xmp):
+    """Read the exact PDF/X identifiers from Info and XMP.
+
+    X-1a:2001 is `GTS_PDFXVersion(PDF/X-1:2001)` plus
+    `GTS_PDFXConformance(PDF/X-1a:2001)`; X-4 is XMP
+    `pdfxid:GTS_PDFXVersion = PDF/X-4`. A prefix search cannot tell them apart.
+    """
+    version = conformance = None
+    m = re.search(rb"/GTS_PDFXVersion\s*\(((?:\\.|[^\\()])*)\)", raw)
+    if m:
+        version = _pdf_text(m.group(1))
+    m = re.search(rb"/GTS_PDFXConformance\s*\(((?:\\.|[^\\()])*)\)", raw)
+    if m:
+        conformance = _pdf_text(m.group(1))
+    xmp_version = None
+    m = re.search(r"<pdfxid:GTS_PDFXVersion>([^<]*)</pdfxid:GTS_PDFXVersion>", xmp)
+    if m:
+        xmp_version = m.group(1).strip()
+    source = "info+xmp" if (version and xmp_version) else \
+             ("info" if version else ("xmp" if xmp_version else None))
+    return {"info_version": version, "info_conformance": conformance,
+            "xmp_version": xmp_version, "present": bool(version or xmp_version),
+            "source": source}
+
+
+def preflight(path, require_pdfx=False, expect=""):
     pdf = Path(path)
     problems = []
     warnings = []
@@ -123,6 +158,11 @@ def preflight(path, require_pdfx=False):
         "output_intents_raw": intents_raw,
         "gts_pdfx_in_xmp": "GTS_PDFXVersion" in xmp,
     }
+    ident = _identification(raw, xmp)
+    ident["expected"] = expect or None
+    ident["matches"] = (LP.pdfx_id_ok(expect, ident["info_version"],
+                                      ident["info_conformance"],
+                                      ident["xmp_version"]) if expect else None)
     internal = {
         "pdf_ok": bool(probe.get("pdf_ok")),
         "pages": probe.get("page_count"),
@@ -147,11 +187,17 @@ def preflight(path, require_pdfx=False):
                     "PyMuPDF and lib_pdf disagree on %s (independent=%r, internal=%r)"
                     % (name, independent.get(name), internal.get(name)))
 
-    if require_pdfx:
+    require = require_pdfx or bool(expect)
+    if require:
         if encrypted:
             add("E-PDFX-MISSING", "encrypted PDF cannot be a PDF/X master")
-        if internal["gts_pdfx"] < 1:
-            add("E-PDFX-MISSING", "no /GTS_PDFXVersion marker in the bytes")
+        if not ident["present"]:
+            add("E-PDFX-MISSING", "no PDF/X identifier in Info or XMP")
+        if expect and not ident["matches"]:
+            add("E-PDFX-ID",
+                "expected %s; got version=%r conformance=%r xmp=%r"
+                % (expect, ident["info_version"], ident["info_conformance"],
+                   ident["xmp_version"]))
         if intents < 1:
             add("E-PDFX-MISSING", "PyMuPDF sees no /OutputIntents in the catalog")
         if not_embedded:
@@ -166,8 +212,9 @@ def preflight(path, require_pdfx=False):
         "schema": SCHEMA,
         "pdf": pdf.name,
         "bytes": len(raw),
-        "require_pdfx": bool(require_pdfx),
+        "require_pdfx": bool(require),
         "ok": not problems,
+        "identification": ident,
         "independent": independent,
         "internal": internal,
         "cross_check": {"agree": agree, "checks": checks},
@@ -180,7 +227,10 @@ def main():
     ap = argparse.ArgumentParser(description="independent PDF/X preflight")
     ap.add_argument("--pdf", required=True, help="print.pdf or a PDF-compatible .ai")
     ap.add_argument("--require-pdfx", action="store_true",
-                    help="enforce the PDF/X claim (GTS marker + output intent + embedded fonts)")
+                    help="enforce the PDF/X claim (identifier + output intent + embedded fonts)")
+    ap.add_argument("--expect-standard", default="",
+                    choices=("", "x1a", "x3", "x4"),
+                    help="require the exact identifier for this level; implies --require-pdfx")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -195,7 +245,8 @@ def main():
                                     "PyMuPDF is not installed; independent "
                                     "preflight is a declared skip, never a pass")])
     try:
-        doc = preflight(str(pdf), require_pdfx=args.require_pdfx)
+        doc = preflight(str(pdf), require_pdfx=args.require_pdfx,
+                        expect=args.expect_standard)
     except L.ToolError:
         raise
     except Exception as e:              # noqa: BLE001

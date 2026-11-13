@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.16.0
+version: 1.17.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.16.0"
+  version: "1.17.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -219,9 +219,11 @@ python scripts/land_vc.py --svg path/to/round/sanitized.svg --out path/to/run --
 
 **色彩模式的判定依据是内容流算子，不是资源字典。** 未声明的 `k` 操作数按 PDF 规范即 DeviceCMYK；只数 `/DeviceCMYK` 会把一份合格的 CMYK 文件误判成 RGB。
 
-**印刷母版**由 `scripts/land_craft.py` 产出：同一引擎，额外给 PDF/X-1a / X-3 / X-4、裁切线、出血与 TrimBox/BleedBox 实测。**PDF/X 合规限定（C7，状态 A）**：代码侧自洽，PDF/X 规范原文未核（iso.org / pdfa.org / Adobe 帮助页 403/404，检索日 2026-11-11）；本链路不作为印厂合规依据，交付印厂前请按 PDF/X 规范自行复核 OutputIntent / 色彩空间 / TrimBox / BleedBox。
+**印刷母版**由 `scripts/land_craft.py` 产出：同一引擎，额外给 PDF/X-1a / X-3 / X-4、裁切线、出血与 TrimBox/BleedBox 实测。**PDF/X 合规限定（C7，状态 A）**：关键条款已取证（ISO 15930 预览 / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI，见 `references/pdfx-requirements.md`），完整 ISO 文本未购；代码只证结构存在（标识串、输出意图、盒子、部分色彩算子），不证 ICC 有效性、字体全嵌入、透明度/图层或元数据完整。本链路不作为印厂合规依据，交付印厂前请用 Acrobat Preflight / callas pdfToolbox / veraPDF 独立核验。
 
 **独立预检（r82，4.3）**：`scripts/pdf_preflight.py` 用 PyMuPDF（MuPDF）作为第二个 PDF 引擎重读同一份印刷 PDF，与 `scripts/lib_pdf.py` 交叉核对页数、页面尺寸、图像、字体存在性与输出意图；`--require-pdfx` 另查 GTS 标记、输出意图、加密与未嵌入字体。PyMuPDF 是可选依赖：缺席时脚本退 3（声明式缺失），绝不报通过。一个解析器与自己一致不算交叉校验，所以 A103/A104 让第二个解析器说出它看到的东西。
+
+**PDF/X 标识（r83）**：`--expect-standard x1a|x3|x4` 按 `references/pdfx-requirements.md` 的精确值核对——X-1a:2001 是 PDF/X-1:2001 + GTS_PDFXConformance(PDF/X-1a:2001)，X-1a:2003 是 PDF/X-1a:2003，X-3 是 PDF/X-3:2002 或 :2003，X-4 是 PDF/X-4（XMP 或 Info）。`scripts/smoke_ai.py --print` 不再用 `startswith("PDF/X")` 这种级别不敏感的检查。
 
 ```
 python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
@@ -476,7 +478,7 @@ python scripts/land_craft.py --svg path/to/sanitized.svg --out path/to/run \
 产出六件：源 SVG、可编辑 .ai、印刷 PDF、预览 PNG、交付清单、结构回读 JSON。print 档走
 真 CMYK 转换 → 文档出血设置 → PDF/X 导出（PDF/X-1a / X-3 / X-4、TrimBox / BleedBox /
 MediaBox、裁切与套准标记、色标、页面信息、内嵌输出意图、字体内嵌）。
-**PDF/X 合规限定（C7，状态 A）**：代码侧自洽，PDF/X 规范原文未核（iso.org / pdfa.org / Adobe 帮助页 403/404，检索日 2026-11-11）；本链路不作为印厂合规依据，交付印厂前请按 PDF/X 规范自行复核 OutputIntent / 色彩空间 / TrimBox / BleedBox。以下 PDF/X 相关断言均为「代码侧自洽」的实测记录，不是规范合规结论。
+**PDF/X 合规限定（C7，状态 A）**：关键条款已取证（ISO 15930 预览 / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI，见 `references/pdfx-requirements.md`），完整 ISO 文本未购；代码只证结构存在（标识串、输出意图、盒子、部分色彩算子），不证 ICC 有效性、字体全嵌入、透明度/图层或元数据完整。本链路不作为印厂合规依据，交付印厂前请用 Acrobat Preflight / callas pdfToolbox / veraPDF 独立核验。以下 PDF/X 相关断言均为「代码侧自洽」的实测记录，不是规范合规结论。
 结构回读用 CLI 的 info 命令重开 .ai，H1 判据为 raster=0 / placed=0 / paths>0 /
 画板与 viewBox 一致，再由脚本解析 PDF **页面内容流（/Contents 引用与 /Subtype /Form）**
 确认颜色算子确实存在——ICC、字体程序、CMap 等二进制流不计入，它们只是碰巧含有 k/K 字节。

@@ -4,6 +4,31 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.17.0 — 2026-11-13 [r83]
+
+4.3, follow-up: PDF/X identification and a sourced requirement ledger. The
+preflight checked that an identifier existed but not that it matched the
+requested level; `smoke_ai --print` accepted any string starting with
+PDF/X, so an X-1a file could satisfy an X-4 claim.
+
+- **`references/pdfx-requirements.md`**: a sourced ledger of what PDF/X-1a /
+  X-3 / X-4 require, with exact identification values, access dates and the
+  list of what remains unverified. Key clauses are now sourced from ISO 15930
+  previews, PRONOM signatures, LoC, PDF Association, Adobe TN #5413 and ECI;
+  the full ISO text is still paywalled and no external validator has been run.
+- **Exact identification**: `lib_pdf.pdfx_id_ok` is the single mapping.
+  X-1a:2001 is PDF/X-1:2001 **plus** `GTS_PDFXConformance(PDF/X-1a:2001)`;
+  X-1a:2003 is PDF/X-1a:2003; X-3 is PDF/X-3:2002 / `:2003`; X-4 is
+  PDF/X-4 in XMP or Info. `scripts/pdf_preflight.py --expect-standard x1a|x3|x4`
+  enforces it (`E-PDFX-ID`); `scripts/smoke_ai.py --print` uses the same helper.
+- **A104** now checks the real print PDF's exact pair, the negative X-3
+  request (`E-PDFX-ID`), and the truth table (a bare PDF/X-1a:2001 version
+  is not accepted as X-1a:2001). `EXPECTED_ASSERTIONS` stays 104; claims
+  137 -> 140. No threshold value changed.
+- **Honest limit**: structure is not conformance. ICC validity, all-font
+  embedding, transparency/layers, metadata, box nesting and a real external
+  preflight remain unverified.
+
 ## 1.16.0 — 2026-11-13 [r82]
 
 4.3: an independent PDF preflight. Every print check read the file with this

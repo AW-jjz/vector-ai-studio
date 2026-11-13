@@ -10,15 +10,35 @@ a .ai artifact. No Adobe, no COM, no PowerShell.
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import lib_pdf as LP
 
 SCRIPT = "smoke_ai.py"
 SCRIPTS = Path(__file__).resolve().parent
+
+
+def _print_id(pdf_path):
+    """Read the exact PDF/X-1a pair from the print master's bytes.
+
+    The old smoke check accepted any string starting with `PDF/X`; an X-1a
+    file could then satisfy an X-4 claim. The exact mapping lives in
+    lib_pdf.pdfx_id_ok (sourced in references/pdfx-requirements.md).
+    """
+    raw = pdf_path.read_bytes() if Path(pdf_path).is_file() else b""
+    version = conformance = None
+    m = re.search(rb"/GTS_PDFXVersion\s*\(((?:\\.|[^\\()])*)\)", raw)
+    if m:
+        version = m.group(1).decode("latin1")
+    m = re.search(rb"/GTS_PDFXConformance\s*\(((?:\\.|[^\\()])*)\)", raw)
+    if m:
+        conformance = m.group(1).decode("latin1")
+    return version, conformance, LP.pdfx_id_ok("x1a", version, conformance)
 
 
 def _run(cmd, timeout=240):
@@ -251,12 +271,18 @@ def main():
                 dl = {}
         pp = ((dl.get("observed") or {}).get("print_pdf") or {})
         pdfx = str(pp.get("gts_pdfx_value") or "")
+        pdf_path = prun / "print.pdf"
+        raw_version, conformance, _ = _print_id(pdf_path)
+        if not pdfx:
+            pdfx = raw_version or ""
+        id_ok = LP.pdfx_id_ok("x1a", pdfx, conformance)
         smoke["print"] = {
             "exit": rc3,
-            "pdf": (prun / "print.pdf").is_file(),
-            "pdf_bytes": ((prun / "print.pdf").stat().st_size
-                          if (prun / "print.pdf").is_file() else 0),
+            "pdf": pdf_path.is_file(),
+            "pdf_bytes": (pdf_path.stat().st_size if pdf_path.is_file() else 0),
             "gts_pdfx_value": pdfx or None,
+            "gts_pdfx_conformance": conformance,
+            "identification_ok": id_ok,
             "output_intent": pp.get("output_intent"),
             "output_intent_objects": pp.get("output_intent_objects"),
             "device_rgb": pp.get("device_rgb"),
@@ -265,7 +291,7 @@ def main():
             "unverified": dl.get("unverified"),
         }
         backed = (rc3 == 0 and smoke["print"]["pdf"] and
-                  pdfx.startswith("PDF/X") and
+                  id_ok and
                   (pp.get("output_intent") or 0) >= 1 and
                   pp.get("output_intent_objects") == 1 and
                   pp.get("device_rgb") == 0 and

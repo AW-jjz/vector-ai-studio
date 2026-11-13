@@ -4941,24 +4941,47 @@ def _stage_r82(tmp, add):
                 pdf = out / "print.pdf"
                 rc_p, env_p, _ = _call("pdf_preflight.py",
                                        ["--pdf", str(pdf), "--require-pdfx",
-                                        "--json"], tmp)
+                                        "--expect-standard", "x1a", "--json"], tmp)
                 d4 = env_p.get("data") or {}
                 ind4 = d4.get("independent") or {}
                 int4 = d4.get("internal") or {}
                 cross4 = d4.get("cross_check") or {}
+                ident4 = d4.get("identification") or {}
+                # exact identification is the point of r83: a prefix match
+                # would accept every level, and X-1a:2001 is a PAIR of keys
+                import lib_pdf as _lp
+                pair_ok = (_lp.pdfx_id_ok("x1a", "PDF/X-1:2001", "PDF/X-1a:2001")
+                           and not _lp.pdfx_id_ok("x1a", "PDF/X-1a:2001"))
+                import importlib.util as _iu
+                _spec = _iu.spec_from_file_location(
+                    "pdf_preflight_r83", ROOT / "scripts" / "pdf_preflight.py")
+                _pf = _iu.module_from_spec(_spec)
+                _spec.loader.exec_module(_pf)
+                _neg = _pf.preflight(str(pdf), require_pdfx=True, expect="x3")
+                id_neg = "E-PDFX-ID" in [p["code"] for p in _neg["problems"]]
+                import smoke_ai as _sa
+                _sv, _sc, _sok = _sa._print_id(pdf)
+                smoke_ok = (_sv == "PDF/X-1:2001"
+                            and _sc == "PDF/X-1a:2001" and _sok)
                 ok104 = (rc_l == 0 and rc_p == 0 and d4.get("ok") is True
                          and cross4.get("agree") is True
+                         and ident4.get("matches") is True
+                         and ident4.get("info_version") == "PDF/X-1:2001"
+                         and ident4.get("info_conformance") == "PDF/X-1a:2001"
+                         and pair_ok and id_neg and smoke_ok
                          and ind4.get("pages") == 1
                          and (ind4.get("output_intents") or 0) >= 1
                          and (ind4.get("render_ink") or 0) > 0
-                         and (ind4.get("fonts_not_embedded") or 0) == 0
-                         and (int4.get("gts_pdfx") or 0) >= 1)
+                         and (ind4.get("fonts_not_embedded") or 0) == 0)
                 add("A104-pdfx-print-preflight", ok104,
-                    "land=%s pre=%s ok=%s cross=%s pages=%s OI=%s GTS=%s "
+                    "land=%s pre=%s ok=%s cross=%s id=%s/%s matches=%s "
+                    "pair=%s x3_mismatch=%s smoke_id=%s pages=%s OI=%s "
                     "ink=%s unembedded=%s" % (
                         rc_l, rc_p, d4.get("ok"), cross4.get("agree"),
-                        ind4.get("pages"), ind4.get("output_intents"),
-                        int4.get("gts_pdfx"), ind4.get("render_ink"),
+                        ident4.get("info_version"),
+                        ident4.get("info_conformance"), ident4.get("matches"),
+                        pair_ok, id_neg, smoke_ok, ind4.get("pages"),
+                        ind4.get("output_intents"), ind4.get("render_ink"),
                         ind4.get("fonts_not_embedded")))
     except Exception as e:                      # noqa: BLE001
         add("A103-pdf-independent-preflight", False,

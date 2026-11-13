@@ -112,7 +112,8 @@ python scripts/verify_install.py --json
 - 不伪造 `.ai`；引擎缺失时明确标注「非原生 `.ai`，格式底线未满足」。
 - 路径含中文或空格时，需确认 VectorCraft CLI 能读取该路径；运行期请勿移动源文件。
 - 对外说明只承诺分档结论；未判定或降级时首行标注需人工终审。状态 A 限定（r70）：引用 `grade=达标` 前须自行复核三项（真 `%PDF-` 可重开、`output/<run-id>/structure_readback.json` 的 `paths` 与产物对得上、`output/<run-id>/selftest.json` 为本次运行产生）；本结论不替代消费方复算，不宣称印刷合规。
-- 印刷母版可做独立预检：`scripts/pdf_preflight.py` 用 PyMuPDF（可选依赖）重读印刷 PDF，与 `scripts/lib_pdf.py` 交叉核对页数 / 图像 / 字体存在性 / 输出意图；`--require-pdfx` 另查 GTS 标记与未嵌入字体。PyMuPDF 缺席时退 3，不报通过。
+- 印刷母版可做独立预检：`scripts/pdf_preflight.py` 用 PyMuPDF（可选依赖）重读印刷 PDF，与 `scripts/lib_pdf.py` 交叉核对页数 / 图像 / 字体存在性 / 输出意图；`--require-pdfx` 另查标识、输出意图、加密与未嵌入字体，`--expect-standard x1a|x3|x4` 核对精确级别。PyMuPDF 缺席时退 3，不报通过。
+- PDF/X 的已取证条款与未核项见 `references/pdfx-requirements.md`：关键要求可引用，完整 ISO 文本未购，代码只证结构存在，不作合规结论。
 - 用户可见说明仅此一页；`references/design-language.md` 与 `references/archetypes/` 是设计与生成约束，其余 references 是施工契约，都不是使用手册。
 - 单稿链路可压成一条命令：`python scripts/studio.py --spec ... --svg ... --out output/<run-id>`；阶段状态见 `output/<run-id>/studio.json`。
 - 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；`--sheet` 按内容 sha256 去重，重复提交同一份表（含换文件名）也判 `E-REVIEW-INVALID` 且不计入评审人数；同一 `reviewer_token` 提交两份不同内容的表同样拒绝；只有 ≥2 名**去重后**且带 token 的外部评审且零空格时 `evidence.usable_for_claim` 才为真。评审请求件在 `templates/review-request.md`。

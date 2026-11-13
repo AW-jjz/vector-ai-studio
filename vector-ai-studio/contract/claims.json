@@ -1368,6 +1368,33 @@
       "tests": [
         "A103-pdf-independent-preflight"
       ]
+    },
+    {
+      "id": "CLAIM-138",
+      "file": "SKILL.md",
+      "anchor": "**PDF/X 合规限定",
+      "text_hash": "sha256:d96a7a9c758fe2fdf9e2a1a787536363d1125063afd40141112fce90af0e8fb7",
+      "claim": "**PDF/X 合规限定（C7，状态 A）**：关键条款已取证（ISO 15930 预览 / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI，见 `references/pdfx-requirements.md`），完整 ISO 文本未购；代码只证结构存在（标识串、输出意图、盒子、部分色彩算子），不证 ICC 有效性、字体全嵌入、透明度/图层或元数据完整",
+      "mechanism": "unverified",
+      "note": "sourced ledger in references/pdfx-requirements.md; key clauses cite ISO previews / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI, but no external PDF/X validator has been run and the full ISO text is not purchased -- so this is a sourced statement, not a machine-verified conformance claim"
+    },
+    {
+      "id": "CLAIM-139",
+      "file": "SKILL.md",
+      "anchor": "**PDF/X 合规限定",
+      "text_hash": "sha256:d96a7a9c758fe2fdf9e2a1a787536363d1125063afd40141112fce90af0e8fb7",
+      "claim": "**PDF/X 合规限定（C7，状态 A）**：关键条款已取证（ISO 15930 预览 / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI，见 `references/pdfx-requirements.md`），完整 ISO 文本未购；代码只证结构存在（标识串、输出意图、盒子、部分色彩算子），不证 ICC 有效性、字体全嵌入、透明度/图层或元数据完整",
+      "mechanism": "unverified",
+      "note": "sourced ledger in references/pdfx-requirements.md; key clauses cite ISO previews / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI, but no external PDF/X validator has been run and the full ISO text is not purchased -- so this is a sourced statement, not a machine-verified conformance claim"
+    },
+    {
+      "id": "CLAIM-140",
+      "file": "README.md",
+      "anchor": "- PDF/",
+      "text_hash": "sha256:c81e7aafee0f8e17a783972a1fb4eb12bfb9874ca867185f375841d2a97f910c",
+      "claim": "- PDF/X 的已取证条款与未核项见 `references/pdfx-requirements.md`：关键要求可引用，完整 ISO 文本未购，代码只证结构存在，不作合规结论",
+      "mechanism": "unverified",
+      "note": "sourced ledger in references/pdfx-requirements.md; key clauses cite ISO previews / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI, but no external PDF/X validator has been run and the full ISO text is not purchased -- so this is a sourced statement, not a machine-verified conformance claim"
     }
   ]
 }

@@ -407,6 +407,36 @@ def _observe_ai(path, warnings=None):
     }
 
 
+PDFX_STANDARDS = ("x1a", "x3", "x4")
+
+
+def pdfx_id_ok(standard, version, conformance=None, xmp=None):
+    """Does the identifier match the requested PDF/X level?
+
+    The exact values come from references/pdfx-requirements.md (ISO 15930
+    previews, PRONOM signatures, Adobe TN #5413):
+      x1a: GTS_PDFXVersion(PDF/X-1:2001) + GTS_PDFXConformance(PDF/X-1a:2001),
+           or GTS_PDFXVersion(PDF/X-1a:2003)
+      x3 : PDF/X-3:2002 or PDF/X-3:2003
+      x4 : XMP pdfxid:GTS_PDFXVersion = PDF/X-4 / PDF/X-4p (no year); the Info
+           key with the same value is accepted because the engine tested here
+           writes it there, but XMP is the authoritative location.
+
+    A prefix check like startswith("PDF/X") cannot distinguish the levels; this
+    helper is the only place the mapping is written.
+    """
+    if standard == "x1a":
+        return ((version == "PDF/X-1:2001"
+                 and conformance == "PDF/X-1a:2001")
+                or version == "PDF/X-1a:2003")
+    if standard == "x3":
+        return version in ("PDF/X-3:2002", "PDF/X-3:2003")
+    if standard == "x4":
+        return (xmp in ("PDF/X-4", "PDF/X-4p")
+                or version in ("PDF/X-4", "PDF/X-4p"))
+    return False
+
+
 def ai_h1_probe(path):
     """Pure byte-level probe of a PDF-compatible .ai, for H1 re-verification.
 

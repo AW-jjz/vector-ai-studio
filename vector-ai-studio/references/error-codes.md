@@ -59,6 +59,7 @@
 | `E-OUTPUT-STALE` | 调用引擎前清不掉上一轮的产物（`output/<run-id>/final.ai`、`output/<run-id>/print.pdf`、`output/<run-id>/preview.png`），拒绝继续：旧文件会让「文件存在」被误当成本轮产出 | land_vc, land_craft |
 | `E-PDF-CROSS` | 独立解析器（PyMuPDF）与 `lib_pdf` 在页数 / 图像 / 字体存在性 / 输出意图存在性上不一致 | pdf_preflight |
 | `E-PDF-PREFLIGHT` | 独立预检无法把文件作为 PDF 打开或渲染 | pdf_preflight |
+| `E-PDFX-ID` | `--expect-standard` 下标识串与请求级别不符：X-1a:2001 需 PDF/X-1:2001 + PDF/X-1a:2001，X-4 为 PDF/X-4（Info 或 XMP） | pdf_preflight |
 | `E-PDFX-MISSING` | `--require-pdfx` 下缺少 GTS 标记 / 输出意图、文件加密，或存在未嵌入字体 | pdf_preflight |
 | `E-PDFX-PROOF` | `../scripts/smoke_ai.py --print` 落到真机的 PDF/X 主文件没有兑现声明：无 PDF/X 版本串、无输出意图、意图对象数不等于 1、仍含 DeviceRGB 算子、CMYK 算子为 0，或 deliverable 的 unverified 非空 | smoke_ai |
 | `E-QUICK-UNVERIFIED` | quick 模式（F 未验证）宣称达标 | aggregate_log |
