@@ -4,6 +4,25 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.21.1 — 2026-11-13 [r88]
+
+Patch: 1.21.0 was withdrawn after Linux CI turned red. `lib_common` now emits
+`status="partial"` when the only remaining issue is a declared capability
+skip, and the vendored envelope did not know that status: every Linux run
+crashed with `EnvelopeError: unknown status: 'partial'` before writing its
+assertions.
+
+- **The kit now knows `partial`** (code 3, alongside `degraded`/`missing`).
+  `partial` is not a failure and not a clean pass; the status carries that.
+- **A107 gains a 13th golden** (`c13-partial`, code 3). The byte parity gate
+  now covers the status Linux actually exercises when the engine is absent.
+- `scripts/_vendor/verdict-kit/VENDORED.sha256` is regenerated for the changed
+  `scripts/_vendor/verdict-kit/verdict_kit/envelope.py`.
+- CI's selftest step now prints the envelope's `errors` on a non-0/3 exit;
+  that diagnostic is what found this in one run instead of a guess.
+- No threshold, claim or assertion-count change. `EXPECTED_ASSERTIONS` stays
+  107. Package 207 files; claims stay 143.
+
 ## 1.21.0 — 2026-11-13 [r87]
 
 verdict-kit, phase 1a: the envelope facade. `lib_common.envelope()` and

@@ -1,0 +1,17 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "demo.py",
+  "run_id": "",
+  "status": "partial",
+  "code": 3,
+  "data": {
+    "skipped": [
+      "A104"
+    ]
+  },
+  "errors": [],
+  "warnings": [
+    "optional capability missing"
+  ],
+  "artifacts": {}
+}

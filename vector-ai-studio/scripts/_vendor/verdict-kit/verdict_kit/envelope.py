@@ -33,13 +33,17 @@ EXIT_CODES = frozenset({EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_MISSING, EXIT_ERROR
 # ``missing`` is kept because the source skill really emits it when every
 # renderer is absent. Dropping it would force a behavior change during
 # migration, which is exactly what a compatibility seam must not do.
-STATUSES = ("ok", "degraded", "missing", "fail", "error")
+STATUSES = ("ok", "degraded", "missing", "partial", "fail", "error")
 
 # ``fail`` may only mean a business failure; usage/internal errors are errors.
 _ALLOWED = {
     "ok": frozenset({EXIT_OK}),
     "degraded": frozenset({EXIT_OK, EXIT_MISSING}),
     "missing": frozenset({EXIT_MISSING}),
+    # The source skill emits partial + exit 3 when every remaining assertion
+    # passed but at least one optional capability was absent. It is not a
+    # failure and it is not a clean pass either; the status carries that.
+    "partial": frozenset({EXIT_MISSING}),
     "fail": frozenset({EXIT_FAIL}),
     "error": frozenset({EXIT_USAGE, EXIT_ERROR}),
 }

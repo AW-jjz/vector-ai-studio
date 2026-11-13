@@ -175,6 +175,22 @@
           "reason": "preview unreadable"
         }
       }
+    },
+    {
+      "id": "c13-partial",
+      "args": {
+        "script": "demo.py",
+        "status": "partial",
+        "code": 3,
+        "data": {
+          "skipped": [
+            "A104"
+          ]
+        },
+        "warnings": [
+          "optional capability missing"
+        ]
+      }
     }
   ]
 }

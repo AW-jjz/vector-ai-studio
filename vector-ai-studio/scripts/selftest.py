@@ -5103,7 +5103,7 @@ def _stage_r87(tmp, add):
             if got != want or rc != case["args"].get("code", 0):
                 bad.append(case["id"])
         add("A107-envelope-facade-byte-parity",
-            len(cases) == 12 and not bad,
+            len(cases) == 13 and not bad,
             "cases=%d bad=%s" % (len(cases), ",".join(bad[:4]) or "-"))
     except Exception as e:                      # noqa: BLE001
         add("A107-envelope-facade-byte-parity", False,
