@@ -28,3 +28,9 @@ jobs:
           python -c "import json,os,sys; d=json.load(open(os.path.join(os.environ['RUNNER_TEMP'],'selftest-fixtures.json'))); x=d.get('data') or {}; sys.exit(0 if d.get('code') in (0,3) and x.get('failed')==0 else 1)"
       - name: fixture regression
         run: python vector-ai-studio/scripts/run_fixtures.py --json
+      - name: contract is a generated artifact (no drift)
+        run: python vector-ai-studio/scripts/gen_contract.py --check
+      - name: shipped attack set
+        run: python vector-ai-studio/scripts/redteam.py --json
+      - name: outward-claim registry holds (against this machine's selftest)
+        run: python vector-ai-studio/scripts/validate_claims.py --json --selftest-json "$RUNNER_TEMP/selftest.json"

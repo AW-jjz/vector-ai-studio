@@ -83,6 +83,25 @@ def main():
     missing = [d["name"] for d in deps if d["status"] == "MISSING" and d["counts_for_missing"]]
     counts = {s: sum(1 for d in deps if d["status"] == s)
               for s in ("FOUND", "MISSING", "UNVERIFIED")}
+    # r72: report whether the found engine build is pinned in
+    # engine.lock.json. This is a REPORT, not a gate: the landers enforce the
+    # lock (E-ENGINE-DRIFT); the probe only tells the operator what to expect
+    # before a run starts. drift=true here means the regression on record does
+    # not cover the binary on disk.
+    engine_lock = None
+    if cli:
+        try:
+            version = L.engine_version(cli)
+            lock = L.check_engine_lock(cli, version)
+            engine_lock = {"locked": bool(lock.get("locked")),
+                           "drift": bool(lock.get("drift")),
+                           "platform": lock.get("platform"),
+                           "sha256": lock.get("sha256"),
+                           "expected": lock.get("expected"),
+                           "note": lock.get("note")}
+        except (OSError, ValueError):
+            engine_lock = {"locked": False, "drift": False,
+                           "note": "engine version could not be read; pin status unknown"}
     doc = {
         "schema": "vector-ai-studio/deps-v1",
         "run_id": args.run_id,
@@ -91,6 +110,7 @@ def main():
         "dependencies": deps,
         "missing": missing,
         "credential_audit": creds,
+        "engine_lock": engine_lock,
         "summary": counts,
     }
     artifacts = {}
@@ -106,7 +126,8 @@ def main():
     return L.emit(SCRIPT, status="degraded" if missing else "ok", code=code,
                   run_id=args.run_id,
                   data={"dependencies": deps, "missing": missing,
-                        "credential_audit": creds, "summary": counts},
+                        "credential_audit": creds, "engine_lock": engine_lock,
+                        "summary": counts},
                   degradation=({"level": "L4", "reason": "one or more dependencies MISSING",
                                 "substitute": "see dependencies[].substitute"}
                                if missing else None),

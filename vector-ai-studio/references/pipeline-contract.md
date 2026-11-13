@@ -23,17 +23,17 @@
 | 文件 | schema | 生产者 | 关键字段 |
 |---|---|---|---|
 | spec.json | vector-ai-studio/spec-v1 | `../scripts/freeze_spec.py` | elements / attributes / palette / rounds |
-| deps.json | vector-ai-studio/deps-v1 | `../scripts/detect_deps.py` | dependencies[] / missing[] / credential_audit / summary |
+| deps.json | vector-ai-studio/deps-v1 | `../scripts/detect_deps.py` | dependencies[] / missing[] / credential_audit / engine_lock / summary |
 | judge.json | vector-ai-studio/judge-v1 | `../scripts/llm_judge.py` | items / stats / degraded / readable |
 | score.json | vector-ai-studio/score-v1 | `../scripts/score.py` | scores{A..F} / failed_dims / passed_dims / signals / verdicts[]（id / dim / msg / action） |
 | revision.json | vector-ai-studio/revision-v1 | `../scripts/iterate.py` | change_only / must_keep / decision / K_max |
 | batch.json | vector-ai-studio/batch-v1 | `../scripts/batch_check.py` | F / f_verified / per_run[] / aggregate |
-| preview.meta.json | vector-ai-studio/preview-meta-v1 | `../scripts/render_png.py` | renderer / degraded / note / width / height / fidelity（full 或 faithful 或 limited；缺字段按 limited 处理） |
+| preview.meta.json | vector-ai-studio/preview-meta-v1 | `../scripts/render_png.py` | renderer / degraded / note / width / height / fidelity（词表唯一来源 `../contract/contract.json` 的 `enums.fidelity`：`faithful` / `limited`，另有 `unknown` 兜底值；生产侧只写 faithful / limited，缺字段按 limited 处理） |
 | structure_readback.json | vector-ai-studio/structure-readback-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | raster / placed / paths / artboard_matches_viewBox / ok |
 | landing.json | vector-ai-studio/landing-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | automation / status / degradation / ai_produced |
 | studio.json | vector-ai-studio/studio-v1 | `../scripts/studio.py` | status / stages[]（stage / status / code / errors / detail）；单稿编排的阶段流水，不参与评级 |
 | key.json | vector-ai-studio/review-key-v1 | `../scripts/studio.py --review-pack` | seed / cases[]（case → source）；盲评映射，只给归档、不给评审人 |
-| acceptance.json | vector-ai-studio/acceptance-v1 | `../scripts/aggregate_log.py` | headline(首行) / grade / scores / rounds / hard_gates / degradation |
+| acceptance.json | vector-ai-studio/acceptance-v1 | `../scripts/aggregate_log.py` | headline(首行) / grade / tier / scores / rounds / hard_gates / degradation / evidence_coverage / deliverable_status / criteria_version / thresholds_sha256 / legacy_grading |
 | deal.json | vector-ai-studio/deal-v1 | `../scripts/deal.py` | seed / tones / excluded_from_previous_rounds / directions[]（archetype / palette / composition / why / risk） |
 | deal-history.json | vector-ai-studio/deal-history-v1 | `../scripts/deal.py` | rounds[]，只保留最近两轮；损坏或 schema 不符即 `E-SCHEMA` 退出 2，不覆盖原文件 |
 | legibility.json | vector-ai-studio/legibility-v1 | `../scripts/legibility.py` | measured（contrast / coverage / coverage_small / components / gray_bands）/ verdicts[] / gates |
@@ -114,12 +114,29 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 
 - 第 2 轮扩展字段：mode（full 或 landing-only）、grading_entered（bool）、h2_status（pass 或 fail 或 not_evaluated）、scores_source（score 与 F 的来源、missing 列表）、discarded_scores（L2 覆盖掉的原始 A/B 数字，审计用）。
 - 错误码与 fidelity：`E-NO-SCORE`（full 轨缺必需维，REQUIRED_DIMS 为 A、B、C、D、F；E 可选，无参考时合法记 N/A）、`E-EXEMPTION-ABUSE`（跨轨声明滥用）；preview.meta 的 fidelity 三值 full 或 faithful 或 limited，**字段缺失一律按 limited 处理（fail-closed，防止省略字段绕过读图判读闸）**，兜底且非 faithful 时自动转 L2。
-- **r70 #1 fidelity fail-closed（判据与渲染器身份解耦）**：A/B 语义 / 构图判读只在 `fidelity=="faithful"` 且 `judge.readable is True` 时放行。`output/<run-id>/preview.meta.json` 缺失 / `renderer=unknown` / `renderer=resvg` 但 `fidelity=limited` / 无 `fidelity` 字段，一律 L2 降级（`capability_missing=true` / `degraded=true` / A、B 记 N/A）；`H2.fidelity` 不记 `full`。`full` 是展示枚举，不是判据；代码实存放行值是 `faithful`（`render_png._builtin_fidelity()`）。删 meta 不再能翻绿。
+- **r70 #1 fidelity fail-closed（判据与渲染器身份解耦）**：A/B 语义 / 构图判读只在 `fidelity=="faithful"` 且 `judge.readable is True` 时放行。`output/<run-id>/preview.meta.json` 缺失 / `renderer=unknown` / `renderer=resvg` 但 `fidelity=limited` / 无 `fidelity` 字段，一律 L2 降级（`capability_missing=true` / `degraded=true` / A、B 记 N/A）；`H2.fidelity` 不记 `full`。**r72 起保真度词表只有一份**：`../contract/contract.json` 的 `enums.fidelity` 是唯一书写处，`../scripts/gen_contract.py` 生成给生产侧与判据侧共用的 `../scripts/_contract.py`，`full` 这个词已从代码里消失；改词表必须改契约文件并重新生成（`python ../scripts/gen_contract.py`，CI 用 `--check` 卡漂移）。删 meta 不再能翻绿。
 - **r70 #5 grade 单一函数复算**：`_derive_grade(evidence, th)` 是 grade / tier / headline / status / degraded / needs_human_review / reason / internal_excellent 八个判定字段的**唯一实现**，`main()` 与 `--validate-case` 校验器都调用它。校验器从证据逐字段重推并比对（含 `internal_excellent`），不一致报 `E-GRADE-MISMATCH`；landing-only 轨（grade/tier=null）豁免。档位赋值在 `../scripts/aggregate_log.py` 中只出现一次（A77 元断言护栏）。
+
+## 三值判决与证据覆盖（r72 / 判据 2.0.0）
+
+`../scripts/aggregate_log.py` 的判决是三值，不是两值。`grade` 的词取自 `../config/thresholds.json` 的 `messages`（达标 / 不达标 / 未判定）；机器档位 `tier` 是契约枚举 `pass` / `not-pass` / `indeterminate`（`../contract/contract.json` 的 `enums.tier`）：
+
+| `grade` | `tier` | 判定 |
+|---|---|---|
+| 达标 | `pass` | 必需维（A/B/C/D/F）全部**测过**且无一失败，H1–H4 全过，F 已验证 |
+| 不达标 | `not-pass` | 某维**测过**且失败，或硬门明确为假（`.ai` 字节与回读对不上、自检日志损坏、凭据链路异常） |
+| 未判定 | `indeterminate` | 链路完好但必需维**没测到**：L2、F 未验证、quick、四件产物不齐、自检证据缺失 |
+
+- **没测 ≠ 质量差**：L2（`capability_missing`）记「未判定」，不再记「不达标」（校验器 `E-L2-GRADE` 强制，`--two-valued` 例外）；同样地，未被评估的硬门不是失败的门——「没测」与「测了没过」从这一版起是两个不同的结论。
+- **两个新字段由证据重推**（已进 `_VERDICT_FIELDS`，声明值与重推不一致报 `E-GRADE-MISMATCH`）：`evidence_coverage`（每个必需维 `{measured, why, fix}` + `coverage` 比值 + `required_dims`——哪几维测过、哪几维没测、为什么、怎么修）与 `deliverable_status`（`deliverable` / `deliverable_with_human_review` / `not_deliverable` / `evidence_only`——文件能不能交，与质量结论分开回答）。
+- **未判定的护栏**：`grade=未判定` 必须带 `tier=indeterminate`，不得自称 `deliverable_status=deliverable`，headline 不得含达标词（`E-INDETERMINATE-FIELDS`）；未知的 `deliverable_status` 取值同样拒绝。
+- **判据版本随日志走**：`acceptance.json` 记 `criteria_version`（当前 2.0.0）与 `thresholds_sha256`——结论只在该判据版本与该阈值文件下有效。旧日志的处理与下游脚本改法见 `MIGRATION.md`。
+- **兼容开关**：`--two-valued` 把「未判定」折回旧措辞（日志标 `legacy_grading: true`），达标 / 不达标的判定边界一个都不变。这是给暂时读不懂三值的下游留的措辞开关，不是免重算的通行证——新字段照常写入。
+- **窄轨防洗白**：目录里已有 `score.json` / `judge.json` / `selftest.json` / `batch.json` 任何一件时，`--landing-only` 直接 `E-EXEMPTION-ABUSE`——窄轨是给跑不动完整链的机器留的取证通道，不是把完整 run 的判决藏起来的后门。
 
 ## 证据轨道分层（H1 与 H2–H4）
 
-- full 轨（默认）：grading_entered=true，H1–H4 全判，h2 为 bool，grade 为三档之一，scores 五键齐全（L2 下 A/B 为 capability_missing 状态枚举、C/D 为数字、E/F 为 N/A 或数字）。
+- full 轨（默认）：grading_entered=true，H1–H4 全判，h2 为 bool，grade 为三值之一（达标 / 不达标 / 未判定，见下节），scores 五键齐全（L2 下 A/B 为 capability_missing 状态枚举、C/D 为数字、E/F 为 N/A 或数字）。
 - landing-only 轨：仅取证 H1；grading_entered=false、h2=null、h2_status=not_evaluated、tier/grade/h3/h4=null，scores 可为空，不进入 §7.3 分档，输出不得出现任何档位词。`../scripts/smoke_ai.py` 加 `--landing-only` 走此轨，默认走 full。`--print` 额外落一份真实 PDF/X-1a 主文件并核对 print 段（PDF/X 版本串、output_intent≥1、output_intent_objects=1、无 DeviceRGB 算子、CMYK 算子>0、unverified 为空），任一不符报 E-PDFX-PROOF。双向防滥用：mode=full 却 grading_entered=false，或 mode=landing-only 却 grading_entered=true，均报 E-EXEMPTION-ABUSE。
 
 ## D 与 H1 的证据分工
@@ -210,14 +227,14 @@ schemas/acceptance.schema.json 与 deliverable.schema.json（draft 2020-12）。
 2. `failed == 0` 且 `passed >= 1`
 3. 状态为 `ok`（无跳过）**或** `partial` 且**每一个跳过的断言都在 `OPTIONAL_ASSERTIONS` 里**
 
-当前可选项：`A30-vectorcraft-chain-h1-h2`、`A31-deliverable-schema-no-drift`——它们依赖 VectorCraft CLI，而 VectorCraft 是本技能的可选引擎。
+当前可选项以 `../scripts/lib_common.py` 的 `L.CAPABILITY_SKIPS` 为唯一词表（当前：`A30-vectorcraft-chain-h1-h2`、`A31-deliverable-schema-no-drift`、`A42-delight-flattens-lighting`、`A43-export-print-dimensions`、`A44-trace-ref-contract`、`A45-uniform-error-envelope`、`A46-craft-only-landing`、`A53-legibility-fails-what-the-eye-misses`）——全部依赖可选引擎或可选外部库，VectorCraft 是其中之一。登记条件见该常量的注释：把守卫加进白名单让它变绿，守卫就成了摆设。
 
 **跳过任何非可选断言，H3 一律 fail，并在 reason 里指名是哪一条。** 这条比"允许 partial 通过"更重要：可选引擎缺席不该让整台机器判不达标，但任何**守卫**没跑都必须拦下。
 
 ### H3 证据强度与 run-id 绑定（r70 / #3 新增）
 
 - **白名单单一来源**：可跳过断言集合取自 `../scripts/lib_common.py` 的 `L.CAPABILITY_SKIPS`，`../scripts/selftest.py` 与 `../scripts/aggregate_log.py` 都从 L 引用。被校验日志自带的 `capability_skips` 字段降级为展示 / 审计，不再作为判据输入（否则日志可自证哪些守卫「可选」）；与 L 不一致时只输出一条 warning 候选信号，最终裁决归人。
-- **断言总数下界**：`len(assertions) >= L.EXPECTED_ASSERTIONS`（当前 76，随断言增减同步）。手写「1/1 ok」的伪日志直接 H3 fail。判定用 `>=` 而非 `==`，兼容 `--fixtures` 时多出 A13 的正常形态。
+- **断言总数下界**：`len(assertions) >= L.EXPECTED_ASSERTIONS`（当前 89，随断言增减同步）。手写「1/1 ok」的伪日志直接 H3 fail。判定用 `>=` 而非 `==`，兼容 `--fixtures` 时多出 A13 的正常形态。
 - **绑定**：`selftest.json.run_id == aggregate_log 的 --run-id`，且 `--run-id` 非空（空则 fail-closed）。两者均为内容派生（`L.sha_run_id`，输入 = spec / run 内容 + `thresholds.version`），**不是** `datetime.now()` / 随机 nonce / 签名——时间与随机值会破坏判定 JSON 逐字节幂等，签名密钥会引入凭据。编排三处（`../scripts/studio.py` 的 `content_run_id()`、`SKILL.md` 步 11、`本节`）显式把**同一个**值同时传给 `../scripts/selftest.py` 与 `../scripts/aggregate_log.py`；只改校验不改编排会让所有正常日志 H3 全红。
 - **边界（必须写明，不得夸大）**：`output/<run-id>/` 是生成方可写的、`run_id` 公开可推导，因此**拦不住「同一次 run 内生成方自写一份 run_id 匹配的假 selftest.json」**。那属威胁模型外边界。同 run 内自证靠 #2（产物字节复算）+ #5（grade 单一函数复算）+ 断言总数下界共同收紧，而不是靠绑定谎称「不可伪造」。
 - H3 fail 通过 `hard_gates.H3.pass=false` + `h3_status=fail` + exit 1 表达，不新增错误码。

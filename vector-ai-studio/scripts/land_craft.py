@@ -166,6 +166,14 @@ def main():
 
 def _land(args, out):
     cli = require_cli()          # E-CAPABILITY-MISSING, never a silent success
+    # r72: same rule as land_vc -- the engine's bytes decide the print master,
+    # so a build that IS pinned but differs is a hard stop (E-ENGINE-DRIFT);
+    # an unpinned build is only a note in the run log.
+    from trace_ref import require_locked_engine as _locked
+    engine_lock = _locked(cli)
+    if not engine_lock.get("locked"):
+        L.append_run_log(out, SCRIPT + " engine not pinned: " +
+                         str(engine_lock.get("note", "")))
     src = Path(args.svg)
     if not src.is_file():
         raise L.ToolError("E-SCHEMA", "SVG not found: " + src.name, L.EXIT_USAGE)

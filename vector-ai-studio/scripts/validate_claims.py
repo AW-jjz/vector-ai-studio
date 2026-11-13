@@ -28,6 +28,13 @@ document without updating the registry and the run goes red -- which is the
 point: a changed promise has to be re-examined, not silently inherited.
 
     python scripts/validate_claims.py --json
+
+When a selftest log is supplied with --selftest-json, each named assertion must
+have passed in it. One exception, mirroring the H3 policy exactly: an
+assertion that was NOT EVALUATED (ok=null) because its optional capability is
+absent on this machine is acceptable iff the id is in
+L.CAPABILITY_SKIPS -- the same whitelist H3 accepts skips from. A guard that
+was skipped is still a problem, and so is any assertion that actually failed.
 """
 
 import argparse
@@ -145,6 +152,35 @@ def main():
     problems = []
     seen_ids = set()
     registered_anchors = []
+    def _test_ran_ok(entry, t):
+        """One referenced assertion must have passed in the supplied log.
+
+        Skipped is not failed -- but only for an id the project has declared
+        an optional capability (L.CAPABILITY_SKIPS, the same list H3 accepts
+        skips from). A missing id, a failed id, or a skipped guard is a
+        problem either way.
+        """
+        if t not in ids:
+            entry["problems"].append("unknown test id: " + t)
+            return
+        if not passed:
+            return  # no log supplied: the static registry checks ran above
+        if t not in passed:
+            entry["problems"].append(
+                "test missing from the supplied selftest log: " + t)
+            return
+        ok = passed.get(t)
+        if ok is True:
+            return
+        if ok is None and t in L.CAPABILITY_SKIPS:
+            entry.setdefault("skipped_optional", []).append(t)
+            return
+        if ok is None:
+            entry["problems"].append(
+                "test was skipped but is not a declared capability skip: " + t)
+        else:
+            entry["problems"].append("test did not pass: " + t)
+
     for claim in claims:
         cid = str(claim.get("id", "?"))
         entry = {"id": cid, "mechanism": claim.get("mechanism"), "ok": True,
@@ -176,11 +212,7 @@ def main():
             if not tests:
                 entry["problems"].append("assertion claim names no test")
             for t in tests:
-                t = str(t)
-                if t not in ids:
-                    entry["problems"].append("unknown test id: " + t)
-                elif passed and passed.get(t) is not True:
-                    entry["problems"].append("test did not pass: " + t)
+                _test_ran_ok(entry, str(t))
         elif mech == "boundary-declaration":
             proof = str(claim.get("boundary_proof", ""))
             if not proof:
@@ -195,11 +227,7 @@ def main():
                         "attack " + aid + " is expected to be blocked, so it "
                         "cannot prove a boundary")
             elif proof.startswith("test:"):
-                tid = proof.split(":", 1)[1]
-                if tid not in ids:
-                    entry["problems"].append("unknown test id: " + tid)
-                elif passed and passed.get(tid) is not True:
-                    entry["problems"].append("test did not pass: " + tid)
+                _test_ran_ok(entry, proof.split(":", 1)[1])
             else:
                 entry["problems"].append(
                     "boundary_proof must be attack:<id> or test:<id>")

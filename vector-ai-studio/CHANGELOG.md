@@ -4,6 +4,85 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.5.0 — 2026-11-13 [r72]
+
+Criteria 2.0.0: the verdict becomes three-valued and every cross-file enum
+turns into a generated artifact. Breaking by design -- see `MIGRATION.md` for
+the downstream recipe; do not collapse the third value back into the old
+wording, use `--two-valued` instead.
+
+- **M1** Cross-file enums are a GENERATED artifact now: `contract/contract.json`
+  is the only place a vocabulary is written, `scripts/gen_contract.py` emits
+  `scripts/_contract.py`, `references/schemas/contract-enums.schema.json`,
+  `docs/generated/contract-table.md` and `tests/fixtures/contract/contract-matrix.json`
+  from it, and `--check` compares bytes in CI (`E-CONTRACT-DRIFT`). This closes
+  r71's P0-1 properly: the fidelity vocabulary is ONE list (`faithful` /
+  `limited`, plus `unknown` as the fail-closed default value), producers and
+  the judge both import it, and the word `full` no longer exists in code.
+  A83 pins the chain, including a reverse case (narrowing the accepted set
+  must flip a real verdict).
+- **4.7** The verdict is THREE-valued: `grade` ∈ 达标 / 不达标 / 未判定
+  (`tier`: `pass` / `not-pass` / `indeterminate`). "Could not measure" is no
+  longer "measured and failed" -- L2 (capability_missing), unverified F,
+  quick mode, incomplete artifacts and missing self-test evidence now land on
+  未判定 instead of 不达标 (`E-L2-GRADE`). Two new evidence-derived fields
+  join the re-derivation list: `evidence_coverage` (per required dim:
+  measured / why / fix, plus the coverage ratio) and `deliverable_status`
+  (`deliverable` / `deliverable_with_human_review` / `not_deliverable` /
+  `evidence_only`) -- quality and deliverability are separate questions.
+  Every full-track log carries `criteria_version` (2.0.0) and
+  `thresholds_sha256`; an indeterminate verdict must not claim a clean
+  deliverable status (`E-INDETERMINATE-FIELDS`). `--two-valued` maps the
+  third value onto the old wording with `legacy_grading: true` and changes
+  NOTHING about the pass/fail boundary. A86 pins both modes; MIGRATION.md
+  documents the downstream changes.
+- **4.1** The outward promises are DATA: `contract/claims.json` registers
+  every promise sentence with its text hash, mechanism and test anchor;
+  `scripts/validate_claims.py` fails on drift (`E-CLAIMS-DRIFT`) and enforces
+  a 1.0 coverage floor over SKILL.md + README.md. 114 claims: 51 pinned by
+  assertions, 6 by demonstrated boundaries, 57 registered-unverified (a
+  number to push down, not to hide). When a selftest log is supplied, a
+  named assertion must have passed in it -- with one exception mirroring the
+  H3 policy (A89): a skipped-but-declared-optional capability id
+  (`L.CAPABILITY_SKIPS`) is acceptable, a skipped guard or any real failure
+  is not.
+- **4.2** The attack set ships with the package: `scripts/redteam.py` runs
+  the 17 JSON attacks in `tests/attacks/` (fake AI output, truncated PDF,
+  tampered verdicts, coverage claims, narrow-track laundering, budget
+  backfill, self-attested logs, ...). Current posture: 15 blocked, 0 leaked,
+  2 declared boundaries (the two limitations README.md states in prose).
+  A82 pins the set; CI runs it.
+- **4.6** Degradation notes state their cost: `aggregate_log._loss_list()`
+  derives `why` / `lost` / `kept` / `fix_hint` from the trigger itself, so a
+  fidelity note can never blame the host LLM and vice versa (A87).
+- **4.4** The engine is anchored: `engine.lock.json` pins the CLI binary
+  sha256 per platform+version, `trace_ref.find_cli()` walks
+  VECTORCRAFT_CLI -> PATH -> known install dirs (no hardcoded dev-machine
+  path), and a pinned-but-different build is a hard stop
+  (`E-ENGINE-DRIFT`) while an unpinned build is a logged note. A88 pins the
+  lock logic; `detect_deps.py` now reports the pin status and `land_craft.py`
+  runs the same check `land_vc.py` does.
+- **P1** The narrow track cannot launder a graded run: `--landing-only`
+  refuses a run directory that already holds any of `score.json` /
+  `judge.json` / `selftest.json` / `batch.json` with `E-EXEMPTION-ABUSE`
+  (A85). The exemption is for machines that could not run the full chain,
+  not a way to hide a verdict that exists.
+- **CI** carries the new gates: `gen_contract.py --check`, `redteam.py
+  --json`, and `validate_claims.py --json --selftest-json` against the
+  selftest.json the pure-script step produced -- so a hand-edited generated
+  file, a regressed attack or a drifted promise is red in CI, not a surprise.
+- **Docs**: `MIGRATION.md` (criteria 2.0.0: the three grades, the new fields,
+  what happens to old logs, what downstream scripts change);
+  `references/pipeline-contract.md` gained the r72 section and lost the stale
+  "full is a display enum" wording; the capability-skip list and the
+  assertion lower bound are quoted from `lib_common` again.
+- Readings (this machine has no VectorCraft CLI, so the three engine
+  assertions report as declared capability-skips and selftest is `partial`,
+  exit 3, which CI accepts): selftest --fixtures 90 assertions, 87 passed /
+  0 failed / 3 skipped; run_fixtures 37/37; redteam 17 attacks / 15 blocked /
+  0 leaked / 2 declared boundaries; validate_claims 114/114, coverage 109/109
+  = 1.0; gen_contract --check no drift.
+
 ## 1.4.1 — 2026-11-12 [r71]
 
 Bug-fix round from the full external audit of r70 (findings F1-F7). No new

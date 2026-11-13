@@ -3840,6 +3840,38 @@ def _stage_r72(tmp, add, th):
         " ok=" + str(dc.get("ok")) + " coverage=" + str(dc.get("coverage")) +
         " problems=" + ";".join(str(p)[:120] for p in (dc.get("problems") or [])[:3]))
 
+    # ---- A89: skipped-optional assertions mirror the H3 policy ------------
+    # CI feeds validate_claims.py the machine's selftest.json. A promise may
+    # name an assertion that was skipped there ONLY when the id is in
+    # L.CAPABILITY_SKIPS (an optional engine was absent -- same whitelist H3
+    # accepts skips from). A skipped guard, or any assertion that actually
+    # failed, must stay red. The crafted log covers every id the real
+    # registry names, so the coverage floor is checked against the true
+    # SKILL.md / README.md, not a small fixture.
+    import validate_claims as VC
+    all_ids = sorted(VC.selftest_ids())
+
+    def _crafted_log(skip_id):
+        return {"assertions": [{"id": i, "ok": None if i == skip_id else True}
+                                for i in all_ids]}
+    ok_log = tmp / "claims-selftest-skip-optional.json"
+    red_log = tmp / "claims-selftest-skip-guard.json"
+    L.write_json_atomic(ok_log, _crafted_log("A31-deliverable-schema-no-drift"))
+    rc_skip_ok, _, _ = _call("validate_claims.py",
+                             ["--json", "--selftest-json", str(ok_log)], tmp)
+    L.write_json_atomic(red_log, _crafted_log("A7-H4-no-credential-value-read"))
+    rc_skip_red, env_skip_red, _ = _call("validate_claims.py",
+                                         ["--json", "--selftest-json",
+                                          str(red_log)], tmp)
+    red_problems = [str(p) for p in (env_skip_red.get("data") or {}).get("problems", [])]
+    red_named = any("A7-H4-no-credential-value-read" in p for p in red_problems)
+    add("A89-claims-skip-optional-policy",
+        rc_skip_ok == 0 and rc_skip_red != 0 and red_named,
+        "optional-skip-exit=" + str(rc_skip_ok) +
+        " guard-skip-exit=" + str(rc_skip_red) +
+        " named=" + str(red_named) +
+        " problems=" + ";".join(p[:90] for p in red_problems[:2]))
+
     # ---- A85: the narrow track may not launder a full run ----------------
     d5 = tmp / "narrow"
     RT.base_run(d5, "attack")

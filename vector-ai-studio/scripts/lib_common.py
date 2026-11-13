@@ -53,7 +53,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # +A84 (claim registry), +A85 (narrow track cannot launder), +A86 (three-valued
 # verdict), +A87 (degradation loss list), +A88 (engine lock detects a
 # swapped binary) -> 81 + 7 = 88.
-EXPECTED_ASSERTIONS = 88
+# r72 (docs round): +A89 (validate_claims accepts only capability-skips in a
+# supplied selftest log) -> 88 + 1 = 89.
+EXPECTED_ASSERTIONS = 89
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
