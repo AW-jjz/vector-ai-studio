@@ -16,8 +16,10 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
+      - name: native cairo for the optional cross-renderer
+        run: sudo apt-get update && sudo apt-get install -y libcairo2
       - name: optional dependencies for the print route
-        run: python -m pip install --disable-pip-version-check pillow pymupdf
+        run: python -m pip install --disable-pip-version-check pillow pymupdf cairosvg
       - name: selftest (pure script)
         run: |
           python vector-ai-studio/scripts/selftest.py --json > "$RUNNER_TEMP/selftest.json" || true

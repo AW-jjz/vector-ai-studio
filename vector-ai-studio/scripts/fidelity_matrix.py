@@ -33,8 +33,17 @@ committed matrix without re-measuring). Pillow is required (it is the
 reference renderer); without it the measurement is a declared skip, never a
 pass.
 
+`--cross-check` (r85) adds an OPTIONAL third renderer, cairosvg, and scopes
+the requirement to what the classifier claims: only features claimed FAITHFUL
+(today: rect-solid) must agree pixel-wise; every feature claimed limited only
+has to render non-blank at the right size. Demanding pixel agreement for
+limited features would be a guaranteed false red, since bbox-painting is the
+builtin's documented behaviour. cairosvg/native cairo is optional: without it
+the check exits 3 (declared skip), never 0.
+
     python scripts/fidelity_matrix.py --json              # measure + write
     python scripts/fidelity_matrix.py --check --json      # re-measure, compare
+    python scripts/fidelity_matrix.py --cross-check --json  # optional 3rd renderer
 """
 
 import argparse
@@ -245,6 +254,83 @@ def _compare(builtin_img, ref_img):
     return ratio, interior_ok, (db or (0, 0, 0, 0))
 
 
+def _nonwhite(img):
+    """Pixels that are not pure white; a blank render is not a pass."""
+    return sum(1 for p in img.convert("RGB").getdata() if p != (255, 255, 255))
+
+
+def _cairosvg_render(svg_text, w, h):
+    """Render the probe with cairosvg, composited onto white.
+
+    cairosvg emits RGBA with a transparent background; comparing that directly
+    against the builtin's white background would flag every probe.
+    """
+    import cairosvg
+    from PIL import Image
+    png = cairosvg.svg2png(bytestring=svg_text.encode("utf-8"),
+                           output_width=w, output_height=h)
+    img = Image.open(io.BytesIO(png)).convert("RGBA")
+    bg = Image.new("RGB", img.size, (255, 255, 255))
+    bg.paste(img, mask=img.getchannel("A"))
+    return bg
+
+
+def cross_check():
+    """Optional third renderer, scoped to the classifier's claims.
+
+    Returns (doc, missing, problems). `missing` is a string when cairosvg or
+    native cairo cannot be imported -- a declared skip, not a failure.
+    """
+    try:
+        import cairosvg  # noqa: F401
+        from PIL import Image  # noqa: F401
+    except Exception as e:              # noqa: BLE001
+        return None, type(e).__name__ + ": " + str(e)[:160], []
+    from PIL import Image
+    rows, problems = [], []
+    faithful = 0
+    for feature, svg, kind in PROBES:
+        w, h, png, sig = _builtin_png_for(svg)
+        if png is None:
+            problems.append("E-FIDELITY-CROSS: %s: builtin raster failed" % feature)
+            continue
+        builtin = Image.open(io.BytesIO(png))
+        try:
+            cairo = _cairosvg_render(svg, w, h)
+        except Exception as e:          # noqa: BLE001
+            problems.append("E-FIDELITY-CROSS: %s: cairosvg failed: %s: %s"
+                            % (feature, type(e).__name__, str(e)[:120]))
+            continue
+        ratio, interior_ok, db = _compare(builtin, cairo)
+        claim = R._builtin_fidelity(sig)
+        ink = _nonwhite(cairo)
+        consistent = (ratio <= OVERALL_TOL and interior_ok)
+        required = (claim == C.FIDELITY.FAITHFUL)
+        if required:
+            faithful += 1
+        ok = ink > 0 and ((not required) or consistent)
+        if ink == 0:
+            problems.append("E-FIDELITY-CROSS: %s: cairosvg rendered a blank page" % feature)
+        elif required and not consistent:
+            problems.append("E-FIDELITY-CROSS: %s: classifier claims FAITHFUL but "
+                            "cairosvg disagrees (ratio=%.4f interior_ok=%s)"
+                            % (feature, ratio, interior_ok))
+        rows.append({"feature": feature, "claim": claim,
+                     "builtin_vs_cairosvg": "consistent" if consistent else "divergent",
+                     "diff_ratio": round(ratio, 6),
+                     "interior_ok": interior_ok,
+                     "cairo_ink": ink,
+                     "required": required,
+                     "ok": ok})
+    return ({"schema": "vector-ai-studio/fidelity-cross-v1",
+             "tool": {"cairosvg": getattr(__import__("cairosvg"), "__version__", None)},
+             "tolerance": {"overall_ratio_max": OVERALL_TOL,
+                           "interior": "exact outside the %dpx edge band" % EDGE_BAND},
+             "faithful_checked": faithful,
+             "rows": rows,
+             "ok": not problems}, None, problems)
+
+
 def measure():
     """The measured matrix (deterministic; no wall-clock)."""
     try:
@@ -287,10 +373,28 @@ def measure():
 
 def main():
     ap = argparse.ArgumentParser(description="measure the builtin renderer's fidelity per feature")
-    ap.add_argument("--check", action="store_true",
-                    help="re-measure in memory and compare with the committed matrix")
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--check", action="store_true",
+                   help="re-measure in memory and compare with the committed matrix")
+    g.add_argument("--cross-check", action="store_true",
+                   help="optional cairosvg cross-check, scoped to the classifier's claims")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+
+    if args.cross_check:
+        doc, missing, problems = cross_check()
+        if missing:
+            return L.emit(SCRIPT, status="degraded", code=L.EXIT_MISSING,
+                          data={"tool": "cairosvg", "reason": missing},
+                          degradation={"level": "L4", "reason": "cairosvg/native cairo missing",
+                                       "substitute": "pip install cairosvg and put system "
+                                                     "libcairo2 (libcairo-2.dll on Windows) on PATH"})
+        if problems:
+            return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL, data=doc,
+                          errors=[L.err(p.split(":", 1)[0],
+                                        p.split(":", 1)[1].strip() if ":" in p else p)
+                                  for p in problems])
+        return L.emit(SCRIPT, status="ok", code=L.EXIT_OK, data=doc)
 
     doc = measure()
     text = json.dumps(doc, ensure_ascii=False, indent=2) + "\n"

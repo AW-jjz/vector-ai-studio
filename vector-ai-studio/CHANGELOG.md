@@ -4,6 +4,29 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.19.0 — 2026-11-13 [r85]
+
+M3, third slice: an optional cross-renderer check. The capability matrix has
+a Pillow reference; this adds a second independent SVG renderer (cairosvg) and
+scopes the requirement to what the classifier actually claims.
+
+- **`scripts/fidelity_matrix.py --cross-check`**: renders every probe with cairosvg,
+  composites onto white, and compares with the builtin using the same metric.
+  Only features the classifier claims FAITHFUL (today: rect-solid) must agree
+  pixel-wise; features claimed limited only have to render non-blank at the
+  right size. Demanding pixel agreement for limited features would be a
+  guaranteed false red, because bbox-painting is the builtin's documented
+  behaviour.
+- **Optional dependency**: cairosvg needs native cairo (libcairo-2.dll on
+  Windows, libcairo2 on Linux). Detection is a real import plus a render, not
+  `find_spec`; without it the check exits 3 (declared skip), never 0.
+- **A105** runs the check and requires rect-solid consistent, faithful_checked
+  >= 1, and every probe non-blank. It is a declared capability skip when
+  cairosvg/native cairo is absent. `EXPECTED_ASSERTIONS` 104 -> 105.
+- **CI** installs cairosvg and libcairo2 as test-only dependencies so A105
+  runs on Linux too. The default runtime chain still has zero third-party
+  dependencies. Claims 140 -> 143. No threshold value changed.
+
 ## 1.18.0 — 2026-11-13 [r84]
 
 M3 measurement correction: the Pillow reference renderer had two bugs, so two

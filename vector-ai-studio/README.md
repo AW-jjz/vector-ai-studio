@@ -120,6 +120,7 @@ python scripts/verify_install.py --json
 - 评审去重与身份（r78）：提交按**内容 sha256** 去重，同一份表换文件名再交一次也会被拒（`16-review-duplicate-new-name` 从「已声明边界」变为「拦下」）。表内 `reviewer_token` 是评审人自报的稳定假名，不是账号也不是密钥：一个 token 只能提交一份不同内容的表，对外证据要求所有计入表都带 token。**剩余边界**：同一个人编两个 token、写两份不同内容的表，脚本仍无法分辨——零凭据链路里有「提交」的锚，没有「人」的锚；`18-review-two-tokens-one-person` 是这条边界的反向证明。
 - **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `output/<run-id>/selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用。反向证明见 red-team 的 `17-self-attested-log`。
 - 跨文件的枚举（保真度、档位、判读字段）只在 `contract/contract.json` 定义一次，由 `scripts/gen_contract.py` 生成给生产侧与判据侧共同 import；`python scripts/gen_contract.py --check` 在 CI 里卡漂移。
+- 保真度矩阵有可选的第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只对 `faithful` 特征要求像素一致，`limited` 只要求渲染非空；cairosvg/原生 cairo 缺席退 3。
 
 
 ## 自检说明

@@ -1395,6 +1395,39 @@
       "claim": "- PDF/X 的已取证条款与未核项见 `references/pdfx-requirements.md`：关键要求可引用，完整 ISO 文本未购，代码只证结构存在，不作合规结论",
       "mechanism": "unverified",
       "note": "sourced ledger in references/pdfx-requirements.md; key clauses cite ISO previews / PRONOM / LoC / PDF Association / Adobe TN #5413 / ECI, but no external PDF/X validator has been run and the full ISO text is not purchased -- so this is a sourced statement, not a machine-verified conformance claim"
+    },
+    {
+      "id": "CLAIM-141",
+      "file": "SKILL.md",
+      "anchor": "**跨渲染器",
+      "text_hash": "sha256:4778a8976b790bc7dc49ebfaaa6fb4f3cec8d3e45f7a208f865ee938e1da826e",
+      "claim": "**跨渲染器（r84/r85，M3 第二/三片）**：r84 修了 Pillow 参考的两处 bug（stroke 居中、transform 旋转符号）并重测矩阵；r85 加可选第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只要求分类器宣称 faithful 的特征与它像素一致，limited 只要求渲染非空",
+      "mechanism": "assertion",
+      "tests": [
+        "A105-cross-renderer-cairosvg"
+      ]
+    },
+    {
+      "id": "CLAIM-142",
+      "file": "SKILL.md",
+      "anchor": "cairosvg/",
+      "text_hash": "sha256:bcae308067da331d466ea4c0cb6b6de2cf59708fabcc921144a338e9b11a6a54",
+      "claim": "cairosvg/原生 cairo 缺席退 3（声明式缺失），绝不报通过",
+      "mechanism": "assertion",
+      "tests": [
+        "A105-cross-renderer-cairosvg"
+      ]
+    },
+    {
+      "id": "CLAIM-143",
+      "file": "README.md",
+      "anchor": "- 保真度矩",
+      "text_hash": "sha256:848d4a4796e365a0d3ff25fa580c4ed62a10ec783baec3cb83a531f00ece35c8",
+      "claim": "- 保真度矩阵有可选的第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只对 `faithful` 特征要求像素一致，`limited` 只要求渲染非空；cairosvg/原生 cairo 缺席退 3",
+      "mechanism": "assertion",
+      "tests": [
+        "A105-cross-renderer-cairosvg"
+      ]
     }
   ]
 }

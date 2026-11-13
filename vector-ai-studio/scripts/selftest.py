@@ -4990,6 +4990,53 @@ def _stage_r82(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r85(tmp, add):
+    """A105: optional cairosvg cross-check, scoped to the classifier's claims.
+
+    Only FAITHFUL features must agree pixel-wise with cairosvg; LIMITED ones
+    only have to render non-blank. Without cairosvg/native cairo this is a
+    declared skip (exit 3), never a pass.
+    """
+    try:
+        rc, env, _ = _call("fidelity_matrix.py",
+                           ["--cross-check", "--json"], tmp)
+        d = env.get("data") or {}
+        if rc == 3 and (d.get("tool") == "cairosvg"
+                        or "cairo" in str(d.get("reason", "")).lower()):
+            add("A105-cross-renderer-cairosvg", None,
+                "cairosvg/native cairo unavailable", skipped=True)
+            return
+        rows = d.get("rows") or []
+        rect = next((r for r in rows if r.get("feature") == "rect-solid"), None)
+        # declared-missing branch: -S removes site-packages, so cairosvg
+        # cannot be imported and the check must exit 3, never 0
+        _m = subprocess.run(
+            [sys.executable, "-S", str(ROOT / "scripts" / "fidelity_matrix.py"),
+             "--cross-check", "--json"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        try:
+            _md = json.loads(_m.stdout or "{}", strict=False)
+        except ValueError:
+            _md = {}
+        _missing_ok = (_m.returncode == 3
+                       and _md.get("status") == "degraded"
+                       and (_md.get("data") or {}).get("tool") == "cairosvg")
+        ok = (rc == 0 and d.get("ok") is True
+              and (d.get("faithful_checked") or 0) >= 1
+              and rect is not None and rect.get("required") is True
+              and rect.get("builtin_vs_cairosvg") == "consistent"
+              and all((r.get("cairo_ink") or 0) > 0 for r in rows)
+              and _missing_ok)
+        add("A105-cross-renderer-cairosvg", ok,
+            "rc=%s ok=%s faithful=%s rows=%s rect=%s missing_branch=%s" % (
+                rc, d.get("ok"), d.get("faithful_checked"), len(rows),
+                rect and (rect.get("builtin_vs_cairosvg"), rect.get("diff_ratio")),
+                _missing_ok))
+    except Exception as e:                      # noqa: BLE001
+        add("A105-cross-renderer-cairosvg", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -5052,6 +5099,7 @@ def main():
     _stage_r80(tmp, add)
     _stage_r81(tmp, add)
     _stage_r82(tmp, add)
+    _stage_r85(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

@@ -163,6 +163,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 - **`--check` 双闸**（CI 可跑）：① 重测逐字节比对（漂移即 `E-FIDELITY-DRIFT`——改了矩阵必须重测）；② **承重方向**：分类器说 faithful 的特征必须实测 consistent——声明被测量推翻即红。反向（实测一致 → 声明可升级）只记为矩阵的升级候选，不强制：保持 limited 是 fail-closed，不是不诚实。
 - **测量抓到并修掉的两个分类器盲区**：transform（旋转元素被画成未旋转 bbox）与 fill-opacity（半透明被画成全不透明）——`../scripts/lib_common.py` 的 analyze_svg 现在逐元素记录 `transform`（属性或 style 形式，布尔）与 `fill_opacity`（可解析为小数；解析不了就记原串），分类器对两者 fail-closed 判 limited。
 - preview.meta.json 增 `fidelity_vector`（仅内置兜底渲染时）：逐元素的 `{tag, transform, fill_opacity, fidelity}`——**证据不是闸**，闸仍读契约词表的那一个词；向量回答的是「为什么」。
+- r85 可选交叉检查：`../scripts/fidelity_matrix.py --cross-check` 用 cairosvg 作第三渲染器，只对 faithful 特征要求像素一致；cairosvg/原生 cairo 缺席退 3（声明式缺失），绝不报通过。
 - Pillow 是参照渲染器：没有它，测量是**声明式跳过**（exit 3），绝不把未测的矩阵写盘、绝不判绿。
 
 ## 证据轨道分层（H1 与 H2–H4）

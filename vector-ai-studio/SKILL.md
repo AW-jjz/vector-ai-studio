@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.18.0
+version: 1.19.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.18.0"
+  version: "1.19.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -313,6 +313,8 @@ H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生
 **见证层（r74，角色分离的落点）**：这个边界的出口在 run 目录**外面**。签收一个 run 时，`scripts/witness.py create` 把它的验收日志与 journal 哈希写进一条**独立于 run 目录**的 append-only 见证链（随仓库提交、推送、打 tag）；消费侧 `scripts/witness.py verify`（或 `scripts/replay.py --witness <见证文件>` 的 R5 项）把当前字节对锚核验——**签收之后再动验收日志，`E-WITNESS-MISMATCH` 当场红**；没有见证记录的 run_id 同样不给过。本项目不用密钥（H4 零凭据原则）：**仓库历史就是身份**——append-only、已推送、有 tag，谁都能核；能 force-push 那条历史的人能伪造锚，这是已声明的边界，tag 把它压到"必须在 tag 里可见"。
 
 **保真度是量出来的（r75，M3 第一片）**：内置兜底渲染器的「faithful」不再是静态嗅探的自证——`scripts/fidelity_matrix.py` 为每类特征（实心矩形 / 描边 / 圆 / 椭圆 / 线 / 路径填充 / 路径描边 / 渐变 / 文本 / transform / 透明度）造一个探针，用**生产渲染器**与 **Pillow 参照渲染器**（真实的第二实现）各画一遍、逐像素比对，落成**已测能力矩阵**（`references/fidelity/capability-matrix.json`，随包提交）。测量抓到并修掉了两个分类器盲区：**transform**（旋转元素被画成未旋转的 bbox）与 **fill-opacity**（半透明被画成全不透明）——现在都 fail-closed 判 limited。A94 钉住承重方向：**分类器说 faithful 的特征，必须实测 consistent**；反过来（实测一致 → 可考虑升级声明）只记在矩阵里、不强制——保持 limited 是 fail-closed，不是不诚实。内置渲染器预览的 meta 另带 `fidelity_vector`（逐元素的词与原因），判决仍只读契约词表的那一个词。
+
+**跨渲染器（r84/r85，M3 第二/三片）**：r84 修了 Pillow 参考的两处 bug（stroke 居中、transform 旋转符号）并重测矩阵；r85 加可选第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只要求分类器宣称 faithful 的特征与它像素一致，limited 只要求渲染非空。cairosvg/原生 cairo 缺席退 3（声明式缺失），绝不报通过。
 
 `scripts/verify_install.py` 回答的是另一个问题：**这台机器上的引擎路径通不通**。自检里 A30 / A31 / A46 三条依赖真实引擎，没有引擎时它们是 *skipped*（跳过是「没测」，不是「通过」）——所以「自检全绿」并不证明引擎能用。`scripts/verify_install.py` 复用这三条断言（不另立判据），再真跑一次 `land_vc` 与 `land_craft` 留下产物证据，并核对引擎二进制哈希与 `engine.lock.json` 里钉的那一个是否一致。**引擎缺席时它只报「无法复测」并退 3，绝不报 ok**；哈希对不上则报 `E-ENGINE-DRIFT`（同版本、不同构建，之前的回归结论不再成立）。
 
