@@ -2754,3 +2754,64 @@ sha256        : 8925ad535ace79b85e3cea76e0c2f03d4ac34f30b87ccf253a9a8b3aa917b1b8
                 （444002 B / 171 文件）
                 上一版：r74 / 1.8.1 = db71486fe629478eabe073d1e2a5f13665b2e1e5f835a888207935258de7936a
                 （433,497 B / 169 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r76（2026-11-13）　M4 第一片：评审协议预注册 + Krippendorff α（取代 1.9.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r76-172files.zip
+版本          : r76（SKILL.md 1.10.0，metadata.version "1.10.0"）
+文件数        : 172
+字节数        : 451876
+sha256        : 0c86960c95962bd6bcb992905ec32f9e72c65c526a6fe8e787e14692729450d5
+冻结时刻      : 2026-11-13 16:33（源码 172 文件 / 1263309 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（172 条目、0 目录项）
+旧包归档      : r75-171files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 23 件）
+取代关系      : 本段取代 r75 段。1.9.0 已签收、已 tag（v1.9.0）、已推送；本轮在其上新增能力（M4 第一片）。
+
+相对 1.9.0 变更 : 5 个文件（2 新增 / 0 删除 / 3 修改）
+                对比 05-发布/archive/vector-ai-studio_r75-171files.zip 逐件 md5
+新增 2        :
+                scripts/krippendorff.py                          11ec80efdeaa9f20b09c572aa7ccbf3785873b84d9858729c987b18d8393f15c
+                scripts/witness.py → 已在 r74（本段无此新增）      —
+修改 3        :
+                CHANGELOG.md                                     b3504ff1c8372ed7a2b0ee36302d5d15ad96f86909000eb38c208cde7baa389b
+                SKILL.md                                         ca02146b04df19e739cb986b50c14514aec082b0b2068c7e96a11af3c78dc6d4
+                scripts/review.py                                f52527302d536ff65c53e79051cab1278003da1b8c8c4a66fcf3ad83fbf6164c
+                （另：scripts/studio.py --review-pack 增预注册协议块与哈希）
+内容          : M4 第一片——评审协议化：
+                1) Krippendorff α（评分者间信度，机会修正）：nominal / ordinal /
+                   interval 三种度量，实现取自 Krippendorff 2011 的公式并钉在
+                   论文自己的算例上（B 例 nominal 0.095；C 例重建 12 单元后
+                   nominal 0.743 / ordinal 0.815 / interval 0.849；未用等级
+                   插入不变性；单调性；孤立值无配对 → None）。
+                2) review.py 报告 α（整体 + 逐维度，ordinal）作为证据升级：
+                   精确一致率只数全同格；α 按机会修正并区分 0-vs-1 与 0-vs-2。
+                   **只报告不闸**——没有经校准的 α 阈值，未校准的数当闸门等于
+                   把噪声点成红灯。
+                3) 预注册：studio --review-pack 生成评审包时把协议（维度/量级/
+                   案例/seed）与协议哈希写进 key.json；review.py 核验——协议在
+                   评审之后被改动（维度改名/案例换掉/量级放宽）即 E-REVIEW-INVALID，
+                   漂移作为拒绝的主因。旧包（无协议块）警告不硬拒。
+                4) 新增 A95（α 锚点 + 性质）与 A96（预注册生命周期：生成→核验→
+                   篡改必红→旧包警告），EXPECTED_ASSERTIONS 94 → 96（--fixtures 97）。
+
+实测证据      : 六道闸（有引擎机器实跑）：
+                selftest --fixtures 97/97（96 + A13，skipped=0，exit 0）、
+                selftest 96/96、run_fixtures 37/37、redteam 17/15/0/2、
+                validate_claims 122/122 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（172 文件 / 451876 B / 0c86960c9596…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r76 重取 PASS
+                阈值数值零改动
+
+已知限制      : 1) α 只报告不闸（阈值未校准）；报告的 α 在承诺条数很少或
+                   评审人只有两个时样本极小，解读需谨慎
+                2) M4 后续（pairwise 收集 / Bradley-Terry 标度 / token 身份）未做
+                3) 声明登记册 122 条中 58 条仍为 unverified
+                4) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r76-172files.zip
+                两者均应为 0c86960c95962bd6bcb992905ec32f9e72c65c526a6fe8e787e14692729450d5
+                （451876 B / 172 文件）
+                上一版：r75 / 1.9.0 = 8925ad535ace79b85e3cea76e0c2f03d4ac34f30b87ccf253a9a8b3aa917b1b8
+                （444,002 B / 171 文件，已在 archive/）
