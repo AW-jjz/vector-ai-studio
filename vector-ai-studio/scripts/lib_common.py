@@ -68,7 +68,8 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # 94 + 2 = 96.
 # r77 (M4 slice 2): +A97 (Bradley-Terry iteration properties) + A98 (the
 # pairwise round trip) -> 96 + 2 = 98.
-EXPECTED_ASSERTIONS = 98
+# r78 (M4 close): +A99 (content dedup + reviewer-token identity) -> 98 + 1 = 99.
+EXPECTED_ASSERTIONS = 99
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

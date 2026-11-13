@@ -1,0 +1,56 @@
+{
+  "schema": "vector-ai-studio/attack-v1",
+  "id": "18-review-two-tokens-one-person",
+  "name": "同一个人编两个 token 交两份不同内容的表",
+  "expect": "leak",
+  "why": "r78 的剩余边界：token 是自报假名，不是凭证；零凭据链路认「提交」不认「人」。",
+  "reference": "r78 / CLAIM reviewer-token boundary",
+  "mutations": [
+    {
+      "op": "write_json",
+      "path": "key.json",
+      "doc": {
+        "schema": "vector-ai-studio/review-key-v1",
+        "cases": [
+          {
+            "case": "case-01",
+            "source": "x"
+          },
+          {
+            "case": "case-02",
+            "source": "y"
+          }
+        ]
+      }
+    },
+    {
+      "op": "write_text",
+      "path": "sheet-a.csv",
+      "text": "case,concept,hierarchy,proportion,detail,durability,reviewer_token,notes\ncase-01,2,2,1,2,2,rev-one,ok\ncase-02,1,2,1,1,2,rev-one,ok\n"
+    },
+    {
+      "op": "write_text",
+      "path": "sheet-b.csv",
+      "text": "case,concept,hierarchy,proportion,detail,durability,reviewer_token,notes\ncase-01,2,1,1,2,1,rev-two,x\ncase-02,1,2,2,1,2,rev-two,y\n"
+    }
+  ],
+  "run": {
+    "script": "review.py",
+    "args": [
+      "--sheet",
+      "@RUN@/sheet-a.csv",
+      "--sheet",
+      "@RUN@/sheet-b.csv",
+      "--key",
+      "@RUN@/key.json",
+      "--reviewer-kind",
+      "external"
+    ]
+  },
+  "expect_exit": [
+    0
+  ],
+  "reject_codes": [
+    "E-REVIEW-INVALID"
+  ]
+}

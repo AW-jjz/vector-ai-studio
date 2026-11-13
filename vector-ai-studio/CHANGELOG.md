@@ -4,6 +4,31 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.12.0 — 2026-11-13 [r78]
+
+M4 close: reviewer identity. Two submissions are now identified by what they
+contain and who claims them, not by the filename someone happened to save.
+
+- **Content-only de-duplication**: the key used to be (absolute path, content
+  sha256), so the same ratings copied to a new filename counted as a second
+  reviewer. The key is now the content sha256 alone; the new-name copy is
+  refused with `E-REVIEW-INVALID` (`16-review-duplicate-new-name` moved from a
+  declared boundary to blocked).
+- **`reviewer_token`**: each sheet may carry a self-asserted stable pseudonym
+  (3-64 chars of A-Z a-z 0-9 . _ -), identical on every row. It is NOT a
+  credential -- H4 keeps the pipeline keyless -- but it survives renaming and
+  makes one token submitting two different sheets a refusal. `scripts/review.py`
+  reports an `identity` block; `evidence.usable_for_claim` now also requires
+  every counted sheet to declare a token, all tokens distinct. A legacy sheet
+  without a token still aggregates, but is explicitly not claim-grade.
+- **A99** pins the lifecycle: distinct tokens -> usable evidence; same token,
+  different content -> refused; identical content under a new name -> refused;
+  no tokens -> aggregates but `usable_for_claim` false; the pack ships the
+  token column.
+- **Redteam**: `16` is now blocked; `18-review-two-tokens-one-person` records
+  the remaining boundary (one person inventing two tokens is indistinguishable
+  from two people). `EXPECTED_ASSERTIONS` 98 -> 99; claims 124 -> 130.
+
 ## 1.11.0 — 2026-11-13 [r77]
 
 M4, second slice: pairwise preferences and the Bradley-Terry scale. Absolute

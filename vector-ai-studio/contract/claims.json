@@ -957,7 +957,7 @@
       "id": "CLAIM-097",
       "file": "README.md",
       "anchor": "- 外部评审表回收后用 `scr",
-      "text_hash": "sha256:08ffc4021c3a9786fe4cb9c321ce78aa49f4d2955a4e06c7d42b3625d4eee425",
+      "text_hash": "sha256:3c8bdb5f3c85dd0483a2995310ee17088ebd13dfb0a04f759d51d43d0090ef87",
       "claim": "- 外部评审表回收后用 `scripts/review.py` 汇总，只有 ≥2 名**去重后**（绝对路径 + 内容 sha256）的不同 external 评审人且零空格时 `evidence.usable_for_claim` 才为真；在此之前恒为假",
       "mechanism": "assertion",
       "tests": [
@@ -1064,7 +1064,7 @@
       "id": "CLAIM-108",
       "file": "README.md",
       "anchor": "- 盲评回收用 `python ",
-      "text_hash": "sha256:be4847f95d4a6ba24a1c8a690c96197dd6b9f39edffcacc44d6cf1a0fdf3436c",
+      "text_hash": "sha256:015389df57b581449865d7e56fe1e366d76047e130a66a445feb44fba732b553",
       "claim": "- 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；`--sheet` 按（绝对路径 + 内容 sha256）去重，重复",
       "mechanism": "assertion",
       "tests": [
@@ -1128,11 +1128,13 @@
     {
       "id": "CLAIM-114",
       "file": "README.md",
-      "anchor": "- 评审去重的**已声明边界**",
-      "text_hash": "sha256:9e1103b84d87e40830d3e694ca0e081450b3532d2ff32150f12c992eeca906dc",
-      "claim": "- 评审去重的**已声明边界**：`(绝对路径, 内容 sha256)` 拦得住「同一份表重复提交」，但**拦不住「同一份表换个文件名再交一次」与「同一个人把同一份表另存为两个不同文件并改动一个字节」**——那是两个人还是一个人，脚本无从判定",
-      "mechanism": "boundary-declaration",
-      "boundary_proof": "attack:16-review-duplicate-new-name"
+      "anchor": "表内 `reviewer_token` 是评审人自报的稳定假名",
+      "text_hash": "sha256:883748c1ca1d039caca11f31601f7f7e17eed6c0987dc3113973b18238b65ee0",
+      "claim": "表内 `reviewer_token` 是评审人自报的稳定假名，不是账号也不是密钥：一个 token 只能提交一份不同内容的表，对外证据要求所有计入表都带 token",
+      "mechanism": "assertion",
+      "tests": [
+        "A99-reviewer-token-identity"
+      ]
     },
     {
       "id": "CLAIM-115",
@@ -1229,6 +1231,66 @@
       "claim": "坏表与评分表同一条拒绝分支（未知 pair_id / 换对 / 越界 winner / 缺格全部 `E-REVIEW-INVALID`）；**只报告不闸**，原因同 α",
       "mechanism": "unverified",
       "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-125",
+      "file": "SKILL.md",
+      "anchor": "它不是账号、",
+      "text_hash": "sha256:2d0eff1837c928a2d194a6d3c5520d294beeff3dd0abd529fd4d4075228ce8e0",
+      "claim": "它不是账号、不是密钥（H4 零凭据不变），换文件名不会丢失；两张表用同一 token 会被判为同一人重复提交（`E-REVIEW-INVALID`），而**内容 sha256 去重**让「同一份表换文件名再交一次」也被拒",
+      "mechanism": "assertion",
+      "tests": [
+        "A99-reviewer-token-identity"
+      ]
+    },
+    {
+      "id": "CLAIM-126",
+      "file": "SKILL.md",
+      "anchor": "**诚实边界",
+      "text_hash": "sha256:45dcc16768f6aea341d6a244c66d5d8ff454f5d5adbc923352a49950e5f69276",
+      "claim": "**诚实边界**：同一个人编两个 token、写两份不同内容的表，脚本无法分辨——token 认的是「提交」不是「人」",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:18-review-two-tokens-one-person"
+    },
+    {
+      "id": "CLAIM-127",
+      "file": "SKILL.md",
+      "anchor": "- **评审身",
+      "text_hash": "sha256:c316340fc42394d249d98807d8f24f67b405d079a87d380acbe8df116e0d296d",
+      "claim": "- **评审身份的两层边界（r78）**：提交按内容 sha256 去重，同一份表换文件名再交一次会被拒（`16-review-duplicate-new-name` 已从「已声明边界」变为「拦下」）；表内 `reviewer_token` 是评审人自报的稳定假名，一个 token 只能提交一份不同内容的表，对外证据要求所有计入表都带 token",
+      "mechanism": "assertion",
+      "tests": [
+        "A99-reviewer-token-identity"
+      ]
+    },
+    {
+      "id": "CLAIM-128",
+      "file": "SKILL.md",
+      "anchor": "**剩余边界",
+      "text_hash": "sha256:21aebc1935485e09a10234a213e1865ab319aad2ec56ea7fa760547195aab8d4",
+      "claim": "**剩余边界**：同一个人编两个 token、写两份不同内容的表，脚本仍无法分辨——零凭据链路里有「提交」的锚，没有「人」的锚",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:18-review-two-tokens-one-person"
+    },
+    {
+      "id": "CLAIM-129",
+      "file": "README.md",
+      "anchor": "**剩余边界",
+      "text_hash": "sha256:3fbac37914c6eade3464fc62c0190c6a4d729a55a13c87393b1f8d440d61557a",
+      "claim": "**剩余边界**：同一个人编两个 token、写两份不同内容的表，脚本仍无法分辨——零凭据链路里有「提交」的锚，没有「人」的锚；`18-review-two-tokens-one-person` 是这条边界的反向证明",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:18-review-two-tokens-one-person"
+    },
+    {
+      "id": "CLAIM-130",
+      "file": "SKILL.md",
+      "anchor": "对外证据字段",
+      "text_hash": "sha256:918861482f0d6e805df64c07e3e8870243975108cdef46640192fdfdbbf55eaa",
+      "claim": "对外证据字段 `evidence.usable_for_claim` 现在要求所有计入表都带 token 且互不相同；无 token 的旧表仍能聚合，但只能当记录，不能当对外证据",
+      "mechanism": "assertion",
+      "tests": [
+        "A99-reviewer-token-identity"
+      ]
     }
   ]
 }

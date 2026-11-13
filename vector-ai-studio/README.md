@@ -49,7 +49,7 @@ python scripts/verify_install.py --json
 
 - 当前等级一律是 `machine_only`：三个独立模型实例按同一张盲评表打分，表不空、可复核，但**不是外部评审**，不可对外声称「质量已验证」或「审美已被验证」。
 - 需求符合度里机械可判的部分（尺寸、色数、色面积上限、线宽档数、16px 与单色可辨、禁用构造）由 `scripts/conformance.py` 按各例的 conformance.json 判定，逐条写进状态文件；规则文件里没写的项进 `unchecked`，不显示成通过。剩下的审美判断（主张是否成立、主次、气质）只能人判。
-- 外部评审表回收后用 `scripts/review.py` 汇总，只有 ≥2 名**去重后**（绝对路径 + 内容 sha256）的不同 external 评审人且零空格时 `evidence.usable_for_claim` 才为真；在此之前恒为假。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，不构成「两名不同真人已看过」的对外证据。请求件在 `templates/review-request.md`。
+- 外部评审表回收后用 `scripts/review.py` 汇总，只有 ≥2 名**去重后**（内容 sha256 唯一 + 各自声明不同 `reviewer_token`）的不同 external 评审人且零空格时 `evidence.usable_for_claim` 才为真；在此之前恒为假。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，不构成「两名不同真人已看过」的对外证据。请求件在 `templates/review-request.md`。
 
 ## 素材政策：两条通道，不建库
 
@@ -111,8 +111,8 @@ python scripts/verify_install.py --json
 - 对外说明只承诺分档结论；未判定或降级时首行标注需人工终审。状态 A 限定（r70）：引用 `grade=达标` 前须自行复核三项（真 `%PDF-` 可重开、`output/<run-id>/structure_readback.json` 的 `paths` 与产物对得上、`output/<run-id>/selftest.json` 为本次运行产生）；本结论不替代消费方复算，不宣称印刷合规。
 - 用户可见说明仅此一页；`references/design-language.md` 与 `references/archetypes/` 是设计与生成约束，其余 references 是施工契约，都不是使用手册。
 - 单稿链路可压成一条命令：`python scripts/studio.py --spec ... --svg ... --out output/<run-id>`；阶段状态见 `output/<run-id>/studio.json`。
-- 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；`--sheet` 按（绝对路径 + 内容 sha256）去重，重复提交同一份表也判 `E-REVIEW-INVALID` 且不计入评审人数；只有 ≥2 名**去重后**的外部评审且零空格时 `evidence.usable_for_claim` 才为真。评审请求件在 `templates/review-request.md`。
-- 评审去重的**已声明边界**：`(绝对路径, 内容 sha256)` 拦得住「同一份表重复提交」，但**拦不住「同一份表换个文件名再交一次」与「同一个人把同一份表另存为两个不同文件并改动一个字节」**——那是两个人还是一个人，脚本无从判定。这是字段级 fail-closed 设计 + 已声明威胁模型 + 已登记边界，不构成「两名不同真人已看过」的对外证据。`python scripts/redteam.py --json` 里的 `16-review-duplicate-new-name` 就是这条边界的反向证明。
+- 盲评回收用 `python scripts/review.py --sheet ... --key ... --reviewer-kind external`：空表判 `E-REVIEW-EMPTY`、缺格判 `E-REVIEW-INVALID`；`--sheet` 按内容 sha256 去重，重复提交同一份表（含换文件名）也判 `E-REVIEW-INVALID` 且不计入评审人数；同一 `reviewer_token` 提交两份不同内容的表同样拒绝；只有 ≥2 名**去重后**且带 token 的外部评审且零空格时 `evidence.usable_for_claim` 才为真。评审请求件在 `templates/review-request.md`。
+- 评审去重与身份（r78）：提交按**内容 sha256** 去重，同一份表换文件名再交一次也会被拒（`16-review-duplicate-new-name` 从「已声明边界」变为「拦下」）。表内 `reviewer_token` 是评审人自报的稳定假名，不是账号也不是密钥：一个 token 只能提交一份不同内容的表，对外证据要求所有计入表都带 token。**剩余边界**：同一个人编两个 token、写两份不同内容的表，脚本仍无法分辨——零凭据链路里有「提交」的锚，没有「人」的锚；`18-review-two-tokens-one-person` 是这条边界的反向证明。
 - **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `output/<run-id>/selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用。反向证明见 red-team 的 `17-self-attested-log`。
 - 跨文件的枚举（保真度、档位、判读字段）只在 `contract/contract.json` 定义一次，由 `scripts/gen_contract.py` 生成给生产侧与判据侧共同 import；`python scripts/gen_contract.py --check` 在 CI 里卡漂移。
 

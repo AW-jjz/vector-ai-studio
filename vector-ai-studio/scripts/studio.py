@@ -270,7 +270,7 @@ def _review_pack(args):
         shutil.copyfile(svg, out / (case + ".svg"))
         shutil.copyfile(png, out / (case + ".png"))
         key.append({"case": case, "source": str(args.candidate[idx])})
-        rows.append(case + ",,,,,,")
+        rows.append(case + ",,,,,,,")
     # r76 (M4): preregistration. The review PROTOCOL -- dimensions, scale,
     # case list, seed -- is fixed HERE, before any reviewer sees a candidate,
     # and its hash travels in the key. review.py verifies the hash, so a pack
@@ -290,7 +290,12 @@ def _review_pack(args):
                          "protocol_sha256": "sha256:" + hashlib.sha256(
                              journal.canonical(protocol)).hexdigest(),
                          "warning": "do not hand this file to the reviewer"})
-    sheet = ("case,concept,hierarchy,proportion,detail,durability,notes\n" +
+    # r78 (M4): the sheet carries a self-asserted reviewer_token -- a pseudonym,
+    # not a credential (H4 keeps this pipeline keyless). It survives filename
+    # changes, and review.py refuses one token submitting two different sheets
+    # and requires a token for claim-grade evidence. Blank cells: the reviewer
+    # fills one stable token in every row of their own copy.
+    sheet = ("case,concept,hierarchy,proportion,detail,durability,reviewer_token,notes\n" +
              "\n".join(rows) + "\n")
     L.write_text_atomic(out / "review-sheet.csv", sheet)
     # r77 (M4 slice 2): the PAIRWISE sheet. Absolute 0-2 scores ask a reviewer
@@ -312,6 +317,10 @@ def _review_pack(args):
                         "`review-sheet.csv`、`review-pairs.csv`。不要提供 `key.json`。\n\n"
                         "评分：五维各 0-2，锚点见 `references/design-language.md` "
                         "第 10 节。空白格由评审人填写；脚本不写分数。\n\n"
+                        "身份（r78）：`reviewer_token` 列请每位评审人填一个稳定假名"
+                        "（如 `rev-a1b2`），自己这张表每一行都相同；它不是账号也不是"
+                        "密钥，换文件名不会丢失。两张表用同一个 token 会被判为同一人"
+                        "重复提交；没有 token 的旧表仍可聚合，但不能作为对外证据。\n\n"
                         "两两偏好（r77）：`review-pairs.csv` 里每行一对，winner 列填"
                         "两者之一或 tie——只回答「哪个更好」，不用校准自己的尺子。\n\n"
                         "回填后把 `review-sheet.csv`、`review-pairs.csv` 与 `key.json` "

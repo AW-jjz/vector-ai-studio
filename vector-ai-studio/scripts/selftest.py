@@ -1326,21 +1326,24 @@ def _check_empty_review_sheet(tmp, add):
                       {"case": "case-02", "source": "run-b"},
                       {"case": "case-03", "source": "run-c"}]}), encoding="utf-8")
         _head55 = "case,concept,hierarchy,proportion,detail,durability,notes"
+        _head55t = _head55 + ",reviewer_token"
         _empty55 = _pack55 / "empty.csv"
         _empty55.write_text("\n".join([_head55, "case-01,,,,,,", "case-02,,,,,,",
                                        "case-03,,,,,,"]) + "\n", encoding="utf-8")
         _rows55 = {
-            "a": ["case-01,2,2,1,2,2,ok", "case-02,1,2,1,1,2,ok",
-                  "case-03,2,1,1,2,1,ok"],
-            "b": ["case-01,2,1,1,2,1,x", "case-02,1,2,1,1,2,y",
-                  "case-03,2,1,1,2,2,z"],
-            "hole": ["case-01,2,1,1,2,1,x", "case-02,1,2,,1,2,y",
-                     "case-03,2,1,1,2,2,z"],
+            "a": (_head55t, ["case-01,2,2,1,2,2,ok,rev-a",
+                             "case-02,1,2,1,1,2,ok,rev-a",
+                             "case-03,2,1,1,2,1,ok,rev-a"]),
+            "b": (_head55t, ["case-01,2,1,1,2,1,x,rev-b",
+                             "case-02,1,2,1,1,2,y,rev-b",
+                             "case-03,2,1,1,2,2,z,rev-b"]),
+            "hole": (_head55, ["case-01,2,1,1,2,1,x", "case-02,1,2,,1,2,y",
+                               "case-03,2,1,1,2,2,z"]),
         }
         _paths55 = {}
-        for _k, _rows in _rows55.items():
+        for _k, (_h55, _rows) in _rows55.items():
             _p55 = _pack55 / ("rev-" + _k + ".csv")
-            _p55.write_text("\n".join([_head55] + _rows) + "\n", encoding="utf-8")
+            _p55.write_text("\n".join([_h55] + _rows) + "\n", encoding="utf-8")
             _paths55[_k] = str(_p55)
 
         _rc55e, _env55e, _ = _call("review.py", ["--sheet", str(_empty55),
@@ -1383,6 +1386,7 @@ def _check_empty_review_sheet(tmp, add):
                  and _rc55h == 1 and "E-REVIEW-INVALID" in _codes(_env55h)
                  and _rc55g == 0
                  and (_g55.get("evidence") or {}).get("usable_for_claim") is True
+                 and (_g55.get("identity") or {}).get("verified") is True
                  and (_g55.get("agreement") or {}).get("rate") == 0.8
                  and [c["verdict"] for c in _g55.get("cases") or []] == ["pass"] * 3
                  and _u55i is False and _u55m is False
@@ -4220,10 +4224,11 @@ def _stage_r76(tmp, add):
 
         _head = "case,concept,hierarchy,proportion,detail,durability,notes"
         _filled = ["case-01,2,2,1,2,2,ok", "case-02,1,2,1,1,2,ok"]
+        _filled_b = ["case-01,2,2,1,2,1,ok", "case-02,1,2,2,1,2,ok"]
         sheet_a = _pack / "rev-a.csv"
         sheet_a.write_text("\n".join([_head] + _filled) + "\n", encoding="utf-8")
         sheet_b = _pack / "rev-b.csv"
-        sheet_b.write_text("\n".join([_head] + _filled) + "\n", encoding="utf-8")
+        sheet_b.write_text("\n".join([_head] + _filled_b) + "\n", encoding="utf-8")
 
         rc_ok, env_ok, _ = _call("review.py",
                                  ["--sheet", str(sheet_a), "--sheet", str(sheet_b),
@@ -4321,8 +4326,9 @@ def _stage_r77(tmp, add):
             _scored.append("case-%02d,2,2,1,2,2,ok" % _ci)
         _sa = _pack / "rev-a.csv"
         _sa.write_text("\n".join([_head] + _scored) + "\n", encoding="utf-8")
+        _scored_b = ["case-%02d,2,2,1,2,1,ok" % _ci for _ci in (1, 2, 3)]
         _sb = _pack / "rev-b.csv"
-        _sb.write_text("\n".join([_head] + _scored) + "\n", encoding="utf-8")
+        _sb.write_text("\n".join([_head] + _scored_b) + "\n", encoding="utf-8")
 
         _pfilled = [_plines[0]]
         for _ln in _plines[1:]:
@@ -4373,6 +4379,119 @@ def _stage_r77(tmp, add):
                 _pw.get("strength"), _pw.get("ordering"), _bad_red))
     except Exception as e:                      # noqa: BLE001
         add("A98-pairwise-roundtrip", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
+def _stage_r78(tmp, add):
+    """A99: reviewer identity -- content dedup + self-asserted tokens (M4 / r78).
+
+    The old dedup key carried the absolute path, so identical ratings copied to
+    a new filename counted as a second reviewer (the boundary r71 P0-2
+    declared). A99 pins the new rule: content alone identifies a submission;
+    a sheet's `reviewer_token` identifies its author, one token may submit one
+    distinct sheet, and claim-grade evidence requires every counted sheet to
+    declare a token. A legacy sheet without a token still aggregates but is
+    explicitly not claim-grade.
+    """
+    try:
+        _key = tmp / "r78-key.json"
+        _key.write_text(json.dumps({
+            "schema": "vector-ai-studio/review-key-v1", "seed": 11,
+            "cases": [{"case": "case-01", "source": "run-a"},
+                      {"case": "case-02", "source": "run-b"}]}), encoding="utf-8")
+        _head = ("case,concept,hierarchy,proportion,detail,durability,"
+                 "reviewer_token,notes")
+        _rows = {
+            "alpha": ["case-01,2,2,1,2,2,rev-alpha,ok",
+                      "case-02,1,2,1,1,2,rev-alpha,ok"],
+            "beta": ["case-01,2,1,1,2,1,rev-beta,x",
+                     "case-02,1,2,2,1,2,rev-beta,y"],
+            "alpha2": ["case-01,1,1,1,1,1,rev-alpha,z",
+                       "case-02,1,1,1,1,1,rev-alpha,z"],
+        }
+        _p = {}
+        for _k, _body in _rows.items():
+            _p[_k] = tmp / ("r78-" + _k + ".csv")
+            _p[_k].write_text("\n".join([_head] + _body) + "\n", encoding="utf-8")
+        _copy = tmp / "r78-alpha-copy.csv"
+        shutil.copyfile(_p["alpha"], _copy)
+
+        _lhead = "case,concept,hierarchy,proportion,detail,durability,notes"
+        _leg1 = tmp / "r78-legacy-1.csv"
+        _leg1.write_text("\n".join([_lhead, "case-01,2,2,1,2,2,ok",
+                                    "case-02,1,2,1,1,2,ok"]) + "\n", encoding="utf-8")
+        _leg2 = tmp / "r78-legacy-2.csv"
+        _leg2.write_text("\n".join([_lhead, "case-01,2,1,1,2,1,x",
+                                    "case-02,1,2,2,1,2,y"]) + "\n", encoding="utf-8")
+
+        _rc_ok, _env_ok, _ = _call("review.py",
+                                   ["--sheet", str(_p["alpha"]),
+                                    "--sheet", str(_p["beta"]),
+                                    "--key", str(_key), "--reviewer-kind",
+                                    "external", "--json"], tmp)
+        _d_ok = _env_ok.get("data") or {}
+        _id_ok = _d_ok.get("identity") or {}
+        _good = (_rc_ok == 0
+                 and (_d_ok.get("evidence") or {}).get("usable_for_claim") is True
+                 and _id_ok.get("verified") is True
+                 and _id_ok.get("declared") == 2)
+
+        _rc_same, _env_same, _ = _call("review.py",
+                                       ["--sheet", str(_p["alpha"]),
+                                        "--sheet", str(_p["alpha2"]),
+                                        "--key", str(_key), "--reviewer-kind",
+                                        "external", "--json"], tmp)
+        _same_red = (_rc_same == 1 and "E-REVIEW-INVALID" in _codes(_env_same))
+
+        _rc_copy, _env_copy, _ = _call("review.py",
+                                       ["--sheet", str(_p["alpha"]),
+                                        "--sheet", str(_copy),
+                                        "--key", str(_key), "--reviewer-kind",
+                                        "external", "--json"], tmp)
+        _copy_red = (_rc_copy == 1 and "E-REVIEW-INVALID" in _codes(_env_copy))
+
+        _rc_leg, _env_leg, _ = _call("review.py",
+                                     ["--sheet", str(_leg1),
+                                      "--sheet", str(_leg2),
+                                      "--key", str(_key), "--reviewer-kind",
+                                      "external", "--json"], tmp)
+        _d_leg = _env_leg.get("data") or {}
+        _id_leg = _d_leg.get("identity") or {}
+        _legacy = (_rc_leg == 0
+                   and (_d_leg.get("evidence") or {}).get("usable_for_claim") is False
+                   and _id_leg.get("verified") is False
+                   and any("token" in w for w in _env_leg.get("warnings") or []))
+
+        # the pack itself must ship the token column and one blank per case
+        _cands = []
+        for _i in (1, 2):
+            _d = tmp / ("r78-c" + str(_i))
+            (_d / "round-1").mkdir(parents=True)
+            (_d / "round-1" / "sanitized.svg").write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>',
+                encoding="utf-8")
+            (_d / "round-1" / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\ncase")
+            _cands.append(str(_d))
+        _pack = tmp / "r78-pack"
+        _rc_pack, _env_pack, _ = _call("studio.py",
+                                       ["--review-pack", str(_pack),
+                                        "--candidate", _cands[0],
+                                        "--candidate", _cands[1],
+                                        "--seed", "4", "--json"], tmp)
+        _sheet_head = (_pack / "review-sheet.csv").read_text(
+            encoding="utf-8").splitlines()[0]
+        _pack_ok = (_rc_pack == 0 and "reviewer_token" in _sheet_head
+                    and (_env_pack.get("data") or {}).get("cases") == 2)
+
+        add("A99-reviewer-token-identity",
+            _good and _same_red and _copy_red and _legacy and _pack_ok,
+            "good=%s same_token_red=%s copy_red=%s legacy_usable=%s "
+            "legacy_verified=%s pack_token_col=%s" % (
+                _good, _same_red, _copy_red,
+                (_d_leg.get("evidence") or {}).get("usable_for_claim"),
+                _id_leg.get("verified"), _pack_ok))
+    except Exception as e:                      # noqa: BLE001
+        add("A99-reviewer-token-identity", False,
             type(e).__name__ + ": " + str(e)[:140])
 
 
@@ -4433,6 +4552,7 @@ def main():
     _stage_r75(tmp, add)
     _stage_r76(tmp, add)
     _stage_r77(tmp, add)
+    _stage_r78(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

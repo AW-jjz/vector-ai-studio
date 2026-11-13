@@ -2,8 +2,8 @@
   "schema": "vector-ai-studio/attack-v1",
   "id": "16-review-duplicate-new-name",
   "name": "同一份评审表换个文件名再交一次",
-  "expect": "leak",
-  "why": "已声明的边界：去重键含路径，同内容不同名仍是两个人。",
+  "expect": "block",
+  "why": "r78: de-duplication is by content sha256 alone; identical ratings under a new filename are refused as the same submission.",
   "reference": "r71 audit P0-2 / plan M4-2",
   "mutations": [
     {
@@ -43,5 +43,7 @@
       "external"
     ]
   },
-  "expect_codes": []
+  "expect_codes": [
+    "E-REVIEW-INVALID"
+  ]
 }

@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.11.0
+version: 1.12.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.11.0"
+  version: "1.12.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -280,7 +280,8 @@ python scripts/review.py --sheet path/to/reviewer-1.csv --sheet path/to/reviewer
 - 评审人之间的完全一致率会被算出来并列出分歧格；一致率低只报警告，不参与判定——两把尺子不同时均值没有解释力，但也不能因此判图不合格。
 - `evidence.usable_for_claim` 只在「评审人 ≥2 且 `--reviewer-kind external` 且零空格」时为真。`internal`（自己人）与 `machine`（模型评审）都能归档成记录，但永远不会被提升为对外证据。
 - **评分者间信度是量出来的（r76，M4）**：`scripts/review.py` 用 **Krippendorff's α（ordinal 度量）**回答「评审人的一致性是否高于纯属巧合」——精确一致率只数全同格，α 则按机会修正并区分 0-vs-1 与 0-vs-2 的分歧大小。公式取自已发表文献（Krippendorff 2011），实现钉在论文自己的算例上（nominal 0.743 / ordinal 0.815 / interval 0.849，见 `scripts/krippendorff.py`）。**α 只报告不闸**：还没有经校准的 α 阈值，未校准的数当闸门等于把噪声点成红灯。盲评包生成时评审协议（维度 / 量级 / 案例 / seed）被**预注册**进随包的 key 文件（评审人看不到的那份）并带哈希，聚合时核验——协议在评审之后被改动，`E-REVIEW-INVALID` 当场红；无协议块的旧包会被警告（无法核对），不会被当成已预注册。
-- **两两偏好与标度（r77，M4 第二片）**：绝对分要求评审人同时做两件事——判断质量并校准自己的尺子。盲评包现含 review-pairs.csv（全配对轮换：每行一对，winner 填两者之一或 tie）——只回答「哪个更好」。`scripts/review.py --pairs` 汇总后用 **Bradley-Terry 模型**（MM/Zermelo 迭代，平局计半，`scripts/bradleyterry.py`，性质自锚：全胜序、平局等强、确定性、反转让序、全平局等值、全败者正下界）拟合出每个案例的**标度强度**。坏表与评分表同一条拒绝分支（未知 pair_id / 换对 / 越界 winner / 缺格全部 `E-REVIEW-INVALID`）；**只报告不闸**，原因同 α。评审人身份的旧边界不变（同内容换文件名仍是同一人）。
+- **两两偏好与标度（r77，M4 第二片）**：绝对分要求评审人同时做两件事——判断质量并校准自己的尺子。盲评包现含 review-pairs.csv（全配对轮换：每行一对，winner 填两者之一或 tie）——只回答「哪个更好」。`scripts/review.py --pairs` 汇总后用 **Bradley-Terry 模型**（MM/Zermelo 迭代，平局计半，`scripts/bradleyterry.py`，性质自锚：全胜序、平局等强、确定性、反转让序、全平局等值、全败者正下界）拟合出每个案例的**标度强度**。坏表与评分表同一条拒绝分支（未知 pair_id / 换对 / 越界 winner / 缺格全部 `E-REVIEW-INVALID`）；**只报告不闸**，原因同 α。评审人身份在 r78 收紧为内容去重 + `reviewer_token`（见下一条）。
+- **评审人 token 身份（r78，M4 收尾）**：盲评包的 review-sheet.csv 增一列 `reviewer_token`，由每位评审人填一个**自报的稳定假名**（如 `rev-a1b2`），同一张表每行一致。它不是账号、不是密钥（H4 零凭据不变），换文件名不会丢失；两张表用同一 token 会被判为同一人重复提交（`E-REVIEW-INVALID`），而**内容 sha256 去重**让「同一份表换文件名再交一次」也被拒。对外证据字段 `evidence.usable_for_claim` 现在要求所有计入表都带 token 且互不相同；无 token 的旧表仍能聚合，但只能当记录，不能当对外证据。**诚实边界**：同一个人编两个 token、写两份不同内容的表，脚本无法分辨——token 认的是「提交」不是「人」。
 
 AI 不写分数，也不代替评审。这个脚本读的是人写下的格子，空着就判空。
 
@@ -523,7 +524,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 - L0 默认零凭据本地链路；L1 质量未达标进入定向收敛；L2 宿主读图不可用时 A/B 记 N/A (capability_missing)（状态枚举、非分数，禁用几何量折算，违例 `E-FABRICATED-SCORE`），**判据版本 2.0.0 起结论记「未判定」而不是「不达标」**（`tier=indeterminate`）——读不了图是对**测量能力**的陈述，不是对**质量**的判决；强制 degraded / needs_human_review / reason 为 capability_missing、首行「语义 / 构图判读未取证，需人工终审」，降级条目带**损失清单**（丢了什么 / 留了什么 / 怎么修，原因由触发条件派生而不是写死）；五件产物含原生 `.ai` 照常落盘、交付不阻断；L3 商业增强需用户自行提供凭据；L4 依赖缺失；L5 无风格参考时 E 记 N/A。
 - VectorCraft CLI 缺失：L4 全自动降级，H1 未取证，结论记「未判定」并把 `deliverable_status` 记为 `not_deliverable`，仅交付净化 SVG 与 PNG 并标注「非原生 `.ai`」，`substitute` 写明安装方式或 `VECTORCRAFT_CLI`。不存在半自动兜底路径（r45 起移除 Adobe/COM），也不允许把 `.ai` 后缀贴到 SVG 上冒充。
 - **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本无法分辨同一 run 内自己写的 `output/<run-id>/selftest.json` 与真跑出来的。H3 的断言数下界与 `run_id` 绑定只能挡跨 run 复用。`scripts/redteam.py` 的 `17-self-attested-log` 就是这条边界的**反向证明**：它必须真的漏过去，否则这条声明就是低估自己。
-- **同一份评审表换个文件名仍算两名评审人**：去重键是（绝对路径 + 内容 sha256），同内容不同名挡不住，同一个人的两份表更挡不住。`scripts/redteam.py` 的 `16-review-duplicate-new-name` 是这条边界的反向证明。
+- **评审身份的两层边界（r78）**：提交按内容 sha256 去重，同一份表换文件名再交一次会被拒（`16-review-duplicate-new-name` 已从「已声明边界」变为「拦下」）；表内 `reviewer_token` 是评审人自报的稳定假名，一个 token 只能提交一份不同内容的表，对外证据要求所有计入表都带 token。**剩余边界**：同一个人编两个 token、写两份不同内容的表，脚本仍无法分辨——零凭据链路里有「提交」的锚，没有「人」的锚。`scripts/redteam.py` 的 `18-review-two-tokens-one-person` 是这条边界的反向证明。
 
 ## 注意事项
 

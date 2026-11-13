@@ -14,24 +14,27 @@ the rest:
     zero, and it is not a pass
   * agreement across reviewers is reported, never silently averaged away
   * `evidence.usable_for_claim` is true only for >= 2 DISTINCT reviewers of
-    kind `external` with zero empty cells. Sheets are de-duplicated by
-    (absolute path, content sha256) BEFORE counting, so passing the same
-    sheet twice can no longer fake a second reviewer (r70 #4).
+    kind `external` with zero empty cells AND a verified reviewer identity
+    (r78). Sheets are de-duplicated by CONTENT sha256 before counting, so the
+    same ratings can no longer pose as a second reviewer by being copied to a
+    new filename; each sheet may also carry a self-asserted `reviewer_token`,
+    and one token may submit only one distinct sheet.
 
 `--reviewer-kind machine` is accepted so a model-assisted pass can be recorded
 honestly, but it can never be promoted to external evidence.
 
-Honest boundary: this de-duplication catches the same file (or identical
-content) submitted twice. It CANNOT detect one person who saves the same
-ratings under two different filenames with different content -- there is no
-way for a script to tell two independent humans from one human with two
-files. Do not describe this mechanism as making the evidence unforgeable.
+Honest boundary: the token is a pseudonym the reviewer writes into the sheet,
+NOT a credential (H4 keeps this pipeline keyless). It survives renaming and
+catches accidental double submission, but one person who invents two tokens is
+still indistinguishable from two people. Do not describe this mechanism as
+making the evidence unforgeable.
 
 Scores are never produced here. This script reads what humans wrote.
 """
 import argparse
 import csv
 import hashlib
+import re
 from pathlib import Path
 
 import sys
@@ -46,26 +49,31 @@ SUMMARY_SCHEMA = "vector-ai-studio/review-summary-v1"
 KEY_SCHEMA = "vector-ai-studio/review-key-v1"
 DEFAULT_DIMS = ["concept", "hierarchy", "proportion", "detail", "durability"]
 NOTE_COL = "notes"
+TOKEN_COL = "reviewer_token"
+TOKEN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 
 
 def _read_sheet(path, dims):
-    """Return (rows, problems). rows: case -> {dim: int}."""
+    """Return (rows, token, problems). rows: case -> {dim: int}; token: the
+    sheet's self-asserted reviewer_token, or None for a legacy sheet."""
     problems = []
     p = Path(path)
     try:
         with p.open("r", encoding="utf-8-sig", newline="") as fh:
             rd = list(csv.reader(fh))
     except OSError as e:
-        return {}, ["sheet unreadable: " + str(e)]
+        return {}, None, ["sheet unreadable: " + str(e)]
     if not rd:
-        return {}, ["sheet is empty"]
+        return {}, None, ["sheet is empty"]
     head = [h.strip() for h in rd[0]]
     if not head or head[0] != "case":
-        return {}, ["first column must be `case`, got " + str(head[:1])]
+        return {}, None, ["first column must be `case`, got " + str(head[:1])]
     missing_cols = [d for d in dims if d not in head]
     if missing_cols:
-        return {}, ["header is missing dimension(s): " + ", ".join(missing_cols)]
+        return {}, None, ["header is missing dimension(s): " + ", ".join(missing_cols)]
     idx = {d: head.index(d) for d in dims}
+    token_idx = head.index(TOKEN_COL) if TOKEN_COL in head else None
+    tokens = {}
     rows = {}
     for n, raw in enumerate(rd[1:], start=2):
         if not any(c.strip() for c in raw):
@@ -79,6 +87,8 @@ def _read_sheet(path, dims):
         if case in rows:
             problems.append("line %d: duplicate case %s" % (n, case))
             continue
+        if token_idx is not None:
+            tokens.setdefault(raw[token_idx].strip(), []).append(n)
         vals = {}
         for d in dims:
             cell = raw[idx[d]].strip()
@@ -95,7 +105,26 @@ def _read_sheet(path, dims):
                 continue
             vals[d] = v
         rows[case] = vals
-    return rows, problems
+
+    token = None
+    if token_idx is not None:
+        declared = sorted(t for t in tokens if t)
+        blanks = tokens.get("", [])
+        if len(declared) > 1:
+            problems.append("%s declares more than one reviewer_token: %s"
+                            % (TOKEN_COL, ", ".join(declared)))
+        elif declared and blanks:
+            problems.append("%s is blank on line(s) %s but declared %r on "
+                            "others: one sheet, one identity"
+                            % (TOKEN_COL, ",".join(str(n) for n in blanks),
+                               declared[0]))
+        elif declared:
+            token = declared[0]
+            if not TOKEN_RE.match(token):
+                problems.append("reviewer_token %r must be 3-64 chars of "
+                                "A-Z a-z 0-9 . _ -" % token)
+                token = None
+    return rows, token, problems
 
 
 def _read_pairs(path, expected):
@@ -214,31 +243,43 @@ def main():
                               "preregistered cases differ from the key's cases", L.EXIT_FAIL)
 
     sheets, all_problems, reviewers = [], [], []
-    # r70 #4: de-duplicate by (absolute path, content sha256). Passing the very
-    # same review sheet twice used to count as TWO independent reviewers and
-    # make usable_for_claim true (report P0-4). A repeat is not evidence: it is
-    # an invalid submission, reported through the existing E-REVIEW-INVALID
-    # branch. The key is content-based, so two different files with identical
-    # content are also caught, not just the same filename twice.
+    # r70 #4 + r78: de-duplicate by CONTENT sha256 only. The old key also
+    # carried the absolute path, so the very same ratings copied to a new
+    # filename counted as a second reviewer -- the boundary r71 P0-2 declared.
+    # Content is the identity of a submission: a repeat is not evidence, it is
+    # an invalid submission through the existing E-REVIEW-INVALID branch.
+    # A reviewer_token travels IN the sheet (r78): one token may submit one
+    # distinct sheet; the same token with different content is the same person
+    # submitting twice and is refused the same way.
     seen_sheets = {}
+    seen_tokens = {}
     for s in args.sheet:
-        key = (str(Path(s).resolve()), L.file_sha256(s))
-        if key in seen_sheets:
+        content = L.file_sha256(s)
+        if content in seen_sheets:
             all_problems.append(Path(s).name + ": duplicate review sheet "
-                                "(same absolute path + content sha256 as " +
-                                seen_sheets[key] + ")")
-            # still read it so per-cell problems are listed, but do NOT append
-            # to sheets/reviewers: it must not count toward the reviewer total.
+                                "(identical content sha256 " + content[:12] +
+                                " already submitted as " +
+                                seen_sheets[content] + ")")
+            # do NOT append to sheets/reviewers: it must not count toward the
+            # reviewer total.
             continue
-        seen_sheets[key] = Path(s).name
-        rows, problems = _read_sheet(s, dims)
+        seen_sheets[content] = Path(s).name
+        rows, token, problems = _read_sheet(s, dims)
         all_problems.extend(Path(s).name + ": " + p for p in problems)
         unknown = sorted(set(rows) - set(cases))
         absent = sorted(set(cases) - set(rows))
         all_problems.extend(Path(s).name + ": unknown case " + c for c in unknown)
         all_problems.extend(Path(s).name + ": case not scored " + c for c in absent)
+        if token and token in seen_tokens:
+            all_problems.append(Path(s).name + ": reviewer_token %r already "
+                                "used by %s with different content: one token, "
+                                "one reviewer" % (token, seen_tokens[token]))
+            continue
+        if token:
+            seen_tokens[token] = Path(s).name
         filled = sum(len(v) for v in rows.values())
-        reviewers.append({"sheet": Path(s).name, "cells_filled": filled,
+        reviewers.append({"sheet": Path(s).name, "token": token,
+                          "cells_filled": filled,
                           "cells_total": len(cases) * len(dims)})
         sheets.append(rows)
 
@@ -366,6 +407,23 @@ def main():
                           "pairwise sheets invalid -- see the refusal above"}
     no_pairs_submitted = not args.pairs
 
+    # r78 (M4): reviewer identity. The token is a pseudonym written into the
+    # sheet, not a credential; verified here means "every counted sheet
+    # declared one, and no token was reused with different content". It is
+    # required for claim-grade evidence: a duplicate with a new filename or a
+    # resubmission under the same token is no longer countable, and a legacy
+    # sheet without a token still aggregates but cannot be quoted as external
+    # evidence.
+    identity = {
+        "column": TOKEN_COL,
+        "declared": len(seen_tokens),
+        "sheets": [{"sheet": r["sheet"], "token": r.get("token")}
+                   for r in reviewers],
+        "missing": [r["sheet"] for r in reviewers if not r.get("token")],
+    }
+    identity["verified"] = (bool(sheets) and not identity["missing"]
+                            and len(seen_tokens) == len(sheets))
+
     warnings = []
     if len(sheets) < cfg["min_reviewers_for_claim"]:
         warnings.append("only %d sheet(s); a claim needs at least %d"
@@ -382,19 +440,26 @@ def main():
     if no_pairs_submitted:
         warnings.append("no pairwise sheet submitted: BT strengths unavailable, "
                         "absolute-only review stays as-is")
+    if not identity["verified"]:
+        warnings.append("reviewer identity is not token-verified (%d/%d counted "
+                        "sheet(s) declare %s): identity is filename-only, so "
+                        "this is not claim-grade external evidence"
+                        % (identity["declared"], len(sheets), TOKEN_COL))
     if args.reviewer_kind != "external":
         warnings.append("reviewer kind is `%s`: usable as a record, never as "
                         "external evidence" % args.reviewer_kind)
 
     usable = (args.reviewer_kind == "external"
               and len(sheets) >= cfg["min_reviewers_for_claim"]
-              and blank == 0)
-    why = ("%d external reviewer(s), %d/%d cells filled"
-           % (len(sheets), cells - blank, cells)) if usable else \
+              and blank == 0
+              and identity["verified"])
+    why = ("%d external reviewer(s) with distinct %s, %d/%d cells filled"
+           % (len(sheets), TOKEN_COL, cells - blank, cells)) if usable else \
           ("not external evidence: " + "; ".join(warnings))
     doc = {"schema": SUMMARY_SCHEMA,
            "reviewer_kind": args.reviewer_kind,
            "reviewers": reviewers,
+           "identity": identity,
            "cases": per_case,
            "agreement": {"cells": total_cells, "exact": exact,
                          "rate": agreement, "dissent": dissent,
