@@ -4858,6 +4858,115 @@ def _stage_r81(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r82(tmp, add):
+    """A103/A104: an independent PDF preflight (4.3 / r82).
+
+    A103 runs the bench on a committed minimal PDF: PyMuPDF and lib_pdf must
+    agree on pages / images / font presence / output-intent presence, and the
+    page must render to non-blank pixels. It is a declared capability skip
+    without PyMuPDF.
+
+    A104 runs the same preflight on a REAL print.pdf produced by land_craft,
+    with --require-pdfx: GTS marker, output intent, no encryption, no
+    non-embedded font. It is engine-bound and a declared skip without the
+    engine. One parser agreeing with itself proves nothing; A103/A104 make the
+    second parser say what it sees.
+    """
+    try:
+        import importlib.util
+        have = (importlib.util.find_spec("pymupdf") is not None
+                or importlib.util.find_spec("fitz") is not None)
+        fixture = ROOT / "tests" / "fixtures" / "pdf" / "minimal.pdf"
+        if not have:
+            add("A103-pdf-independent-preflight", None,
+                "PyMuPDF unavailable", skipped=True)
+            add("A104-pdfx-print-preflight", None,
+                "PyMuPDF unavailable", skipped=True)
+        else:
+            rc, env, _ = _call("pdf_preflight.py",
+                               ["--pdf", str(fixture), "--json"], tmp)
+            d = env.get("data") or {}
+            ind = d.get("independent") or {}
+            cross = d.get("cross_check") or {}
+            # the declared-missing branch: -S removes site-packages, so
+            # PyMuPDF cannot be imported and the script must exit 3, never 0
+            _m = subprocess.run(
+                [sys.executable, "-S", str(ROOT / "scripts" / "pdf_preflight.py"),
+                 "--pdf", str(fixture), "--json"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
+            try:
+                _md = json.loads(_m.stdout or "{}", strict=False)
+            except ValueError:
+                _md = {}
+            _missing_ok = (_m.returncode == 3
+                           and _md.get("status") == "degraded"
+                           and (_md.get("data") or {}).get("capability") == "pymupdf")
+            ok103 = (rc == 0 and d.get("ok") is True
+                     and cross.get("agree") is True
+                     and ind.get("pages") == 1
+                     and (ind.get("render_ink") or 0) > 0
+                     and ind.get("images") == 0
+                     and ind.get("fonts") == 0
+                     and _missing_ok)
+            if rc == 3:
+                add("A103-pdf-independent-preflight", None,
+                    "PyMuPDF unavailable at call time", skipped=True)
+            else:
+                add("A103-pdf-independent-preflight", ok103,
+                    "rc=%s ok=%s cross=%s pages=%s ink=%s images=%s fonts=%s "
+                    "missing_branch=%s" % (
+                        rc, d.get("ok"), cross.get("agree"), ind.get("pages"),
+                        ind.get("render_ink"), ind.get("images"),
+                        ind.get("fonts"), _missing_ok))
+
+            svg = tmp / "a104.svg"
+            svg.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" '
+                'width="200" height="100">'
+                '<rect x="0" y="0" width="200" height="100" fill="#D3122A"/>'
+                '<circle cx="100" cy="50" r="30" fill="#F5B915"/></svg>',
+                encoding="utf-8")
+            out = tmp / "a104-run"
+            rc_l, env_l, _ = _call("land_craft.py",
+                                   ["--svg", str(svg), "--out", str(out),
+                                    "--profile", "print", "--bleed-mm", "3",
+                                    "--pdf-standard", "pdfX1a",
+                                    "--run-id", "a104-craft", "--json"], tmp)
+            missing = any(e.get("code") == "E-CAPABILITY-MISSING"
+                          for e in env_l.get("errors") or [])
+            if rc_l == 3 or missing:
+                add("A104-pdfx-print-preflight", None,
+                    "VectorCraft CLI unavailable", skipped=True)
+            else:
+                pdf = out / "print.pdf"
+                rc_p, env_p, _ = _call("pdf_preflight.py",
+                                       ["--pdf", str(pdf), "--require-pdfx",
+                                        "--json"], tmp)
+                d4 = env_p.get("data") or {}
+                ind4 = d4.get("independent") or {}
+                int4 = d4.get("internal") or {}
+                cross4 = d4.get("cross_check") or {}
+                ok104 = (rc_l == 0 and rc_p == 0 and d4.get("ok") is True
+                         and cross4.get("agree") is True
+                         and ind4.get("pages") == 1
+                         and (ind4.get("output_intents") or 0) >= 1
+                         and (ind4.get("render_ink") or 0) > 0
+                         and (ind4.get("fonts_not_embedded") or 0) == 0
+                         and (int4.get("gts_pdfx") or 0) >= 1)
+                add("A104-pdfx-print-preflight", ok104,
+                    "land=%s pre=%s ok=%s cross=%s pages=%s OI=%s GTS=%s "
+                    "ink=%s unembedded=%s" % (
+                        rc_l, rc_p, d4.get("ok"), cross4.get("agree"),
+                        ind4.get("pages"), ind4.get("output_intents"),
+                        int4.get("gts_pdfx"), ind4.get("render_ink"),
+                        ind4.get("fonts_not_embedded")))
+    except Exception as e:                      # noqa: BLE001
+        add("A103-pdf-independent-preflight", False,
+            type(e).__name__ + ": " + str(e)[:140])
+        add("A104-pdfx-print-preflight", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -4919,6 +5028,7 @@ def main():
     _stage_r79(tmp, add)
     _stage_r80(tmp, add)
     _stage_r81(tmp, add)
+    _stage_r82(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

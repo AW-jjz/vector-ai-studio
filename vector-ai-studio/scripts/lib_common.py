@@ -72,7 +72,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # r79 (M5): +A100 (threshold promotion guard) -> 99 + 1 = 100.
 # r80 (M5 slice 2): +A101 (calibration bench) -> 100 + 1 = 101.
 # r81 (M5 close): +A102 (verifiable ruling records) -> 101 + 1 = 102.
-EXPECTED_ASSERTIONS = 102
+# r82 (4.3): +A103 (independent PDF cross-check on a fixture) + A104 (a real
+# print.pdf passes the PDF/X preflight) -> 102 + 2 = 104.
+EXPECTED_ASSERTIONS = 104
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
@@ -82,6 +84,8 @@ CAPABILITY_SKIPS = frozenset({
     "A45-uniform-error-envelope",
     "A46-craft-only-landing",
     "A53-legibility-fails-what-the-eye-misses",
+    "A103-pdf-independent-preflight",
+    "A104-pdfx-print-preflight",
 })
 
 _NEUTRAL_NAMES = {"black", "white", "gray", "grey", "silver", "gainsboro", "whitesmoke"}

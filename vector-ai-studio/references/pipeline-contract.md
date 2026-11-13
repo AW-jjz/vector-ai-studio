@@ -190,7 +190,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 | `print` | 是（`file.documentColorMode`） | 是 | 是 | 按源 group |
 | `handoff` | 否 | 否 | 否 | 按源 group |
 
-印刷母版另由 `../scripts/land_craft.py` 提供：`--pdf-standard pdfX1a|pdfX3|pdfX4`、`--bleed-mm`、裁切 / 套准标记。
+印刷母版另由 `../scripts/land_craft.py` 提供：`--pdf-standard pdfX1a|pdfX3|pdfX4`、`--bleed-mm`、裁切 / 套准标记。独立预检由 `../scripts/pdf_preflight.py` 提供：PyMuPDF（MuPDF）作为第二个 PDF 解析器重读印刷母版，与 `../scripts/lib_pdf.py` 交叉核对页数 / 图像 / 字体存在性 / 输出意图；`--require-pdfx` 另查 GTS 标记、输出意图、加密与未嵌入字体。PyMuPDF 是可选依赖，缺席时退 3（声明式缺失），绝不报通过。
 
 **为什么仍要逐项记录请求**：`save_options` 记请求、`observed` 记实测，两者分开才能发现「要求了但没兑现」（进 `unverified`）。r45 起不依赖任何桌面程序的默认保存选项，因此不存在「默认值凑巧对」这类随安装环境漂移的问题；实际风险变成引擎版本差异，靠清单里的 `engine_version` 与实测字段暴露。
 

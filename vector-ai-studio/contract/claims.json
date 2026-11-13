@@ -1357,6 +1357,17 @@
       "tests": [
         "A102-ruling-record"
       ]
+    },
+    {
+      "id": "CLAIM-137",
+      "file": "SKILL.md",
+      "anchor": "PyMuPDF ",
+      "text_hash": "sha256:2548e8909fa383bda8d5b1f1f7cb45004757ac0c5e9a33025196b7d38ca8144c",
+      "claim": "PyMuPDF 是可选依赖：缺席时脚本退 3（声明式缺失），绝不报通过",
+      "mechanism": "assertion",
+      "tests": [
+        "A103-pdf-independent-preflight"
+      ]
     }
   ]
 }

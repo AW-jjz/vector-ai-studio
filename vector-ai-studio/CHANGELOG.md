@@ -4,6 +4,30 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.16.0 — 2026-11-13 [r82]
+
+4.3: an independent PDF preflight. Every print check read the file with this
+project's own byte parser; one parser agreeing with itself is not a
+cross-check.
+
+- **New `scripts/pdf_preflight.py`**: opens the same file with PyMuPDF
+  (MuPDF), a separate PDF engine, and compares what the two implementations
+  see -- page count, page size, image objects, font presence, output-intent
+  presence -- plus a real render to non-blank pixels. A disagreement is
+  `E-PDF-CROSS`; an unreadable file is `E-PDF-PREFLIGHT`.
+- **`--require-pdfx`** enforces the print claim: an internal
+  /GTS_PDFXVersion marker, at least one output intent (read independently from
+  the catalog), no encryption, and no non-embedded font (`E-PDFX-MISSING`).
+- **PyMuPDF is optional**: it is not a runtime dependency. Without it the
+  script exits 3 (declared missing capability), never 0. CI installs it as a
+  test-only dependency so the fixture cross-check runs on Linux too.
+- **A103** checks a committed minimal PDF (`tests/fixtures/pdf/minimal.pdf`);
+  **A104** checks a real print PDF produced by `scripts/land_craft.py` with
+  `--require-pdfx`. Both are declared capability skips when their capability
+  is absent (PyMuPDF / the engine). `EXPECTED_ASSERTIONS` 102 -> 104; claims
+  136 -> 137.
+- **No threshold value changed**; no default-pipeline dependency was added.
+
 ## 1.15.0 — 2026-11-13 [r81]
 
 M5 close: a ruling is a record, not a string. The guard used to check only
