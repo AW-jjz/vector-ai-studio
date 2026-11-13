@@ -4,6 +4,25 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.20.0 — 2026-11-13 [r86]
+
+verdict-kit, phase 0: vendor the reusable skeleton without changing a single
+existing import.
+
+- **`scripts/_vendor/verdict-kit/`** holds the standalone package
+  (`verdict_kit`: envelope, context, claims registry, assertion harness,
+  contract artifacts), its 25-check smoke test, fixtures and README. It is
+  dependency-free and contains no vector-ai-studio vocabulary, thresholds or
+  absolute paths.
+- **A106** runs the smoke test from a foreign cwd with `-B` (no nested
+  `__pycache__`) and verifies every vendored file against `scripts/_vendor/verdict-kit/VENDORED.sha256`.
+  A106 is pure-script (no capability skip). `EXPECTED_ASSERTIONS` 105 -> 106.
+- **No import changed**: `lib_common`, `validate_claims` and the rest of the
+  pipeline still use their existing code. Phase 1 (facade over the kit) is a
+  separate round with byte-parity gates.
+- Claims stay 143 (the new sentences add no mandatory promise). No threshold
+  value changed.
+
 ## 1.19.0 — 2026-11-13 [r85]
 
 M3, third slice: an optional cross-renderer check. The capability matrix has

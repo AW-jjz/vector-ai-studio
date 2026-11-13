@@ -5037,6 +5037,50 @@ def _stage_r85(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r86(tmp, add):
+    """A106: the vendored verdict-kit runs and its manifest matches.
+
+    Phase 0 vendors the skeleton under scripts/_vendor/verdict-kit WITHOUT
+    changing any existing import. This assertion keeps it honest: every file
+    hashes to VENDORED.sha256, and the 25-check smoke test passes from a
+    foreign cwd with bytecode writing disabled (-B, so no nested __pycache__).
+    """
+    try:
+        import hashlib as _h
+        vendor = SCRIPTS / "_vendor" / "verdict-kit"
+        man = vendor / "VENDORED.sha256"
+        bad = []
+        if not man.is_file():
+            bad.append("VENDORED.sha256 missing")
+        else:
+            for line in man.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                want, rel = line.split(None, 1)
+                rel = rel.strip()
+                p = vendor / rel
+                if not p.is_file():
+                    bad.append("missing:" + rel)
+                elif _h.sha256(p.read_bytes()).hexdigest() != want:
+                    bad.append("drift:" + rel)
+        r = subprocess.run([sys.executable, "-B", str(vendor / "smoke.py")],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", cwd=str(tmp))
+        try:
+            last = json.loads((r.stdout or "").strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            last = {}
+        ok = (r.returncode == 0 and last.get("checks") == 25
+              and last.get("failed") == 0 and not bad)
+        add("A106-verdict-kit-vendored", ok,
+            "rc=%s checks=%s failed=%s manifest_bad=%s" % (
+                r.returncode, last.get("checks"), last.get("failed"),
+                ",".join(bad[:4]) if bad else "-"))
+    except Exception as e:                      # noqa: BLE001
+        add("A106-verdict-kit-vendored", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -5100,6 +5144,7 @@ def main():
     _stage_r81(tmp, add)
     _stage_r82(tmp, add)
     _stage_r85(tmp, add)
+    _stage_r86(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

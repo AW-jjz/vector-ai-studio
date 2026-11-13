@@ -1,0 +1,14 @@
+{
+  "schema": "verdict-kit/claims-v1",
+  "note": "one recorded hash no longer matches the sentence on disk",
+  "claims": [
+    {
+      "id": "C1",
+      "file": "fixtures/doc.md",
+      "anchor": "确定性",
+      "text_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "mechanism": "assertion",
+      "tests": ["A-DEMO-1"]
+    }
+  ]
+}

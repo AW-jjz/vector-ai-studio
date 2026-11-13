@@ -1,0 +1,22 @@
+{
+  "schema": "verdict-kit/claims-v1",
+  "note": "deliberately incomplete: one of three mandatory sentences is unregistered",
+  "claims": [
+    {
+      "id": "C1",
+      "file": "fixtures/doc.md",
+      "anchor": "确定性",
+      "text_hash": "sha256:fbe56fa91dfd3018c5758c6660144f15b09cc8b792a4a318c12f9091b252e96e",
+      "mechanism": "assertion",
+      "tests": ["A-DEMO-1"]
+    },
+    {
+      "id": "C2",
+      "file": "fixtures/doc.md",
+      "anchor": "错误码",
+      "text_hash": "sha256:d44aeff3eea3c556d111e813105e1952eb436eab3d8bd9bc2e838761711ff54f",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:demo-leak"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "verdict-kit/claims-v1",
+  "note": "demo registry for verdict-kit/smoke.py; not a real skill contract",
+  "claims": [
+    {
+      "id": "C1",
+      "file": "fixtures/doc.md",
+      "anchor": "确定性",
+      "text_hash": "sha256:fbe56fa91dfd3018c5758c6660144f15b09cc8b792a4a318c12f9091b252e96e",
+      "claim": "这项能力必须保持确定性。",
+      "mechanism": "assertion",
+      "tests": ["A-DEMO-1"]
+    },
+    {
+      "id": "C2",
+      "file": "fixtures/doc.md",
+      "anchor": "错误码",
+      "text_hash": "sha256:d44aeff3eea3c556d111e813105e1952eb436eab3d8bd9bc2e838761711ff54f",
+      "claim": "错误码必须一一登记。",
+      "mechanism": "boundary-declaration",
+      "boundary_proof": "attack:demo-leak"
+    },
+    {
+      "id": "C3",
+      "file": "fixtures/doc.md",
+      "anchor": "三值判决",
+      "text_hash": "sha256:e170c8bb2c844f21683f8953f9c302840bf8093959ce47caf84077b55f4f0699",
+      "claim": "只允许三值判决，不许二值冒充。",
+      "mechanism": "unverified",
+      "note": "demo: no machine check claims this sentence yet"
+    }
+  ]
+}

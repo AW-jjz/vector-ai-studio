@@ -121,6 +121,7 @@ python scripts/verify_install.py --json
 - **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `output/<run-id>/selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用。反向证明见 red-team 的 `17-self-attested-log`。
 - 跨文件的枚举（保真度、档位、判读字段）只在 `contract/contract.json` 定义一次，由 `scripts/gen_contract.py` 生成给生产侧与判据侧共同 import；`python scripts/gen_contract.py --check` 在 CI 里卡漂移。
 - 保真度矩阵有可选的第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只对 `faithful` 特征要求像素一致，`limited` 只要求渲染非空；cairosvg/原生 cairo 缺席退 3。
+- Phase 0 的 verdict-kit 骨架 vendored 在 `scripts/_vendor/verdict-kit/`：A106 跑 25 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 未改。
 
 
 ## 自检说明

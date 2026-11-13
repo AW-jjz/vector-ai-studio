@@ -75,7 +75,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # r82 (4.3): +A103 (independent PDF cross-check on a fixture) + A104 (a real
 # print.pdf passes the PDF/X preflight) -> 102 + 2 = 104.
 # r85 (M3 slice 3): +A105 (optional cairosvg cross-check) -> 104 + 1 = 105.
-EXPECTED_ASSERTIONS = 105
+# r86 (verdict-kit phase 0): +A106 (vendored kit runs; manifest matches) ->
+# 105 + 1 = 106.
+EXPECTED_ASSERTIONS = 106
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
