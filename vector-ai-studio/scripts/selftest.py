@@ -4495,6 +4495,105 @@ def _stage_r78(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r79(tmp, add):
+    """A100: the threshold promotion policy is executable (M5 / r79).
+
+    The policy declared a whitelist, a locked list and an approval flow, but
+    nothing enforced the whitelist: calibration_log could name any field. A100
+    pins the guard's refusals: locked, not-whitelisted, stale, noop,
+    mislabelled direction, tiny sample, missing log, loosening without a
+    ruling, and loosening without external provenance -- plus the two positive
+    paths (tightening with internal evidence, loosening with external evidence
+    and a ruling) and the aggregate_log wiring.
+    """
+    try:
+        import thresholds_guard as TG
+        import aggregate_log as AG
+
+        th = L.load_thresholds()
+        log = tmp / "r79-run.log"
+        log.write_text("run_id: r79-fixture\nselftest: 100/100\n", encoding="utf-8")
+        base = {"real_run_log_ref": str(log), "sample_n": 40,
+                "provenance": "internal"}
+
+        def prop(field, before, after, loosening=False, **kw):
+            d = dict(base, field=field, before=before, after=after,
+                     loosening=loosening)
+            d.update(kw)
+            return d
+
+        def codes(res):
+            return [p["code"] for p in res["problems"]]
+
+        ok_tight = TG.check(th, prop("C.max_colors_pass", 8, 6))
+        grade_tight = ok_tight.get("evidence_grade")
+        ok_loose = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
+                                     ruling_ref="RULING-r79",
+                                     provenance="external"))
+        ok_range = TG.check(th, prop("B.whitespace_pass", [0.15, 0.6],
+                                     [0.1, 0.65], True,
+                                     ruling_ref="RULING-r79",
+                                     provenance="external"))
+        locked = TG.check(th, prop("A.min_paths", 1, 2))
+        not_white = TG.check(th, prop("C.contrast_text_ratio", 4.5, 4.0))
+        stale = TG.check(th, prop("C.max_colors_pass", 7, 6))
+        sample0 = TG.check(th, prop("C.max_colors_pass", 8, 6, sample_n=0))
+        no_ruling = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
+                                      provenance="external"))
+        internal_loose = TG.check(th, prop("C.max_colors_pass", 8, 10, True,
+                                          ruling_ref="RULING-r79"))
+        mislabel = TG.check(th, prop("C.max_colors_pass", 8, 9, False))
+        mixed = TG.check(th, prop("B.whitespace_pass", [0.15, 0.6],
+                                  [0.1, 0.55], True,
+                                  ruling_ref="RULING-r79",
+                                  provenance="external"))
+        no_log = TG.check(th, prop("C.max_colors_pass", 8, 6,
+                                   real_run_log_ref=str(tmp / "missing.log")))
+        machine = TG.check(th, prop("C.max_colors_pass", 8, 6,
+                                    provenance="machine"))
+
+        # entry mode: after == current; aggregate_log must map stale -> MISMATCH
+        th2 = json.loads(json.dumps(th))
+        th2["C"]["max_colors_pass"] = 6
+        th2["calibration_log"] = [{
+            "field": "C.max_colors_pass", "before": 8, "after": 6,
+            "loosening": False, "sample_n": 40, "provenance": "internal",
+            "real_run_log_ref": str(log)}]
+        entry_ok = AG._calibration_check(th2) == []
+        th3 = json.loads(json.dumps(th))
+        th3["calibration_log"] = [{
+            "field": "A.min_paths", "before": 1, "after": 2,
+            "loosening": False, "sample_n": 5, "provenance": "internal",
+            "real_run_log_ref": str(log)}]
+        agg_codes = [e.get("code") for e in AG._calibration_check(th3)]
+
+        checks = {
+            "tight_ok": not ok_tight["problems"] and grade_tight == "B",
+            "loose_ok": not ok_loose["problems"]
+            and ok_loose.get("evidence_grade") == "A",
+            "range_ok": not ok_range["problems"],
+            "machine_grade": not machine["problems"]
+            and machine.get("evidence_grade") == "C",
+            "locked": "E-CALIB-LOCKED" in codes(locked),
+            "not_whitelisted": "E-CALIB-NOT-WHITELISTED" in codes(not_white),
+            "stale": "E-CALIB-STALE" in codes(stale),
+            "sample": "E-CALIB-SAMPLE" in codes(sample0),
+            "no_ruling": "E-CALIB-LOOSENING" in codes(no_ruling),
+            "internal_loose": "E-CALIB-PROVENANCE" in codes(internal_loose),
+            "mislabelled": "E-CALIB-DIRECTION" in codes(mislabel),
+            "mixed_range": "E-CALIB-DIRECTION" in codes(mixed),
+            "no_log": "E-CALIB-NO-LOG" in codes(no_log),
+            "entry_ok": entry_ok,
+            "agg_locked": "E-CALIB-LOCKED" in agg_codes,
+        }
+        bad = [k for k, v in checks.items() if not v]
+        add("A100-threshold-promotion-guard", not bad,
+            "checks=%d failures=%s" % (len(checks), "; ".join(bad)))
+    except Exception as e:                      # noqa: BLE001
+        add("A100-threshold-promotion-guard", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -4553,6 +4652,7 @@ def main():
     _stage_r76(tmp, add)
     _stage_r77(tmp, add)
     _stage_r78(tmp, add)
+    _stage_r79(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

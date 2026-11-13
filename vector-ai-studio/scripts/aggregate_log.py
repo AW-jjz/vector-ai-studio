@@ -36,6 +36,7 @@ import lib_common as L
 import lib_pdf  # r70 #2: byte-only H1 probe, no engine subprocess
 import _contract as C
 import journal  # r73 (M2): production-time evidence hash chain
+import thresholds_guard as TG  # r79 (M5): executable promotion policy
 
 SCRIPT = "aggregate_log.py"
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -78,26 +79,22 @@ def _load_optional(path):
         return None
 
 
-def _get_path(obj, dotted):
-    cur = obj
-    for seg in dotted.split("."):
-        if not isinstance(cur, dict) or seg not in cur:
-            return None
-        cur = cur[seg]
-    return cur
-
-
 def _calibration_check(th):
+    """r79 (M5): the policy is executable, not aspirational.
+
+    Every calibration_log entry is a POST-CHANGE record, so it is checked in
+    `entry` mode (after == current). The guard enforces the whitelist, the
+    locked list, the direction map, sample size, provenance and the real-run
+    log reference; two legacy codes keep their old names so existing consumers
+    do not have to relearn the vocabulary.
+    """
     problems = []
+    alias = {"E-CALIB-STALE": "E-CALIB-MISMATCH"}
     for rec in th.get("calibration_log", []) or []:
-        field = str(rec.get("field", ""))
-        if not rec.get("real_run_log_ref"):
-            problems.append(L.err("E-CALIB-NO-LOG", "calibration_log entry lacks real_run_log_ref: " + field))
-        cur = _get_path(th, field)
-        if cur is not None and "after" in rec and cur != rec["after"]:
-            problems.append(L.err("E-CALIB-MISMATCH", "calibration_log after != current config: " + field))
-        if rec.get("loosening") and not rec.get("ruling_ref"):
-            problems.append(L.err("E-CALIB-LOOSENING", "loosening without ruling_ref: " + field))
+        res = TG.check(th, rec, mode="entry")
+        for p in res.get("problems") or []:
+            code = alias.get(p["code"], p["code"])
+            problems.append(L.err(code, p["message"]))
     return problems
 
 

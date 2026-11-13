@@ -134,6 +134,29 @@
       "D.min_groups"
     ],
     "calibratable_note": "仅限几何/统计类，且必须附真机样本日志（字段路径通配匹配）。D.anchor_count_excellent 已移出：该阈值只作描述性输出、不参与判定，给一个不判定的数保留校准流程没有意义。",
+    "calibration_direction": {
+      "B.whitespace_*": "range",
+      "B.centroid_offset_*": "max",
+      "C.max_colors_*": "max",
+      "C.max_stroke_widths_*": "max",
+      "C.group_reuse_excellent": "min",
+      "D.short_segment_ratio_max": "max",
+      "D.tangent_reversal_max": "max",
+      "D.min_groups": "min"
+    },
+    "calibration_direction_note": "每个可校准字段的「更松」方向：max = 数值调大更松，min = 数值调小更松，range = 区间变宽（低端下调或高端上调）更松。守卫读这张表判断 loosening 声明是否属实，不靠字段名猜。",
+    "evidence_provenance": [
+      "external",
+      "internal",
+      "machine"
+    ],
+    "evidence_grade": {
+      "external": "A",
+      "internal": "B",
+      "machine": "C"
+    },
+    "loosening_requires_external": true,
+    "evidence_note": "证据分级只报告不闸：A=外部真人、B=内部人、C=机器。闸只做结构判定——样本数、真机日志引用、裁决引用与 loosening 方向；分级不冒充「校准已成立」。",
     "uncalibrated_perceptual": [
       "C.duplicate_delta_e_2000_max",
       "C.distinct_hyab_min",

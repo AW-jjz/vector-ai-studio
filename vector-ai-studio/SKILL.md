@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.12.0
+version: 1.13.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.12.0"
+  version: "1.13.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -514,6 +514,7 @@ observed.print_pdf.content_ops 段，本文件不再固定一个会随稿件变�
 
 - final.ai 由 VectorCraft `run --export` 产出、再由 `info` 重开回读计数；final.svg 与它同源；preview.png 为真实可解析 PNG；acceptance.json 含 A–F 各项分数、轮次记录、H1–H4 与降级标记。
 - 阈值、分档、降级文案的唯一事实源是 `config/thresholds.json`；`calibration_policy` 登记可校准白名单与审批流，判据定义类一律锁定，任何放宽必须标 `loosening: true` 且带裁决引用。
+- **阈值晋升守卫（r79，M5 第一片）**：`scripts/thresholds_guard.py` 把 `calibration_policy` 从声明变成可执行判据——字段必须命中 `calibratable` 且不得命中 `locked`；方向由 `calibration_direction` 的 max/min/range 推出，mislabelled 的 `loosening` 直接拒；`sample_n` 必须是正整数、`real_run_log_ref` 必须指向非空真机日志；放宽还要 `ruling_ref` 与外部真人证据。证据分级 A/B/C（外部/内部/机器）只报告不闸。`scripts/aggregate_log.py` 对每条 `calibration_log` 跑 entry 模式核验（after == 当前值），旧码 `E-CALIB-MISMATCH` / `E-CALIB-NO-LOG` / `E-CALIB-LOOSENING` 保留。
 - 判定类 JSON 不含 wall-clock，同一输入两次执行逐字节一致；时间只进 append-only 运行日志。
 - 验收日志另含 generation_count / generation_budget（运行时派生）、f_source_runs / c2_revisions / f_data_isolated、f_verified、needs_human_review、reason、h1 至 h4 等强制字段，供 QA 机械核对；另含 `evidence_coverage`（每维测没测 / 为什么 / 怎么修）、`deliverable_status`（能不能交）、`criteria_version` 与 `thresholds_sha256`（结论的适用版本）。
 - 对外说明由 `templates/delivery-note.template.md` 生成，只消费分档结论；未判定或降级时首行显式标注需人工终审并给出证据覆盖，禁止宣称达标 / 完美。

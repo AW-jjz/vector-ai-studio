@@ -4,6 +4,37 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.13.0 — 2026-11-13 [r79]
+
+M5, first slice: the calibration policy becomes executable. `calibration_policy`
+had declared a whitelist, a locked list and an approval flow since the
+beginning; nothing enforced the whitelist, so a `calibration_log` entry could
+name any field -- locked criteria included -- and still pass.
+
+- **New `scripts/thresholds_guard.py`** (stdlib only): a proposal must match a
+  `calibratable` glob and no `locked` glob; the loosening direction comes from
+  the new `calibration_direction` map (max / min / range), so a mislabelled
+  `loosening` is refused; `sample_n` must be a positive integer and
+  `real_run_log_ref` a non-empty real file; a loosening also needs a
+  `ruling_ref` and external provenance. Two modes: `proposal` (`before` ==
+  current) and `entry` (`after` == current).
+- **Evidence grading**: external / internal / machine map to A / B / C and are
+  REPORTED, never gated -- no calibrated grade-to-truth mapping exists. The
+  gate stays structural.
+- **`scripts/aggregate_log.py`** now runs every `calibration_log` entry through the
+  guard in entry mode; `E-CALIB-MISMATCH`, `E-CALIB-NO-LOG` and
+  `E-CALIB-LOOSENING` keep their old names, new refusals use `E-CALIB-LOCKED`
+  / `-NOT-WHITELISTED` / `-DIRECTION` / `-STALE` / `-NOOP` / `-SAMPLE` /
+  `-PROVENANCE` / `-FIELD`.
+- **No threshold value changed**: the additions to `config/thresholds.json`
+  are policy metadata (`calibration_direction`, `evidence_provenance`,
+  `evidence_grade`, `loosening_requires_external`), not gates.
+- **A100** pins 15 cases (locked, not-whitelisted, stale, noop, mislabelled
+  direction, mixed interval, tiny sample, missing log, loosening without a
+  ruling, loosening without external provenance, both positive paths, the
+  machine grade, and the aggregate_log wiring). `EXPECTED_ASSERTIONS`
+  99 -> 100; claims 130 -> 133.
+
 ## 1.12.0 — 2026-11-13 [r78]
 
 M4 close: reviewer identity. Two submissions are now identified by what they

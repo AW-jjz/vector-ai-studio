@@ -11,9 +11,17 @@
 | `E-BITMAP` | SVG 含位图或内联 base64，不是纯矢量 | sanitize_svg |
 | `E-BUDGET-EXCEEDED` | generation_count 超过运行时派生的预算上界 | aggregate_log, batch_check |
 | `E-C-PALETTE-OVERFLOW` | 颜色数超过 C 维阈值 | score |
-| `E-CALIB-LOOSENING` | 阈值放宽缺少裁决引用 | aggregate_log |
-| `E-CALIB-MISMATCH` | calibration_log 的 after 与当前配置不一致 | aggregate_log |
-| `E-CALIB-NO-LOG` | 校准记录缺少真实样本日志引用 | aggregate_log |
+| `E-CALIB-DIRECTION` | 阈值变化方向与 `calibration_direction` 不符，或区间变化同时放宽一端、收紧另一端 | thresholds_guard |
+| `E-CALIB-FIELD` | 文档没有 field，或 field 在配置里不存在 | thresholds_guard |
+| `E-CALIB-LOCKED` | 试图校准锁定判据（`A.*` / `grade.*` / H1–H4 等），收紧也不允许 | thresholds_guard |
+| `E-CALIB-LOOSENING` | 阈值放宽缺少裁决引用 | aggregate_log, thresholds_guard |
+| `E-CALIB-MISMATCH` | calibration_log 的 after 与当前配置不一致 | aggregate_log, thresholds_guard |
+| `E-CALIB-NO-LOG` | 校准记录缺少真实样本日志引用，或引用文件不存在/为空 | aggregate_log, thresholds_guard |
+| `E-CALIB-NOOP` | before 与 after 相同，没有可晋升的变化 | thresholds_guard |
+| `E-CALIB-NOT-WHITELISTED` | 字段不匹配任何 `calibratable` 白名单模式 | thresholds_guard |
+| `E-CALIB-PROVENANCE` | 证据来源缺失/非法，或放宽时不是外部真人证据 | thresholds_guard |
+| `E-CALIB-SAMPLE` | `sample_n` 不是正整数 | thresholds_guard |
+| `E-CALIB-STALE` | 提案的 before 不等于当前值；entry 的 after 不等于当前值 | thresholds_guard |
 | `E-CONFIG-KEYS` | 配置键缺失或存在多余键 | lib_common |
 | `E-CONFIG-MISSING` | 配置文件不存在 | lib_common |
 | `E-CONFIG-PARSE` | 配置文件无法解析 | lib_common |

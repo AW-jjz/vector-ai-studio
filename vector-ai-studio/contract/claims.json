@@ -1291,6 +1291,39 @@
       "tests": [
         "A99-reviewer-token-identity"
       ]
+    },
+    {
+      "id": "CLAIM-131",
+      "file": "SKILL.md",
+      "anchor": "- **阈值",
+      "text_hash": "sha256:47fd8a6c21874e83e98b1fd8a683ccb15b22719036c6ef14a55243982fa8ccba",
+      "claim": "- **阈值晋升守卫（r79，M5 第一片）**：`scripts/thresholds_guard.py` 把 `calibration_policy` 从声明变成可执行判据——字段必须命中 `calibratable` 且不得命中 `locked`；方向由 `calibration_direction` 的 max/min/range 推出，mislabelled 的 `loosening` 直接拒；`sample_n` 必须是正整数、`real_run_log_ref` 必须指向非空真机日志；放宽还要 `ruling_ref` 与外部真人证据",
+      "mechanism": "assertion",
+      "tests": [
+        "A100-threshold-promotion-guard"
+      ]
+    },
+    {
+      "id": "CLAIM-132",
+      "file": "SKILL.md",
+      "anchor": "证据分级 A",
+      "text_hash": "sha256:68b31fc9b9665d7065d85a4aefc181f8d91ab94a6b3a456f69b1a5f367077359",
+      "claim": "证据分级 A/B/C（外部/内部/机器）只报告不闸",
+      "mechanism": "assertion",
+      "tests": [
+        "A100-threshold-promotion-guard"
+      ]
+    },
+    {
+      "id": "CLAIM-133",
+      "file": "README.md",
+      "anchor": "证据分级 A",
+      "text_hash": "sha256:32e4f95e701f0cbae155c0a9bde8064f60b7de072cf6c95295642df5a479cf6b",
+      "claim": "证据分级 A/B/C 只报告，不冒充「校准已成立」",
+      "mechanism": "assertion",
+      "tests": [
+        "A100-threshold-promotion-guard"
+      ]
     }
   ]
 }
