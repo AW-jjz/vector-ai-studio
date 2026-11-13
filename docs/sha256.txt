@@ -2585,3 +2585,60 @@ sha256        : e50949fe84b2239adcf9553d7a7b0662805dc36bc1ce40163b05c5f6d3c8da44
                 （427,214 B / 168 文件）
                 上一版：r72 / 1.6.1 = 4b46720f8bede73590cba95d09935222277b39b0bfc9945908e34c714a756e43
                 （415,441 B / 166 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r74（2026-11-13）　M2 第二片：见证层——签收成为可核验的事实（取代 1.7.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r74-169files.zip
+版本          : r74（SKILL.md 1.8.0，metadata.version "1.8.0"）
+文件数        : 169
+字节数        : 433274
+sha256        : b56681ddf4c593eced613a7da6c8eee939e53041db9a98522f8b86e2aa6e2584
+冻结时刻      : 2026-11-13 14:32（源码 169 文件 / 1211283 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（169 条目、0 目录项）
+旧包归档      : r73-168files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 21 件）
+取代关系      : 本段取代 r73 段。1.7.0 已签收、已 tag、已推送；本轮在其上新增能力（M2 第二片）。
+
+相对 1.7.0 变更 : 4 个文件（1 新增 / 0 删除 / 3 修改）
+                对比 05-发布/archive/vector-ai-studio_r73-168files.zip 逐件 md5
+新增 1        :
+                scripts/witness.py                               c66032a893ff71d9223fcdc57adc891d7b98a363070c30a8a89f036e35739908
+修改 3        :
+                CHANGELOG.md                                     588f25220dd0064ee57603c796f9515a59df971c4260a5df2d9f80c171a86781
+                README.md                                        db4916b1c3e8fec52c31ce791318066770d244d4de7482f7a48ffbc01e33fcec
+                SKILL.md                                         0c1248a88083014e1369513f67abc61810474e7ac4411a885ac2d4d06612024b
+
+内容          : M2（证据可重放）第二片——角色分离的锚：
+                1) 见证层 scripts/witness.py（无密钥，与 H4 零凭据原则一致）：
+                   witness create 把 run 的验收日志与 journal 哈希写进一条
+                   独立于 run 目录的 append-only 见证链（随仓库提交/推送/打 tag）；
+                   witness verify 对锚核验——签收之后再动验收日志，
+                   E-WITNESS-MISMATCH 当场红；无见证记录的 run_id 也不给过。
+                2) replay.py 增 R5（--witness <文件>）：重放与见证锚一次跑完。
+                3) 信任模型（已声明边界）：不用密钥，仓库历史就是身份——
+                   append-only、已推送、有 tag；能 force-push 那条历史的人能
+                   伪造锚，tag 把它压到「必须在 tag 里可见」。仅此而已。
+                4) 新增 A93（create→verify→篡改必红→无记录必红），
+                   EXPECTED_ASSERTIONS 92 → 93（--fixtures 94）。
+                5) 见证文件允许 wall-clock（签收留痕，与 sha256.txt 同类，
+                   非可复现工件）。
+
+实测证据      : 六道闸（有引擎机器实跑）：
+                selftest --fixtures 94/94（93 + A13，skipped=0，exit 0）、
+                run_fixtures 37/37、validate_claims 117/117、gen_contract 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（169 文件 / 433274 B / b56681ddf4c5…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r74 重取 PASS
+                复测闸（对 1.8.0 包）：见 04-QA/QA重测报告-r74.md
+                阈值数值零改动
+
+已知限制      : 1) 能 force-push 仓库历史的人能伪造见证锚（tag 使其可见）——已声明
+                2) M2 后续（远程验证形态）未做
+                3) 声明登记册 117 条中 58 条仍为 unverified
+                4) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r74-169files.zip
+                两者均应为 b56681ddf4c593eced613a7da6c8eee939e53041db9a98522f8b86e2aa6e2584
+                （433274 B / 169 文件）
+                上一版：r73 / 1.7.0 = e50949fe84b2239adcf9553d7a7b0662805dc36bc1ce40163b05c5f6d3c8da44
+                （427,214 B / 168 文件，已在 archive/）
