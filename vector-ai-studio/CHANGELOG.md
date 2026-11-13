@@ -4,6 +4,55 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.11.0 — 2026-11-13 [r77]
+
+M4, second slice: pairwise preferences and the Bradley-Terry scale. Absolute
+0-2 scores ask a reviewer to judge quality AND calibrate their own scale at
+once; asking only "which of these two is better" is the judgement humans are
+reliable at.
+
+- **The review pack ships the review-pairs.csv file**: a full round-robin over the
+  pack's cases, one row per pair, winner = either case id or `tie`. It is
+  produced by `scripts/studio.py --review-pack` next to the absolute sheet.
+- **`scripts/review.py` --pairs**: every pair is validated against the pack
+  (unknown pair id / swapped pair / invalid winner / unfilled pair are
+  `E-REVIEW-INVALID`, the same refusal branch as a bad score sheet), the
+  preferences are pooled across reviewers, and `scripts/bradleyterry.py`
+  fits the strengths. Report-only, never gated (no calibrated BT threshold).
+- **Two boundaries the fit surfaced, documented rather than hidden**: a case
+  that never wins has the MLE strength 0 exactly (fixed at 0 and excluded from
+  the normalization -- the first real run produced strengths of 17320 and
+  climbing before this was handled); with ZERO upsets the likelihood grows as
+  the ratios stretch, so the magnitudes are a boundary snapshot and the
+  ORDERING is the finding (the result carries `upsets` / `no_upsets`).
+- **A97** pins the iteration's properties (strict ordering, tie degeneracy,
+  determinism, reversal symmetry, normalization, the zero for never-winners);
+  **A98** pins the round trip (pack ships the pairs -> review validates ->
+  BT reports; an invalid winner is refused). `EXPECTED_ASSERTIONS` 96 -> 98.
+- **Version correction**: 1.10.0 [r76] shipped with the frontmatter still at
+  1.9.0 and no CHANGELOG entry -- the r76 package is archived as built and
+  NOT rebuilt; the correction is recorded here and in the checksum trail.
+
+## 1.10.0 — 2026-11-13 [r76]
+
+M4, first slice: the review protocol is preregistered and inter-rater
+reliability is measured. (Backfilled in r77: this round's package shipped
+with the version fields still at 1.9.0; the feature content below is what the
+r76 package actually contains.)
+
+- **`scripts/krippendorff.py`**: Krippendorff's alpha (nominal / ordinal /
+  interval, any number of reviewers, missing data legal), pinned to the
+  published worked examples (0.095 / 0.743 / 0.815 / 0.849, all matched) plus
+  unused-level invariance, monotonicity and the unpaired-isolated-value rule.
+  REPORTED, NOT GATED -- no calibrated alpha threshold exists.
+- **Preregistration**: `scripts/studio.py` --review-pack writes the review protocol
+  (dimensions / scale / cases / seed) and its sha256 into the unshipped
+  key.json file; `scripts/review.py` verifies it at aggregation, so a protocol edited
+  after the reviews came back is `E-REVIEW-INVALID`. Packs without a protocol
+  block are warned about, never treated as preregistered.
+- **A95 / A96** pin the anchor values and the preregistration lifecycle.
+  `EXPECTED_ASSERTIONS` 94 -> 96.
+
 ## 1.9.0 — 2026-11-13 [r75]
 
 M3, first slice: the fidelity claims become MEASURED. The builtin fallback's

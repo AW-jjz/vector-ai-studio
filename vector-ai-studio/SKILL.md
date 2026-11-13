@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.9.0
+version: 1.11.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.9.0"
+  version: "1.11.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -280,6 +280,7 @@ python scripts/review.py --sheet path/to/reviewer-1.csv --sheet path/to/reviewer
 - 评审人之间的完全一致率会被算出来并列出分歧格；一致率低只报警告，不参与判定——两把尺子不同时均值没有解释力，但也不能因此判图不合格。
 - `evidence.usable_for_claim` 只在「评审人 ≥2 且 `--reviewer-kind external` 且零空格」时为真。`internal`（自己人）与 `machine`（模型评审）都能归档成记录，但永远不会被提升为对外证据。
 - **评分者间信度是量出来的（r76，M4）**：`scripts/review.py` 用 **Krippendorff's α（ordinal 度量）**回答「评审人的一致性是否高于纯属巧合」——精确一致率只数全同格，α 则按机会修正并区分 0-vs-1 与 0-vs-2 的分歧大小。公式取自已发表文献（Krippendorff 2011），实现钉在论文自己的算例上（nominal 0.743 / ordinal 0.815 / interval 0.849，见 `scripts/krippendorff.py`）。**α 只报告不闸**：还没有经校准的 α 阈值，未校准的数当闸门等于把噪声点成红灯。盲评包生成时评审协议（维度 / 量级 / 案例 / seed）被**预注册**进随包的 key 文件（评审人看不到的那份）并带哈希，聚合时核验——协议在评审之后被改动，`E-REVIEW-INVALID` 当场红；无协议块的旧包会被警告（无法核对），不会被当成已预注册。
+- **两两偏好与标度（r77，M4 第二片）**：绝对分要求评审人同时做两件事——判断质量并校准自己的尺子。盲评包现含 review-pairs.csv（全配对轮换：每行一对，winner 填两者之一或 tie）——只回答「哪个更好」。`scripts/review.py --pairs` 汇总后用 **Bradley-Terry 模型**（MM/Zermelo 迭代，平局计半，`scripts/bradleyterry.py`，性质自锚：全胜序、平局等强、确定性、反转让序、全平局等值、全败者正下界）拟合出每个案例的**标度强度**。坏表与评分表同一条拒绝分支（未知 pair_id / 换对 / 越界 winner / 缺格全部 `E-REVIEW-INVALID`）；**只报告不闸**，原因同 α。评审人身份的旧边界不变（同内容换文件名仍是同一人）。
 
 AI 不写分数，也不代替评审。这个脚本读的是人写下的格子，空着就判空。
 

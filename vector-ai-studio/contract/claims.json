@@ -1211,6 +1211,24 @@
       "claim": "盲评包生成时评审协议（维度 / 量级 / 案例 / seed）被**预注册**进随包的 key 文件（评审人看不到的那份）并带哈希，聚合时核验——协议在评审之后被改动，`E-REVIEW-INVALID` 当场红；无协议块的旧包会被警告（无法核对），不会被当成已预注册",
       "mechanism": "unverified",
       "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-123",
+      "file": "SKILL.md",
+      "anchor": "盲评包现含 ",
+      "text_hash": "sha256:15712a8b66d28a41b8364bcd750e55e88d3fccab8498fde9c324ff8f5945ae1e",
+      "claim": "盲评包现含 `review-pairs.csv`（全配对轮换：每行一对，winner 填两者之一或 tie）——只回答「哪个更好」",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-124",
+      "file": "SKILL.md",
+      "anchor": "坏表与评分表",
+      "text_hash": "sha256:16ed40b822b7241f2d1ca8cc98c9af9c8762752cf3db2cafe51c94efa5700ed3",
+      "claim": "坏表与评分表同一条拒绝分支（未知 pair_id / 换对 / 越界 winner / 缺格全部 `E-REVIEW-INVALID`）；**只报告不闸**，原因同 α",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
     }
   ]
 }

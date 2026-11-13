@@ -293,14 +293,29 @@ def _review_pack(args):
     sheet = ("case,concept,hierarchy,proportion,detail,durability,notes\n" +
              "\n".join(rows) + "\n")
     L.write_text_atomic(out / "review-sheet.csv", sheet)
+    # r77 (M4 slice 2): the PAIRWISE sheet. Absolute 0-2 scores ask a reviewer
+    # to judge quality AND calibrate their own scale at once; "which of these
+    # two is better" is the judgement humans are reliable at. Full round-robin
+    # over the pack's cases; the winner cell is filled by the reviewer (or
+    # `tie`). The protocol block covers the pairs (they derive from cases).
+    pair_rows = []
+    for i in range(len(key)):
+        for j in range(i + 1, len(key)):
+            pair_rows.append("pair-%02d-vs-%02d,%s,%s,"
+                             % (i + 1, j + 1, key[i]["case"], key[j]["case"]))
+    L.write_text_atomic(out / "review-pairs.csv",
+                        "pair_id,case_a,case_b,winner\n" + "\n".join(pair_rows)
+                        + "\n" if pair_rows else "pair_id,case_a,case_b,winner\n")
     L.write_text_atomic(out / "README.md",
                         "# 盲评包\n\n"
                         "给评审人的只有：本说明、`case-XX.svg`、`case-XX.png`、"
-                        "`review-sheet.csv`。不要提供 `key.json`。\n\n"
+                        "`review-sheet.csv`、`review-pairs.csv`。不要提供 `key.json`。\n\n"
                         "评分：五维各 0-2，锚点见 `references/design-language.md` "
                         "第 10 节。空白格由评审人填写；脚本不写分数。\n\n"
-                        "回填后把 `review-sheet.csv` 与 `key.json` 一起归档，"
-                        "这组数据才是「真实产出证据」。\n")
+                        "两两偏好（r77）：`review-pairs.csv` 里每行一对，winner 列填"
+                        "两者之一或 tie——只回答「哪个更好」，不用校准自己的尺子。\n\n"
+                        "回填后把 `review-sheet.csv`、`review-pairs.csv` 与 `key.json` "
+                        "一起归档，这组数据才是「真实产出证据」。\n")
     return L.emit(SCRIPT, status="ok", code=0,
                   data={"cases": len(items), "out": str(out)},
                   artifacts={"review_pack": str(out)})

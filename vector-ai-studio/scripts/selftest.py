@@ -4265,6 +4265,117 @@ def _stage_r76(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+
+
+def _stage_r77(tmp, add):
+    """A97/A98: pairwise preferences and the Bradley-Terry scale (M4 / r77).
+
+    A97 pins scripts/bradleyterry.py on the properties the model must have
+    (strict ordering, tie degeneracy, determinism, reversal symmetry, the
+    geometric-mean normalization, the floored unbounded loss) -- a mistyped
+    iteration is the failure mode.
+
+    A98 pins the round trip: --review-pack ships review-pairs.csv (the full
+    round-robin); review.py --pairs validates every pair against the pack
+    (unknown id / swapped pair / invalid winner are E-REVIEW-INVALID) and
+    reports the fitted strengths; a winner cell filled with neither case nor
+    tie is refused.
+    """
+    import bradleyterry as BT
+
+    # ---- A97: the iteration's properties ---------------------------------
+    res = BT.self_test()
+    bad = [(n, d) for (n, ok, d) in res if not ok]
+    add("A97-bradleyterry-properties", not bad,
+        "checks=%d failures=%s" % (len(res),
+                                   "; ".join("%s: %s" % (n, d[:60]) for n, d in bad[:3])))
+
+    # ---- A98: the pairwise round trip ------------------------------------
+    try:
+        import importlib.util
+        _spec = importlib.util.spec_from_file_location("studio_r77", SCRIPTS / "studio.py")
+        _st = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_st)
+        _cands = []
+        for _i in (1, 2, 3):
+            _d = tmp / ("r77-c" + str(_i))
+            (_d / "round-1").mkdir(parents=True)
+            (_d / "round-1" / "sanitized.svg").write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>',
+                encoding="utf-8")
+            (_d / "round-1" / "preview.png").write_bytes(b"\x89PNG\r\n\x1a\ncase")
+            _cands.append(str(_d))
+        _pack = tmp / "r77-pack"
+        _rc_p, _, _ = _call("studio.py",
+                            ["--review-pack", str(_pack),
+                             "--candidate", _cands[0], "--candidate", _cands[1],
+                             "--candidate", _cands[2], "--seed", "9", "--json"], tmp)
+        pairs_path = _pack / "review-pairs.csv"
+        _plines = pairs_path.read_text(encoding="utf-8").strip().splitlines()
+        _npairs = len(_plines) - 1                      # 3 cases -> 3 pairs
+
+        # fill the winners: always prefer the EARLIER case id (a strict order)
+        _head = "case,concept,hierarchy,proportion,detail,durability,notes"
+        _scored = []
+        for _ci in (1, 2, 3):
+            _scored.append("case-%02d,2,2,1,2,2,ok" % _ci)
+        _sa = _pack / "rev-a.csv"
+        _sa.write_text("\n".join([_head] + _scored) + "\n", encoding="utf-8")
+        _sb = _pack / "rev-b.csv"
+        _sb.write_text("\n".join([_head] + _scored) + "\n", encoding="utf-8")
+
+        _pfilled = [_plines[0]]
+        for _ln in _plines[1:]:
+            _pid, _ca, _cb, _w = (_x.strip() for _x in _ln.split(","))
+            _pfilled.append("%s,%s,%s,%s" % (_pid, _ca, _cb, _ca))   # a wins
+        _pa = _pack / "pairs-a.csv"
+        _pa.write_text("\n".join(_pfilled) + "\n", encoding="utf-8")
+        # reviewer 2: same but with one tie (replace the winner field properly)
+        _pfilled_b = list(_pfilled)
+        _parts = _pfilled_b[1].split(",")
+        _parts[3] = "tie"
+        _pfilled_b[1] = ",".join(_parts)
+        _pb = _pack / "pairs-b.csv"
+        _pb.write_text("\n".join(_pfilled_b) + "\n", encoding="utf-8")
+
+        _rc, _env, _ = _call("review.py",
+                             ["--sheet", str(_sa), "--sheet", str(_sb),
+                              "--pairs", str(_pa), "--pairs", str(_pb),
+                              "--key", str(_pack / "key.json"),
+                              "--reviewer-kind", "external", "--json"], tmp)
+        _d = _env.get("data") or {}
+        _pw = _d.get("pairwise") or {}
+        _str_ok = (_rc == 0 and _pw.get("comparisons") == 2 * _npairs
+                   and _pw.get("strength") and _pw.get("ordering")
+                   and _pw.get("ordering")[0] == "case-01"
+                   # metadata must stay metadata: a bool coerced by round()
+                   # into 1 is not accepted (r77 review.py regression guard)
+                   and _pw.get("upsets") == 0
+                   and _pw.get("no_upsets") is True
+                   and "upsets" not in _pw.get("strength", {})
+                   and "no_upsets" not in _pw.get("strength", {}))
+
+        # an invalid winner must be refused
+        _pbad = _pack / "pairs-bad.csv"
+        _pbad.write_text("\n".join([_plines[0], _pfilled[1][:-1] + "nobody"]) + "\n",
+                         encoding="utf-8")
+        _rc_b, _env_b, _ = _call("review.py",
+                                 ["--sheet", str(_sa), "--sheet", str(_sb),
+                                  "--pairs", str(_pbad), "--pairs", str(_pa),
+                                  "--key", str(_pack / "key.json"),
+                                  "--reviewer-kind", "external", "--json"], tmp)
+        _bad_red = (_rc_b == 1 and "E-REVIEW-INVALID" in _codes(_env_b))
+
+        add("A98-pairwise-roundtrip",
+            _rc_p == 0 and _npairs == 3 and _str_ok and _bad_red,
+            "pack=%s pairs=%d strengths=%s ordering=%s invalid_red=%s" % (
+                _rc_p, _npairs,
+                _pw.get("strength"), _pw.get("ordering"), _bad_red))
+    except Exception as e:                      # noqa: BLE001
+        add("A98-pairwise-roundtrip", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -4321,6 +4432,7 @@ def main():
     _stage_r74(tmp, add)
     _stage_r75(tmp, add)
     _stage_r76(tmp, add)
+    _stage_r77(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside
