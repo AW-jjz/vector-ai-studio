@@ -279,6 +279,7 @@ python scripts/review.py --sheet path/to/reviewer-1.csv --sheet path/to/reviewer
 - 每个 case 按 `templates/design-review.md` 的结论写法判 `pass / conditional / fail`，阈值在 `config/thresholds.json` 的 `R` 块，与那张表同源。
 - 评审人之间的完全一致率会被算出来并列出分歧格；一致率低只报警告，不参与判定——两把尺子不同时均值没有解释力，但也不能因此判图不合格。
 - `evidence.usable_for_claim` 只在「评审人 ≥2 且 `--reviewer-kind external` 且零空格」时为真。`internal`（自己人）与 `machine`（模型评审）都能归档成记录，但永远不会被提升为对外证据。
+- **评分者间信度是量出来的（r76，M4）**：`scripts/review.py` 用 **Krippendorff's α（ordinal 度量）**回答「评审人的一致性是否高于纯属巧合」——精确一致率只数全同格，α 则按机会修正并区分 0-vs-1 与 0-vs-2 的分歧大小。公式取自已发表文献（Krippendorff 2011），实现钉在论文自己的算例上（nominal 0.743 / ordinal 0.815 / interval 0.849，见 `scripts/krippendorff.py`）。**α 只报告不闸**：还没有经校准的 α 阈值，未校准的数当闸门等于把噪声点成红灯。盲评包生成时评审协议（维度 / 量级 / 案例 / seed）被**预注册**进随包的 key 文件（评审人看不到的那份）并带哈希，聚合时核验——协议在评审之后被改动，`E-REVIEW-INVALID` 当场红；无协议块的旧包会被警告（无法核对），不会被当成已预注册。
 
 AI 不写分数，也不代替评审。这个脚本读的是人写下的格子，空着就判空。
 

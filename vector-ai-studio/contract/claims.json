@@ -1184,6 +1184,33 @@
       "claim": "内置渲染器预览的 meta 另带 `fidelity_vector`（逐元素的词与原因），判决仍只读契约词表的那一个词",
       "mechanism": "unverified",
       "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-120",
+      "file": "SKILL.md",
+      "anchor": "- **评分",
+      "text_hash": "sha256:deba6ea946b866815313cea0255e67ecc8cf798ed740fea774d98be45bb123dd",
+      "claim": "- **评分者间信度是量出来的（r76，M4）**：`scripts/review.py` 用 **Krippendorff's α（ordinal 度量）**回答「评审人的一致性是否高于纯属巧合」——精确一致率只数全同格，α 则按机会修正并区分 0-vs-1 与 0-vs-2 的分歧大小",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-121",
+      "file": "SKILL.md",
+      "anchor": "**α 只报",
+      "text_hash": "sha256:b0ea1c63e1ba502338e07f8c9e2ad50a99303df4cd500bc4d8d91e8040068bbd",
+      "claim": "**α 只报告不闸**：还没有经校准的 α 阈值，未校准的数当闸门等于把噪声点成红灯",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-122",
+      "file": "SKILL.md",
+      "anchor": "盲评包生成时",
+      "text_hash": "sha256:3773653c97fcf74e9d5c7987ecf488d59d9629e7f7cc99214de6a4ea1b5ebe35",
+      "claim": "盲评包生成时评审协议（维度 / 量级 / 案例 / seed）被**预注册**进随包的 key 文件（评审人看不到的那份）并带哈希，聚合时核验——协议在评审之后被改动，`E-REVIEW-INVALID` 当场红；无协议块的旧包会被警告（无法核对），不会被当成已预注册",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
     }
   ]
 }

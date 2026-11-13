@@ -34,6 +34,7 @@ key.json. The scores are filled by a human; this script never writes a taste
 score.
 """
 import argparse
+import hashlib
 import json
 import random
 import shutil
@@ -43,8 +44,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import journal  # r76 (M4): the canonical form preregistration hashes over
 
 SCRIPT = "studio.py"
+# The review dimensions, used when thresholds.json has no R block (r76).
+DEFAULT_REVIEW_DIMS = ["concept", "hierarchy", "proportion", "detail", "durability"]
 HERE = Path(__file__).resolve().parent
 # r70 #3: the ONE content-derived run id for this orchestrated run. Every
 # stage receives it via --run-id, and steps 7-10 must pass the SAME id to
@@ -267,9 +271,24 @@ def _review_pack(args):
         shutil.copyfile(png, out / (case + ".png"))
         key.append({"case": case, "source": str(args.candidate[idx])})
         rows.append(case + ",,,,,,")
+    # r76 (M4): preregistration. The review PROTOCOL -- dimensions, scale,
+    # case list, seed -- is fixed HERE, before any reviewer sees a candidate,
+    # and its hash travels in the key. review.py verifies the hash, so a pack
+    # edited after registration (a dimension renamed, a case swapped, the
+    # scale widened) is refused as drifted: the criteria cannot be quietly
+    # re-chosen after the results came back.
+    th = L.load_thresholds()
+    rcfg = th.get("R") or {}
+    protocol = {"dims": list(rcfg.get("dims") or DEFAULT_REVIEW_DIMS),
+                "scale": "integer 0-2 per dim (ordinal)",
+                "seed": args.seed,
+                "cases": key}
     L.write_json_atomic(out / "key.json",
                         {"schema": "vector-ai-studio/review-key-v1",
                          "seed": args.seed, "cases": key,
+                         "protocol": protocol,
+                         "protocol_sha256": "sha256:" + hashlib.sha256(
+                             journal.canonical(protocol)).hexdigest(),
                          "warning": "do not hand this file to the reviewer"})
     sheet = ("case,concept,hierarchy,proportion,detail,durability,notes\n" +
              "\n".join(rows) + "\n")

@@ -31,11 +31,14 @@ Scores are never produced here. This script reads what humans wrote.
 """
 import argparse
 import csv
+import hashlib
 from pathlib import Path
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+import journal  # r76 (M4): canonical form for the preregistration hash
+import krippendorff as KR  # r76 (M4): chance-corrected inter-rater reliability
 
 SCRIPT = "review.py"
 SUMMARY_SCHEMA = "vector-ai-studio/review-summary-v1"
@@ -127,6 +130,32 @@ def main():
     if not cases:
         raise L.ToolError("E-SCHEMA", "review key lists no cases", L.EXIT_USAGE)
 
+    # r76 (M4): PREREGISTRATION. The review protocol -- dimensions, scale,
+    # case list, seed -- was fixed when --review-pack generated the key, and
+    # its hash travels in the key itself. Verifying it here means a pack
+    # edited after registration (a dimension renamed, a case swapped, the
+    # scale widened) is refused with the drift as the headline: the criteria
+    # cannot be quietly re-chosen after the results came back. A legacy pack
+    # without a protocol block cannot be checked -- it is warned about below,
+    # never silently accepted as preregistered.
+    prereg = {"present": False, "sha256": None}
+    proto = key.get("protocol")
+    if proto is not None:
+        prereg = {"present": True, "sha256": key.get("protocol_sha256")}
+        want = "sha256:" + hashlib.sha256(journal.canonical(proto)).hexdigest()
+        if key.get("protocol_sha256") != want:
+            raise L.ToolError("E-REVIEW-INVALID",
+                              "review pack protocol drifted after registration: the "
+                              "key's protocol block no longer matches its registration "
+                              "hash; regenerate the pack", L.EXIT_FAIL)
+        if list(proto.get("dims") or []) != list(dims):
+            raise L.ToolError("E-REVIEW-INVALID",
+                              "preregistered dimensions %r differ from the scoring "
+                              "dimensions %r" % (proto.get("dims"), list(dims)), L.EXIT_FAIL)
+        if [c.get("case") for c in (proto.get("cases") or [])] != cases:
+            raise L.ToolError("E-REVIEW-INVALID",
+                              "preregistered cases differ from the key's cases", L.EXIT_FAIL)
+
     sheets, all_problems, reviewers = [], [], []
     # r70 #4: de-duplicate by (absolute path, content sha256). Passing the very
     # same review sheet twice used to count as TWO independent reviewers and
@@ -199,6 +228,36 @@ def main():
                for c in cases for d in dims
                if len({r[c][d] for r in sheets}) > 1]
 
+    # r76 (M4): Krippendorff's alpha over the rating matrix -- the
+    # chance-corrected reliability the exact-rate above only gestures at
+    # (exact-rate counts only unanimous cells and ignores the SIZE of a
+    # disagreement: a 0-vs-2 split is not the same as a 0-vs-1 split, and the
+    # ordinal metric says so). Metric = ordinal (the 0-2 scale is ordered);
+    # the implementation is pinned to the published worked examples
+    # (scripts/krippendorff.py, Krippendorff 2011: 0.743 nominal / 0.815
+    # ordinal / 0.849 interval on his own data).
+    #
+    # REPORTED, NOT GATED: no threshold on alpha is calibrated for this
+    # pipeline yet, and an uncalibrated number used as a gate is noise
+    # painted red (the same reason the perceptual layer measures without
+    # failing). The number is evidence for a human to quote or ignore.
+    matrix = [[r[c][d] for c in cases for d in dims] for r in sheets]
+    alpha_all = KR.alpha_matrix(matrix, "ordinal")
+    per_dim_alpha = {}
+    for d in dims:
+        m = [[r[c][d] for c in cases] for r in sheets]
+        per_dim_alpha[d] = KR.alpha_matrix(m, "ordinal")
+    alpha_doc = {
+        "metric": "ordinal",
+        "alpha": round(alpha_all, 4) if alpha_all is not None else None,
+        "per_dim": {d: (round(v, 4) if v is not None else None)
+                    for d, v in per_dim_alpha.items()},
+        "source": "Krippendorff, Computing Krippendorff's Alpha-Reliability "
+                  "(2011); anchored in scripts/krippendorff.py",
+        "gating": "reported only -- no calibrated alpha threshold; the "
+                  "uncalibrated-exact-rate warning above is the gate",
+    }
+
     warnings = []
     if len(sheets) < cfg["min_reviewers_for_claim"]:
         warnings.append("only %d sheet(s); a claim needs at least %d"
@@ -208,6 +267,10 @@ def main():
                         "disagree on the same drawings, read the dissent list "
                         "before quoting a mean"
                         % (agreement, cfg["agreement_warn_below"]))
+    if not prereg["present"]:
+        warnings.append("review pack has no preregistered protocol block: the "
+                        "review criteria cannot be checked against what the "
+                        "pack promised before the reviews came back")
     if args.reviewer_kind != "external":
         warnings.append("reviewer kind is `%s`: usable as a record, never as "
                         "external evidence" % args.reviewer_kind)
@@ -223,7 +286,9 @@ def main():
            "reviewers": reviewers,
            "cases": per_case,
            "agreement": {"cells": total_cells, "exact": exact,
-                         "rate": agreement, "dissent": dissent},
+                         "rate": agreement, "dissent": dissent,
+                         "krippendorff": alpha_doc},
+           "protocol": prereg,
            "blank_cells": blank,
            "thresholds": {"total_pass": cfg["total_pass"],
                           "total_conditional": cfg["total_conditional"],

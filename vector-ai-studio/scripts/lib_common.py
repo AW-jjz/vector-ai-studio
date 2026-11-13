@@ -63,7 +63,10 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # tamper, and no-record all behave) -> 92 + 1 = 93.
 # r75 (M3): +A94 (the fidelity claims are measured: matrix drift + the
 # faithful-implies-consistent direction) -> 93 + 1 = 94.
-EXPECTED_ASSERTIONS = 94
+# r76 (M4): +A95 (Krippendorff's alpha is pinned to the published worked
+# examples) + A96 (the review protocol is preregistered and verified) ->
+# 94 + 2 = 96.
+EXPECTED_ASSERTIONS = 96
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
