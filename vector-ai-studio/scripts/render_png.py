@@ -58,15 +58,63 @@ def _encode_png(w, h, pixels):
             _png_chunk(b"IEND", b""))
 
 
+def _element_fidelity(el):
+    """The PER-ELEMENT claim: can the builtin rasteriser represent this one
+    element without lying? (M3 / r75: extracted from _builtin_fidelity so the
+    matrix can check each claim against a MEASUREMENT -- see
+    scripts/fidelity_matrix.py. One claim, one place; the composition below
+    must reproduce the old all-elements rule exactly.)
+
+    _builtin_raster fills each element's bounding box with one solid colour
+    and draws nothing else. That is only faithful for an axis-aligned,
+    solid-filled rectangle with no visible stroke: circles become squares,
+    paths become slabs, strokes disappear, text vanishes, gradients and
+    opacity are lost.
+    """
+    if el.get("tag") != "rect":
+        return C.FIDELITY.LIMITED
+    if el.get("transform"):
+        return C.FIDELITY.LIMITED            # r75: rotation/translation are lost -- the builtin draws the untransformed bbox
+    if _rgb(el.get("fill")) is None:
+        return C.FIDELITY.LIMITED            # stroke-only / gradient: the outline is not drawn
+    fo = el.get("fill_opacity")
+    if fo is None:
+        pass                                  # absent: the default opacity is 1
+    elif isinstance(fo, (int, float)):
+        if fo != 1:
+            return C.FIDELITY.LIMITED        # r75: opacity is lost (and 0 would paint an invisible element)
+    else:
+        return C.FIDELITY.LIMITED            # r75: unparseable opacity fails closed
+    sw = el.get("stroke_width")
+    if isinstance(sw, (int, float)) and sw > 0 and _rgb(el.get("stroke")) is not None:
+        return C.FIDELITY.LIMITED            # stroked edge widens the shape in any real renderer
+    return C.FIDELITY.FAITHFUL
+
+
+def _fidelity_vector(sig):
+    """Per-element fidelity claims for THIS svg (M3 / r75).
+
+    Evidence, not a gate: each element gets the word the classifier claims,
+    and A94 guarantees those claims are backed by the measured capability
+    matrix (scripts/fidelity_matrix.py). Written into preview.meta.json so a
+    consumer can see WHY a preview is faithful/limited without reading code.
+    """
+    out = []
+    for e in (sig.get("elements") or []):
+        out.append({"tag": e.get("tag"),
+                    "transform": bool(e.get("transform")),
+                    "fill_opacity": e.get("fill_opacity"),
+                    "fidelity": _element_fidelity(e)})
+    return out
+
+
 def _builtin_fidelity(sig):
     """Can the builtin rasteriser represent *this* SVG without lying?
 
-    _builtin_raster fills each element's bounding box with one solid colour and
-    draws nothing else. That is only faithful when every element really is an
-    axis-aligned, solid-filled rectangle with no visible stroke: circles become
-    squares, paths become slabs, strokes disappear, text vanishes. A "limited"
-    preview must never be used to judge semantic fidelity or composition
-    (design 11 item 3: fallback image that cannot support reading -> auto L2).
+    The composition of the per-element claims (M3 / r75): faithful only when
+    EVERY element is individually faithful. A "limited" preview must never be
+    used to judge semantic fidelity or composition (design 11 item 3: fallback
+    image that cannot support reading -> auto L2).
 
     The words come from the contract (scripts/_contract.py, generated from
     contract/contract.json): this producer and the judge that reads its output
@@ -76,13 +124,8 @@ def _builtin_fidelity(sig):
     if not els:
         return C.FIDELITY.LIMITED
     for e in els:
-        if e.get("tag") != "rect":
+        if _element_fidelity(e) != C.FIDELITY.FAITHFUL:
             return C.FIDELITY.LIMITED
-        if _rgb(e.get("fill")) is None:
-            return C.FIDELITY.LIMITED            # stroke-only / gradient: the outline is not drawn
-        sw = e.get("stroke_width")
-        if isinstance(sw, (int, float)) and sw > 0 and _rgb(e.get("stroke")) is not None:
-            return C.FIDELITY.LIMITED            # stroked edge widens the shape in any real renderer
     return C.FIDELITY.FAITHFUL
 
 
@@ -221,6 +264,11 @@ def main():
         "candidates": candidates,
         "source_svg": src.name,
     }
+    if renderer == "builtin-fallback":
+        # r75 (M3): per-element evidence for the one-word verdict. Additive;
+        # the gate still reads the word (the contract vocabulary), the vector
+        # says WHY -- and A94 keeps the words backed by measurements.
+        meta["fidelity_vector"] = _fidelity_vector(sig)
     L.write_json_atomic(out.with_name("preview.meta.json"), meta)
     L.append_run_log(out.parent, SCRIPT + " renderer=" + str(renderer) + " fidelity=" + fidelity)
 

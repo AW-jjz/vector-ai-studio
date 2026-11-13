@@ -65,6 +65,7 @@
 | `E-ARTIFACT-DRIFT` | 证据工件在入链之后字节变了：当前 sha256 与 journal 记录不符，或重算出的 journal 与随包 journal 不一致 | journal, replay |
 | `E-REPLAY-MISMATCH` | 证据重放不一致：对 run 目录副本重跑聚合器，产物与随包验收日志逐字节比对不符（附 JSON 字段级差异清单） | replay |
 | `E-WITNESS-MISMATCH` | 见证锚不符：run 的验收日志 / journal 当前哈希与见证记录（签收时写入、提交进仓库的锚）不一致，或该 run_id 无见证记录 | witness, replay |
+| `E-FIDELITY-DRIFT` | 保真度能力矩阵与重测结果不一致（改了矩阵没重测），或分类器宣称 faithful 的特征实测 divergent | fidelity_matrix |
 
 ## 约定
 

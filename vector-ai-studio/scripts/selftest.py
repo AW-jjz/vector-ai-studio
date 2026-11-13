@@ -4133,6 +4133,39 @@ def _stage_r74(tmp, add):
             rc_n, ",".join(_codes(env_n)[:1])))
 
 
+
+
+def _stage_r75(tmp, add):
+    """A94: the fidelity claims are MEASURED, not self-attested (M3 / r75).
+
+    scripts/fidelity_matrix.py renders one probe per feature with the
+    production builtin rasteriser AND a Pillow reference renderer, compares
+    pixel by pixel, and commits the capability matrix. --check re-measures in
+    memory and byte-compares (E-FIDELITY-DRIFT), and asserts the load-bearing
+    direction: every feature the classifier claims FAITHFUL must be measured
+    CONSISTENT. The measured-only direction (consistent -> claim may be
+    upgraded) is recorded in the matrix, not enforced: staying limited is
+    fail-closed, never dishonest. Pillow is the reference renderer -- without
+    it the check is a declared skip (exit 3), never a pass.
+    """
+    try:
+        import PIL  # noqa: F401
+        has_pil = True
+    except ImportError:
+        has_pil = False
+    rc_c, env_c, _ = _call("fidelity_matrix.py", ["--check", "--json"], tmp)
+    if not has_pil:
+        add("A94-fidelity-claims-measured", None,
+            "Pillow not installed: skipped=%s exit=%d" % (_codes(env_c), rc_c),
+            skipped=True)
+        return
+    d_c = env_c.get("data") or {}
+    add("A94-fidelity-claims-measured",
+        rc_c == 0 and d_c.get("drift") is False and d_c.get("claims_backed") is True,
+        "exit=%d drift=%s claims_backed=%s rows=%s" % (
+            rc_c, d_c.get("drift"), d_c.get("claims_backed"), d_c.get("rows")))
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -4187,6 +4220,7 @@ def main():
     _stage_print_route(tmp, add)
     _stage_r72(tmp, add, th)
     _stage_r74(tmp, add)
+    _stage_r75(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

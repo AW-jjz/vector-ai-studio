@@ -2688,3 +2688,69 @@ sha256        : db71486fe629478eabe073d1e2a5f13665b2e1e5f835a888207935258de7936a
                 （433497 B / 169 文件）
                 1.8.0（CI 红，已撤）：b56681ddf4c593eced613a7da6c8eee939e53041db9a98522f8b86e2aa6e2584
                 （433,274 B / 169 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r75（2026-11-13）　M3 第一片：保真度能力矩阵——声明必须被测量支撑（取代 1.8.1）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r75-171files.zip
+版本          : r75（SKILL.md 1.9.0，metadata.version "1.9.0"）
+文件数        : 171
+字节数        : 444002
+sha256        : 8925ad535ace79b85e3cea76e0c2f03d4ac34f30b87ccf253a9a8b3aa917b1b8
+冻结时刻      : 2026-11-13 15:42（源码 171 文件 / 1241893 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（171 条目、0 目录项）
+旧包归档      : r74-169files_v1.8.1.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 22 件）
+取代关系      : 本段取代 r74 / 1.8.1 段。1.8.1 已签收、已 tag（v1.8.1）、已推送；本轮在其上新增能力（M3 第一片）。
+
+相对 1.8.1 变更 : 5 个文件（2 新增 / 0 删除 / 3 修改）
+                对比 05-发布/archive/vector-ai-studio_r74-169files_v1.8.1.zip 逐件 md5
+新增 2        :
+                scripts/fidelity_matrix.py                       86af18ec55ce12eb18196f192c01fb900c5a81cbbdb1de0c0cedba44ec7e684d
+                references/fidelity/capability-matrix.json       6db250238570c098db9930364a8d41288276e56d9e1ce30d6ad1a358f65d6dc3
+修改 3        :
+                CHANGELOG.md                                     b3504ff1c8372ed7a2b0ee36302d5d15ad96f86909000eb38c208cde7baa389b
+                README.md                                        db4916b1c3e8fec52c31ce791318066770d244d4de7482f7a48ffbc01e33fcec
+                SKILL.md                                         ebc799878ac2e5708ca2a26a961e135c35a51ede19e05eda9509c0f5e97afc01
+                （另：scripts/lib_common.py 与 scripts/render_png.py 亦修改——
+                  analyze_svg 逐元素记录 transform / fill_opacity；分类器对两者
+                  fail-closed 判 limited；preview.meta.json 增 fidelity_vector。
+                  逐件 sha256 见脚本运行记录，此处列新增与主改。）
+内容          : M3 第一片——保真度声明必须被测量支撑：
+                1) 能力矩阵：11 个特征探针（实心矩形/描边/圆/椭圆/线/路径填充/
+                   路径描边/渐变/文本/transform/透明度），生产内置渲染器与
+                   Pillow 参照渲染器各画一遍、逐像素比对。实测：仅 rect-solid
+                   consistent（内部逐像素精确，边带 1px 外扩为已测已知缺陷，
+                   差异比 0.0071）；其余 10 类 divergent——分类器的 limited
+                   全部被测量证实。
+                2) 测量抓到并修掉两个分类器盲区：transform（旋转元素被画成
+                   未旋转 bbox 却判 faithful）与 fill-opacity（半透明被画成
+                   全不透明）——analyze_svg 逐元素记录，分类器 fail-closed。
+                3) preview.meta.json 增 fidelity_vector（逐元素证据，仅内置
+                   兜底渲染时）；判决仍只读契约词表的那一个词——证据不是闸。
+                4) --check 双闸：矩阵漂移（E-FIDELITY-DRIFT）+ 承重方向
+                   （分类器说 faithful 的特征必须实测 consistent）。
+                   Pillow 是参照渲染器：缺席时测量是声明式跳过（exit 3），
+                   绝不写未测的矩阵、绝不判绿。新增 A94，
+                   EXPECTED_ASSERTIONS 93 → 94（--fixtures 95）。
+
+实测证据      : 六道闸（有引擎机器实跑）：
+                selftest --fixtures 95/95（94 + A13，skipped=0，exit 0）、
+                selftest 94/94、run_fixtures 37/37、redteam 17/15/0/2、
+                validate_claims 119/119 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（171 文件 / 444002 B / 8925ad535ace…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r75 重取 PASS
+                矩阵实测：11 行，claim 与 measured 全部对应（A94 承重方向绿）
+                阈值数值零改动
+
+已知限制      : 1) 能力矩阵只覆盖内置兜底渲染器的特征面；真实渲染器
+                   （resvg/cairosvg）与内置的跨渲染器一致性未测
+                2) M3 后续（保真度向量的门控化）未做——本轮只测量不判失败
+                3) 声明登记册 119 条中 58 条仍为 unverified
+                4) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r75-171files.zip
+                两者均应为 8925ad535ace79b85e3cea76e0c2f03d4ac34f30b87ccf253a9a8b3aa917b1b8
+                （444002 B / 171 文件）
+                上一版：r74 / 1.8.1 = db71486fe629478eabe073d1e2a5f13665b2e1e5f835a888207935258de7936a
+                （433,497 B / 169 文件，已在 archive/）

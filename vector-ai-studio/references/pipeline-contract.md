@@ -28,7 +28,7 @@
 | score.json | vector-ai-studio/score-v1 | `../scripts/score.py` | scores{A..F} / failed_dims / passed_dims / signals / verdicts[]（id / dim / msg / action） |
 | revision.json | vector-ai-studio/revision-v1 | `../scripts/iterate.py` | change_only / must_keep / decision / K_max |
 | batch.json | vector-ai-studio/batch-v1 | `../scripts/batch_check.py` | F / f_verified / per_run[] / aggregate |
-| preview.meta.json | vector-ai-studio/preview-meta-v1 | `../scripts/render_png.py` | renderer / degraded / note / width / height / fidelity（词表唯一来源 `../contract/contract.json` 的 `enums.fidelity`：`faithful` / `limited`，另有 `unknown` 兜底值；生产侧只写 faithful / limited，缺字段按 limited 处理） |
+| preview.meta.json | vector-ai-studio/preview-meta-v1 | `../scripts/render_png.py` | renderer / degraded / note / width / height / fidelity（词表唯一来源 `../contract/contract.json` 的 `enums.fidelity`：`faithful` / `limited`，另有 `unknown` 兜底值；生产侧只写 faithful / limited，缺字段按 limited 处理）/ fidelity_vector（r75：逐元素保真度证据，仅内置兜底渲染时） |
 | structure_readback.json | vector-ai-studio/structure-readback-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | raster / placed / paths / artboard_matches_viewBox / ok |
 | landing.json | vector-ai-studio/landing-v1 | `../scripts/land_vc.py`（`../scripts/land_craft.py` 同 schema） | automation / status / degradation / ai_produced |
 | studio.json | vector-ai-studio/studio-v1 | `../scripts/studio.py` | status / stages[]（stage / status / code / errors / detail）；单稿编排的阶段流水，不参与评级 |
@@ -135,7 +135,7 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 - **兼容开关**：`--two-valued` 把「未判定」折回旧措辞（日志标 `legacy_grading: true`），达标 / 不达标的判定边界一个都不变。这是给暂时读不懂三值的下游留的措辞开关，不是免重算的通行证——新字段照常写入。
 - **窄轨防洗白**：目录里已有 `output/<run-id>/score.json` / `output/<run-id>/judge.json` / `output/<run-id>/selftest.json` / `output/<run-id>/batch.json` 任何一件时，`--landing-only` 直接 `E-EXEMPTION-ABUSE`——窄轨是给跑不动完整链的机器留的取证通道，不是把完整 run 的判决藏起来的后门。
 
-## 证据哈希链与重放（r73 / M2）
+### 证据哈希链与重放（r73 / M2）
 
 聚合时（`../scripts/aggregate_log.py`）把 run 目录里**每个文件**哈希进一条链，写 `output/<run-id>/journal.jsonl`：每行 `{seq, prev, kind, path, sha256, bytes, hash}`，`hash` = 该条目规范 JSON（排序键、紧凑分隔符、去 hash 字段）的 sha256，`prev` 指向上一条，创世 `prev = 0…0`。链里**不含 wall-clock**（同输入两次聚合逐字节一致），只排除 journal 自身与 run.log；acceptance.json 与 deliverable.json 都在链里——**判决文件本身被生产时绑定**。final.ai 也入链（非幂等，但其哈希只进 journal、不进 acceptance.json，A3 不受影响）。
 
@@ -153,6 +153,17 @@ r45 起整条链只用 VectorCraft，不依赖 Adobe / COM / PowerShell。`../sc
 
 - `../scripts/witness.py verify`（或 `../scripts/replay.py --witness <见证文件>` 的 R5 项）：当前字节对锚核验——**签收之后再动验收日志，`E-WITNESS-MISMATCH` 当场红**；无见证记录的 run_id 同样不给过（**为一切作保的锚等于什么都没保**）。
 - **密钥取舍（与 H4 的零凭据原则一致）**：不用密钥，**仓库历史就是身份**——append-only、已推送、有 tag，谁都能独立核。能 force-push 那条历史的人能伪造锚，这是已声明的边界；tag 把它压到「必须在 tag 里可见」。仅此而已，不多宣称。
+
+## 保真度能力矩阵（r75 / M3 第一片：声明必须被测量支撑）
+
+`../scripts/fidelity_matrix.py` 为每类特征造探针（实心矩形 / 描边矩形 / 圆 / 椭圆 / 线 / 路径填充 / 路径描边 / 渐变 / 文本 / transform / fill-opacity），每个探针用**生产内置渲染器**（`../scripts/render_png.py` 的 `_builtin_raster`）与 **Pillow 参照渲染器**（真实的第二实现）各画一遍，逐像素比对，落成**已测能力矩阵** `fidelity/capability-matrix.json`（随包提交的可复现测量物；无 wall-clock，同输入逐字节一致）：
+
+- 容差（已声明，写在矩阵里）：实心形状**内部必须逐像素精确**（差集 bbox 内缩 2px 后必须全零）；边带允许差异——内置渲染器有 1px 外扩且不做抗锯齿，这是**已测的已知缺陷**，记录在 rect-solid 行的 note 里。整体差异像素比 ≤ 0.02。
+- 每行：`{feature, claim, measured, diff_ratio, interior_ok, diff_bbox, note}`——`claim` 是分类器（`render_png._element_fidelity`）对探针真实 sig 的**实际判词**，`measured` 是比对结果（consistent / divergent / skipped）。矩阵本体在 `fidelity/capability-matrix.json`（随包提交的可复现测量物）。
+- **`--check` 双闸**（CI 可跑）：① 重测逐字节比对（漂移即 `E-FIDELITY-DRIFT`——改了矩阵必须重测）；② **承重方向**：分类器说 faithful 的特征必须实测 consistent——声明被测量推翻即红。反向（实测一致 → 声明可升级）只记为矩阵的升级候选，不强制：保持 limited 是 fail-closed，不是不诚实。
+- **测量抓到并修掉的两个分类器盲区**：transform（旋转元素被画成未旋转 bbox）与 fill-opacity（半透明被画成全不透明）——`../scripts/lib_common.py` 的 analyze_svg 现在逐元素记录 `transform`（属性或 style 形式，布尔）与 `fill_opacity`（可解析为小数；解析不了就记原串），分类器对两者 fail-closed 判 limited。
+- preview.meta.json 增 `fidelity_vector`（仅内置兜底渲染时）：逐元素的 `{tag, transform, fill_opacity, fidelity}`——**证据不是闸**，闸仍读契约词表的那一个词；向量回答的是「为什么」。
+- Pillow 是参照渲染器：没有它，测量是**声明式跳过**（exit 3），绝不把未测的矩阵写盘、绝不判绿。
 
 ## 证据轨道分层（H1 与 H2–H4）
 

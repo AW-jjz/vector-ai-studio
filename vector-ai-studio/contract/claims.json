@@ -1166,6 +1166,24 @@
       "claim": "本项目不用密钥（H4 零凭据原则）：**仓库历史就是身份**——append-only、已推送、有 tag，谁都能核；能 force-push 那条历史的人能伪造锚，这是已声明的边界，tag 把它压到\"必须在 tag 里可见\"",
       "mechanism": "unverified",
       "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-118",
+      "file": "SKILL.md",
+      "anchor": "A94 钉住",
+      "text_hash": "sha256:c5f71b917fc7c70b156152306230e4aed5fed76afb10d07d2e0e8888275d91c1",
+      "claim": "A94 钉住承重方向：**分类器说 faithful 的特征，必须实测 consistent**；反过来（实测一致 → 可考虑升级声明）只记在矩阵里、不强制——保持 limited 是 fail-closed，不是不诚实",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
+    },
+    {
+      "id": "CLAIM-119",
+      "file": "SKILL.md",
+      "anchor": "内置渲染器预",
+      "text_hash": "sha256:33204cfb2684088e1cc2a1ffa286cb1e201f7a5f359c68db4e546ce221cb9ee2",
+      "claim": "内置渲染器预览的 meta 另带 `fidelity_vector`（逐元素的词与原因），判决仍只读契约词表的那一个词",
+      "mechanism": "unverified",
+      "note": "登记但暂无机器校验：这是一条流程/描述性承诺，需要时请补一条断言把它钉住"
     }
   ]
 }

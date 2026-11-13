@@ -1,0 +1,165 @@
+{
+  "schema": "vector-ai-studio/fidelity-matrix-v1",
+  "criteria_version": "2.0.0",
+  "tolerance": {
+    "edge_band_px": 2,
+    "overall_ratio_max": 0.02,
+    "declared": "solid shapes: interior exact; edges may differ (builtin overshoots 1px and does not anti-alias)"
+  },
+  "rows": [
+    {
+      "feature": "rect-solid",
+      "claim": "faithful",
+      "measured": "consistent",
+      "diff_ratio": 0.0071,
+      "interior_ok": true,
+      "diff_bbox": [
+        20,
+        20,
+        61,
+        51
+      ],
+      "note": "edge band only (1px overshoot is a known measured defect of the builtin)"
+    },
+    {
+      "feature": "rect-stroked",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.0567,
+      "interior_ok": false,
+      "diff_bbox": [
+        20,
+        20,
+        61,
+        51
+      ],
+      "note": ""
+    },
+    {
+      "feature": "circle",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.0641,
+      "interior_ok": false,
+      "diff_bbox": [
+        25,
+        25,
+        76,
+        76
+      ],
+      "note": ""
+    },
+    {
+      "feature": "ellipse",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.0621,
+      "interior_ok": false,
+      "diff_bbox": [
+        20,
+        30,
+        81,
+        71
+      ],
+      "note": ""
+    },
+    {
+      "feature": "line",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.0426,
+      "interior_ok": false,
+      "diff_bbox": [
+        15,
+        48,
+        86,
+        54
+      ],
+      "note": ""
+    },
+    {
+      "feature": "path-fill",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.062,
+      "interior_ok": false,
+      "diff_bbox": [
+        20,
+        21,
+        60,
+        51
+      ],
+      "note": ""
+    },
+    {
+      "feature": "path-stroke",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.1208,
+      "interior_ok": false,
+      "diff_bbox": [
+        20,
+        18,
+        63,
+        51
+      ],
+      "note": ""
+    },
+    {
+      "feature": "gradient",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.124,
+      "interior_ok": false,
+      "diff_bbox": [
+        20,
+        20,
+        60,
+        51
+      ],
+      "note": ""
+    },
+    {
+      "feature": "text",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.0246,
+      "interior_ok": false,
+      "diff_bbox": [
+        20,
+        41,
+        55,
+        54
+      ],
+      "note": ""
+    },
+    {
+      "feature": "transform",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.0751,
+      "interior_ok": false,
+      "diff_bbox": [
+        14,
+        21,
+        66,
+        72
+      ],
+      "note": ""
+    },
+    {
+      "feature": "opacity",
+      "claim": "limited",
+      "measured": "divergent",
+      "diff_ratio": 0.1271,
+      "interior_ok": false,
+      "diff_bbox": [
+        20,
+        20,
+        61,
+        51
+      ],
+      "note": ""
+    }
+  ]
+}

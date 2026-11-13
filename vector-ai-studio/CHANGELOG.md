@@ -4,6 +4,35 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.9.0 — 2026-11-13 [r75]
+
+M3, first slice: the fidelity claims become MEASURED. The builtin fallback's
+"faithful" verdict rested on a static sniff -- nobody had ever rendered the
+probes twice and compared.
+
+- **New `scripts/fidelity_matrix.py`**: one probe per feature (rect-solid /
+  rect-stroked / circle / ellipse / line / path-fill / path-stroke /
+  gradient / text / transform / opacity), each rendered by the PRODUCTION
+  builtin rasteriser AND by a Pillow reference renderer (a real second
+  implementation), compared pixel by pixel with a declared tolerance
+  (interior exact for solid shapes; the known 1px bbox overshoot and the
+  missing anti-aliasing live in the edge band). The capability matrix is a
+  committed measured artifact (`references/fidelity/capability-matrix.json`);
+  `--check` re-measures in memory and byte-compares (`E-FIDELITY-DRIFT`).
+- **The measurement caught two real classifier blind spots**: a
+  `transform` (a rotated rect was drawn unrotated and claimed faithful) and
+  `fill-opacity` (a 40% fill was drawn fully opaque). Both now fail closed
+  to limited in `render_png._element_fidelity`; `analyze_svg` records
+  `transform` and `fill_opacity` per element so the classifier can see them.
+- **preview.meta.json gains `fidelity_vector`** (builtin renders only): the
+  per-element words with the reason (transform / opacity / fill), additive
+  evidence -- the gate still reads the contract word.
+- **A94** pins the load-bearing direction: every feature the classifier
+  claims FAITHFUL must be measured CONSISTENT; matrix drift is
+  `E-FIDELITY-DRIFT`. Pillow is the reference renderer -- without it the
+  check is a declared skip (exit 3), never a pass. `EXPECTED_ASSERTIONS`
+  93 -> 94.
+
 ## 1.8.0 — 2026-11-13 [r74]
 
 M2, second slice: the witness layer -- role separation's missing half. Replay

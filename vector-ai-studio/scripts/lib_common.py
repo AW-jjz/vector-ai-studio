@@ -61,7 +61,9 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # +A92 (replay catches every cheap forgery) -> 90 + 2 = 92.
 # r74 (M2 slice 2): +A93 (the witness anchors certification: create/verify,
 # tamper, and no-record all behave) -> 92 + 1 = 93.
-EXPECTED_ASSERTIONS = 93
+# r75 (M3): +A94 (the fidelity claims are measured: matrix drift + the
+# faithful-implies-consistent direction) -> 93 + 1 = 94.
+EXPECTED_ASSERTIONS = 94
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
@@ -880,6 +882,22 @@ def analyze_svg(text):
             stroke = normalize_color(a.get("stroke"))
             sw = a.get("stroke-width")
             swv = _num(sw, 0.0) if sw is not None else None
+            # r75 (M3): the builtin rasteriser IGNORES transforms and fill
+            # opacity -- a rotated rect is drawn unrotated, a 40% fill is drawn
+            # fully opaque. The fidelity classifier must see both to fail
+            # closed, so the element record carries them: transform as a
+            # boolean (attribute or style form), fill-opacity as a parsed
+            # float, or the raw string when unparseable (the classifier fails
+            # closed on what it cannot read).
+            _tr = (a.get("transform") or "").strip()
+            _fo_raw = a.get("fill-opacity")
+            _fo = None
+            if _fo_raw is not None:
+                _s = str(_fo_raw).strip()
+                try:
+                    _fo = float(_s[:-1]) / 100.0 if _s.endswith("%") else float(_s)
+                except ValueError:
+                    _fo = _fo_raw
             pts = parse_path_points(a.get("d", "")) if tag == "path" else []
             anchors = len(pts) if tag == "path" else (4 if bbox else 0)
             out["anchor_count"] += anchors
@@ -924,6 +942,7 @@ def analyze_svg(text):
                 out["elements"].append({
                     "tag": tag, "bbox": bbox, "fill": fill, "stroke": stroke,
                     "stroke_width": swv, "id": child.get("id") or "",
+                    "transform": bool(_tr), "fill_opacity": _fo,
                 })
             for c in (fill, stroke):
                 if c is not None:
