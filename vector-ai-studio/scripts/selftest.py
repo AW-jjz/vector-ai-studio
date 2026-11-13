@@ -4106,9 +4106,16 @@ def _stage_r74(tmp, add):
     verify_ok = rc_v == 0 and (env_v.get("data") or {}).get("witnessed") is True
     ap = d / "acceptance.json"
     doc = json.loads(ap.read_text(encoding="utf-8"))
-    doc["grade"] = "达标"
-    ap.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
-                  encoding="utf-8")
+    # The base run's verdict IS 达标 (it is the honest pass the attacks
+    # mutate), so "grade -> 达标" would be a no-op -- and the tamper would
+    # only show on Windows, where a default text write flips LF to CRLF and
+    # changes the hash for the WRONG reason. The tamper must change a VALUE:
+    # needs_human_review=False is exactly what a forger wants (no human
+    # review), and the write is LF-explicit so every platform forges the same
+    # way and the witness catches it for the same reason.
+    doc["needs_human_review"] = False
+    with open(ap, "w", encoding="utf-8", newline="\n") as _f:
+        _f.write(json.dumps(doc, ensure_ascii=False, indent=2) + "\n")
     rc_t, env_t, _ = _call("witness.py", ["verify", "--run-dir", str(d),
                                           "--witness", str(wit), "--json"], tmp)
     tamper_caught = (rc_t == L.EXIT_FAIL and "E-WITNESS-MISMATCH" in _codes(env_t))

@@ -2642,3 +2642,49 @@ sha256        : b56681ddf4c593eced613a7da6c8eee939e53041db9a98522f8b86e2aa6e2584
                 （433274 B / 169 文件）
                 上一版：r73 / 1.7.0 = e50949fe84b2239adcf9553d7a7b0662805dc36bc1ce40163b05c5f6d3c8da44
                 （427,214 B / 168 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r74 / 1.8.1（2026-11-13）　A93 跨平台修正（取代 1.8.0；远端 CI 抓到）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r74-169files_v1.8.1.zip
+版本          : r74（SKILL.md 1.8.1，metadata.version "1.8.1"）
+文件数        : 169
+字节数        : 433497
+sha256        : db71486fe629478eabe073d1e2a5f13665b2e1e5f835a888207935258de7936a
+冻结时刻      : 2026-11-13 14:55（源码 169 文件 / 1211830 B）
+旧包归档      : 1.8.0 移入 05-发布/archive/（archive 现有 22 件）
+取代关系      : 本段取代 r74 / 1.8.0 段。1.8.0 **已推送、已打 tag，但 CI 红**——
+                它的 A93 在 Linux 上会说谎（见下）。按纪律：CI 红的包不算发出，
+                补丁即发（1.8.1），两段并存在本文件里。
+
+相对 1.8.0 变更 : 2 个文件（0 新增 / 0 删除 / 2 修改）
+                CHANGELOG.md                                     588f25220dd0064ee57603c796f9515a59df971c4260a5df2d9f80c171a86781
+                scripts/selftest.py                              2da27e325160738d4ddc9313dd5a68bdb7c203645a1982abe67984c8c237e858
+
+内容          : A93 的篡改写法在 Linux 上是**无操作**：
+                - 基座 run（redteam.base_run）的 verdict 本来就是 达标——把
+                  grade 改成 达标 没有改变任何值；
+                - Windows 上 A93 之所以绿，是因为默认文本写回把 LF 翻成 CRLF，
+                  哈希因**行尾**而变——红对了结果，红的理由是错的；
+                - Linux 上写回保持 LF，字节完全不变，见证自然放行 → A93 红。
+                修法：篡改改为改**值**（needs_human_review: True -> False，伪造者
+                真想要的），写回显式 LF（与聚合器一致，各平台伪造方式一致）。
+                这正是远端 CI 的意义：本地全绿 ≠ 各平台全绿，Linux CI 第一次
+                红就抓到了。
+
+实测证据      : 本机（带引擎）selftest --fixtures 94/94（skipped=0，exit 0）；
+                A93 detail：create=0 verify=0 tamper=1(E-WITNESS-MISMATCH)
+                no-record=1(E-WITNESS-MISMATCH)
+                双打包 x2 一致（169 / 433497 B / db71486fe629…）；zip ↔ 源码逐件 md5 全等；
+                冻结基线重取 PASS；validate_skill 0/0；其余闸同 r74 基线
+
+已知限制      : 1) A93 目前只在本机（Windows）与远端 Linux 两类环境验证；
+                   其它平台首次跑自检如遇 A93 红请回报（它现在应当跨平台一致）
+                2) 其余同 r74 基线（force-push 边界、M2 后续片、unverified 58 条、
+                   PDF/X 原文未核、外部评审 0 份）
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r74-169files_v1.8.1.zip
+                两者均应为 db71486fe629478eabe073d1e2a5f13665b2e1e5f835a888207935258de7936a
+                （433497 B / 169 文件）
+                1.8.0（CI 红，已撤）：b56681ddf4c593eced613a7da6c8eee939e53041db9a98522f8b86e2aa6e2584
+                （433,274 B / 169 文件，已在 archive/）
