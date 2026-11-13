@@ -2240,3 +2240,141 @@ sha256        : c6b7255c2f9e038fb153d9568017fff9fa1cb9379fd681ccd27d18a208508495
                 Windows 自带 Get-FileHash -Algorithm SHA256 同上路径
                 两者均应为 c6b7255c2f9e038fb153d9568017fff9fa1cb9379fd681ccd27d18a208508495
                 （323,372 B / 137 文件）
+
+────────────────────────────────────────────────────────────
+r72（2026-11-13）　判据 2.0.0：判决三值化、契约生成化、随包攻击集与声明登记册
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r72-165files.zip
+版本          : r72（SKILL.md 1.5.0，metadata.version "1.5.0"）
+文件数        : 165
+字节数        : 407695
+sha256        : 16e603c271d6245f69462d3abc061d3f62ba7f8ad87c11436aae5313fa47beef
+冻结时刻      : 2026-11-13（源码 165 文件 / 1,143,480 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（165 条目、0 目录项，与 r71 同构）
+旧包归档      : r71-137files.zip 移入 05-发布/archive/（不覆盖、不删除，archive 现有 17 件）
+
+相对 r71 变更 : 28 个文件（28 新增 / 0 删除 / 28 修改）
+                对比 05-发布/archive/vector-ai-studio_r71-137files.zip 逐件 md5
+新增 28       :
+                MIGRATION.md                                        39e30a8c58b2fd83e95d2a0cc02d921d29a1759f85c8c8274ee36b386b9c5cd7
+                contract/claims.json                                c8d0317f01ca02a49aa20efe908c2e5795dbbaf74c88cb131c22ede37a3cef08
+                contract/contract.json                              4f3bf5a869736739f05a04fc799c4fe1d1aa374cc99ab605e5991944ab04a0e9
+                docs/generated/contract-table.md                    d4e275b69dae9fe5c5cfa29a2cc2ace9f482b988225282d56fe936a0b07a15b9
+                engine.lock.json                                    3a55740d8601bca4a2cca352680df4a4fdd6a03ed2f877c94dab473ebe09ffc7
+                references/schemas/contract-enums.schema.json       7010f88765209eb9c60607a0e3f254c1f0ebe8ce785b6a3ce6194c67832a8a82
+                scripts/_contract.py                                e90d227a244c33f7c30a5854f5aad6ba0e1c0b316c9b707b4c8a009126a45522
+                scripts/gen_contract.py                             2b670629fe2c1af4f4b286fb0022f6171277d3f5efb8af743b363f2083b584de
+                scripts/redteam.py                                  8b732441f12d8b3f0e7a0dbf9789d840f09e2df3fedd89312f83ea0e127dc2e1
+                scripts/validate_claims.py                          5d3237a8159fd63102d8c77c5cac74bcdd1bb2ee017565883ec3294f15ac4398
+                tests/attacks/01-fake-ai.json                       e3cc015f5515970dd2c721b35276447a69e5b8ce085bb74ca5d592fb64b83492
+                tests/attacks/02-truncated-pdf.json                 bf813e6f9d969da5652d5c0b5a5f7c4830da499549bb772710aac548b458a91f
+                tests/attacks/03-missing-preview-meta.json          1b2a149029a81cf3b2f7b26606141326926fcc4aa5b360279fc4f5b3cdaff499
+                tests/attacks/04-foreign-run-id.json                965c9d09267e62c883aa94ddd97b0bf2d1550ab27f2fab93da2e3a07c4d82009
+                tests/attacks/05-mini-selftest.json                 b4bcc11f20686ad96872b50ef0170e8515e4a472ada0dd87681167749c63ef01
+                tests/attacks/06-l2-fabricated-score.json           4a6b594966609b6faf34f9a61e6f39320d9b3c7103ca211de46797a7bdcdd1d6
+                tests/attacks/07-tampered-verdict.json              6f6a342e4e26e206e539c5815c87121e348653f475a0e7b2e71939ce9584acd7
+                tests/attacks/08-coverage-claim.json                028a6374373708b2876532c1f50b7f3a52b6807f4dd2c4f33c83aff293af42cf
+                tests/attacks/09-indeterminate-pass-wording.json    b7d9d62e9b29dca567b2f78534565232e849c6e11497c19bb2812a30145934eb
+                tests/attacks/10-legacy-fidelity-word.json          499eae37b382c9562c1082a04534c032362da59a9b7ce45745ffc0e3e60159f6
+                tests/attacks/11-narrow-track-laundering.json       c05e5a38ad651b10dba3eb137c57657b197b8bae1d311855a386cf503e710406
+                tests/attacks/12-budget-exceeded.json               3abf93b6aadb7ccb7297fb590665433e10c55946aeaeffee3d0a90b71c250500
+                tests/attacks/13-f-backfill.json                    7e445cf97e7f4ee4e343a2ab309ad26bb1493dd26b2fd69f78547fbe5907e4bf
+                tests/attacks/14-exemption-abuse.json               371fb92e0dcfebcd42e00becd7622559ab8aa3398ced479a871ee3cef4c83e01
+                tests/attacks/15-review-duplicate-same-path.json    00966d2205c08abe6d56777e1ebe61f8e71db20a60453c9845b39d9e283dd163
+                tests/attacks/16-review-duplicate-new-name.json     a2ab00392b276f4201af61e38839cecb7d0e3a154f32d8d7269b92bcd26e4dc9
+                tests/attacks/17-self-attested-log.json             314d7dd8e6513e17dd6ebce82a4801f0948f7f622f0030c2e3841d0085551ef5
+                tests/fixtures/contract/contract-matrix.json        43f70c628388789248f747a13625e55965bb8e34c99262ed9fdd91b58987c858
+修改 28       :
+                CHANGELOG.md                                        b5819bdc0bfc2d994452750b5edad0ea1273e8ab825c87d3967620c194d78a22
+                README.md                                           10992c89bab5d30cf181b70eb277b8dfdf3b30b4377c7fb689e1d04f9caba7d0
+                SKILL.md                                            60678d11e99b63b1c2b326400068777a2cff8f0e857335589d42fcbc5d949ede
+                config/thresholds.json                              d86c0e9ed1249aeada8da90559317977f31754e2b94cd54253e064ab23a78a4c
+                references/error-codes.md                           90843afc2954fcf76a486d70a55d01aed37a2c114c391db8321634b50c598f63
+                references/pipeline-contract.md                     bd51b485b3519b90d65fda70bd548d60301cdf2f59b2a9f032b70734b03c7f34
+                references/schemas/acceptance.schema.json           5cbcc989dc10d81d1e8da09a0f2678e171c4115d1af4b206cdc8ede709feabfe
+                scripts/aggregate_log.py                            538fb9b5c91df976104d2d77a658c9badadbcc8c8e4f843b97b8905caca7826b
+                scripts/detect_deps.py                              90f46568d662f1e8f8e10e5bf286a9455965b889251b3e7a0e742c7fe356b338
+                scripts/iterate.py                                  7ba0be1e313ac8537868b481577cb9d5f3254b63a32539804c8aa48bfe1f9eb7
+                scripts/land_craft.py                               4205ae6c7bdb1464792fc5ebe6b69d58a2fb81a40b83d64c9e30fc9062ad3234
+                scripts/land_vc.py                                  7722a79654ced7ad245b5cb2412274a91baa524a2297484b4c77331506c067f2
+                scripts/lib_common.py                               90de05dde3a15ccacaeae3012308e6048c22620792c06a501647f7f3aef133f4
+                scripts/render_png.py                               e72ec63f2326026f1fd34d6d3a82c273902760dc9e7628a5599a7ead4a23bc87
+                scripts/selftest.py                                 b7f4f407411e17b3237fc22cc4b70504edabf5dad50b0cd39cb87c7d88cc533e
+                scripts/trace_ref.py                                0b1e6fbd124576c2e2b1aad1562a6df02d7730bfd2e4e8118ccee96cb1e3088c
+                templates/delivery-note.template.md                 4399de3e3c034a007389aa35e1b9014f7883eaf33d2a36f6faf4bb1a8224abfe
+                tests/fixtures/bad/bad_grade_v1_e_zero.json         ca560e76d9af68a95cb2f8b4cd60ed4bcbfbd5d140358aeaf9104a4c4e1768e4
+                tests/fixtures/bad/bad_grade_v2_a_zero.json         e15aef2fad1defdae4c8844d861fef1b6f1158667e037ead22fc183aaf93e4b3
+                tests/fixtures/bad/bad_grade_v3_h1_false.json       d6b0db460263ed69404763dae66ed886b5001046e71033e9d2ae6f0474dd6ed2
+                tests/fixtures/bad/bad_grade_v7_all_zero.json       aa2e9a1b7fc44fd049cc2400471d1c0b67492e830309b914acec0dd22b323432
+                tests/fixtures/bad/bad_grade_v8_no_gates.json       0e4456ef1640cea19e8ceacc1b1b143ad23781bfadf711b7fd687852e6eb308b
+                tests/fixtures/bad/bad_grade_v9_excellent.json      80f10606fba082699887f1324e7e7cb1f7357cae4787a95b3a79ab2df016a4be
+                tests/fixtures/bad/bad_l2_fabricated.json           968c9a86690f96020e61cec2d479855b8543c43826641357f174c0ca953f91eb
+                tests/fixtures/fixtures.json                        76ab585fc24dfdd0dcef0a09ae69a8be2a08c37871755904c31dc215b0294683
+                tests/fixtures/good/good_acceptance_reachable.json  a5adae0313b2fb1ac119595fd99f5fa95cf0f7027b7d122d77604dcf56b030dc
+                tests/fixtures/good/good_l2_degraded.json           b354d4a452559e94c0b197fe747e64ee9d58cb718fd3ddb68949c3c694bff9cd
+                tests/fixtures/good/good_o4_isolated.json           c396b72e9157f8244b0ea4bcbc18e3e658118a2caf9384e50879e6713c24b8f1
+
+内容          : 判据 2.0.0 —— 判决三值化（破坏性变更），迁移说明随包（MIGRATION.md）：
+                1) grade 由二值扩为三值：达标 / 不达标 / 未判定（tier = pass / not-pass /
+                   indeterminate）。「没测出来」不再等于「质量差」——L2（F 未验证、quick、
+                   四件产物不齐、自检证据缺失）一律记「未判定」而非「不达标」；
+                   新增 evidence_coverage（每必需维：测过没有 / 为什么 / 怎么修）与
+                   deliverable_status（能不能交，与质量结论分开回答）；日志记 criteria_version
+                   与 thresholds_sha256。旧日志在 2.0.0 校验下因缺这两个字段报
+                   E-GRADE-MISMATCH，属有意破坏性变更；兼容走 --two-valued（legacy_grading
+                   = true，达标 / 不达标的判定边界一个都没变），不要把三值降回二值。
+                2) 跨文件枚举生成化：contract/contract.json 是唯一书写处，
+                   scripts/gen_contract.py 生成 scripts/_contract.py、
+                   references/schemas/contract-enums.schema.json、
+                   docs/generated/contract-table.md、tests/fixtures/contract/contract-matrix.json；
+                   --check 在 CI 卡漂移（E-CONTRACT-DRIFT）。保真度词表只剩一份
+                   （faithful / limited，unknown 兜底），full 已从代码里消失。
+                3) 随包攻击集：scripts/redteam.py + tests/attacks/ 17 个攻击
+                   （17 攻击 / 15 拦下 / 0 漏拦 / 2 已声明边界）。
+                4) 声明登记册：contract/claims.json 登记 114 条对外承诺（51 条挂真实通过的
+                   断言、6 条挂演示过的边界、57 条登记但尚未机器校验），scripts/validate_claims.py
+                   在文档漂移时红（E-CLAIMS-DRIFT），承诺句覆盖率下限 1.0（实测 109/109）。
+                5) 引擎钉住：engine.lock.json 按平台+版本钉二进制哈希，钉住但不同即
+                   E-ENGINE-DRIFT 硬停；trace_ref.find_cli() 走 VECTORCRAFT_CLI → PATH →
+                   已知安装目录；land_craft 接上同一检查，detect_deps 报告钉住状态。
+                6) 窄轨防洗白：目录里已有完整链证据时 --landing-only 直接 E-EXEMPTION-ABUSE。
+                7) 文档：新增 MIGRATION.md；references/pipeline-contract.md 增 r72 段并删去
+                   「full 是展示枚举」旧描述；CHANGELOG.md 增 1.5.0 段；SKILL.md 版本 1.5.0。
+                8) 修 32 条 E-BROKEN-LINK：r72 文档把行内代码写成裸文件名，发布口径校验器
+                   判断链、打包器拒绝出包；已按项目约定改为 output/<run-id>/… / scripts/… /
+                   ../…，并重算 3 条声明哈希（CLAIM-050 / 087 / 109）。
+                9) 阈值数值零改动：config/thresholds.json 的判据数值一个都没动——逐叶节点比对
+                   r71 与 r72 包内同名文件，数值型变更 0 处（147 → 151 个叶节点：新增文案键
+                   5、删除 l2_grade 1、改写文案 2、version 1.0.0 → 2.0.0），只有「怎么判」变了。
+
+实测证据      : 打包侧四道闸（本轮实跑，非复述）：
+                selftest --fixtures 87 passed / 0 failed / 3 skipped（90 条断言；本机无
+                VectorCraft CLI → status=partial exit 3）；不带 --fixtures 86/0/3（89 条）
+                run_fixtures 37/37 all_ok=true
+                validate_skill 0 error / 0 warning（对 03-源码 与解压副本各跑一次，均 exit 0）
+                redteam 17 攻击 / 15 拦下 / 0 漏拦 / 2 已声明边界
+                validate_claims 114/114，覆盖 109/109 = 1.0
+                打包器强制校验 exit 0（两轮均 165 文件、产物自检无杂质）
+                双打包 x2 sha256 一致（165 文件 / 407,695 B / 16e603c2…beef）
+                zip ↔ 源码逐件 md5：missing 0 / extra 0 / diff 0；包内 .pyc 0 /
+                __pycache__ 0 / _dev-logs 0；根前缀异常条目 0
+                安装冒烟（解压副本、cwd 在包外）：validate_skill --selftest exit 0、
+                --fixtures exit 0（good 3 全过 / bad 11 逐条命中）、对解压副本校验 exit 0；
+                解包内 selftest 86/0/3 与 87/0/3（exit 3 = 缺可选依赖的 partial，非失败）、
+                run_fixtures 37/37 exit 0
+                版本三方一致：SKILL.md version 1.5.0（:6）↔ metadata.version "1.5.0"（:17）
+                ↔ CHANGELOG 首条 ## 1.5.0 — 2026-11-13 [r72]
+                证据目录 05-发布/打包留痕-r72.md
+
+已知限制      : 1) 判据 2.0.0 是破坏性变更，旧日志必须重算或按 MIGRATION.md 迁移
+                2) r72 未做独立 QA 重测（04-QA 无 r72 报告）：本轮只有打包侧四道闸读数
+                3) 带引擎路径（A30 / A31 / A46 与 E-ENGINE-DRIFT）本轮未实测；
+                   依赖齐全机器上的 89/89（--fixtures 90/90）属推算，不是读数
+                4) 声明登记册 114 条中 57 条仍为 unverified（已登记、未机器校验）
+                5) 外部真人评审 0 份，usable_for_claim 恒为假
+                6) PDF/X 规范原文未核（r70 起已标注）
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r72-165files.zip
+                Windows 自带 Get-FileHash -Algorithm SHA256 同上路径
+                两者均应为 16e603c271d6245f69462d3abc061d3f62ba7f8ad87c11436aae5313fa47beef
+                （407,695 B / 165 文件）
