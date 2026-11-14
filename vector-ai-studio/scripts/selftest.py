@@ -1627,7 +1627,7 @@ def _stage_pure_chain(tmp, add, th):
           tmp, flags=["-I", "-X", "pycache_prefix=" + str(tmp / "pycache")])
     s_iso = _jread(iso_out)
     iso_equal = bool(s_iso) and s_iso.get("scores") == s1.get("scores")
-    optional = {"cairosvg": importlib.util.find_spec("cairosvg") is not None,
+    optional = {"cairosvg": L.cairosvg_probe()["available"],
                 "pyyaml": importlib.util.find_spec("yaml") is not None}
     add("A8-dual-runtime-consistent",
         bool(s1) and s1.get("scores") == s2.get("scores") and iso_equal,
@@ -5037,6 +5037,34 @@ def _stage_r85(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r91(tmp, add):
+    """A110: the dependency probe and the cross-check agree about cairosvg.
+
+    r91: detect_deps used find_spec, which reports FOUND when the Python
+    package exists but its native cairo library cannot load; A105 then skipped
+    for exactly that reason. Two answers to the same question contradicted each
+    other in one environment. This pins the probe to the real-import-plus-one-
+    tiny-render question the cross-check asks.
+    """
+    try:
+        rc_d, env_d, _ = _call("detect_deps.py", ["--json"], tmp)
+        rows = (env_d.get("data") or {}).get("dependencies") or []
+        probe = next((r for r in rows if r.get("name") == "renderer_cairosvg"), None)
+        status = (probe or {}).get("status")
+        rc_c, _env_c, _ = _call("fidelity_matrix.py", ["--cross-check", "--json"], tmp)
+        usable = rc_c != 3
+        # rc_d reflects the whole probe (other optional deps may be missing and
+        # make it degraded/3); the only thing compared here is this one row.
+        ok = (rc_d in (0, 3) and status in ("FOUND", "MISSING")
+              and (status == "FOUND") == usable)
+        add("A110-cairosvg-probe-matches-cross-check", ok,
+            "detect=%s detect_exit=%s cross_exit=%s usable=%s" % (
+                status, rc_d, rc_c, usable))
+    except Exception as e:                      # noqa: BLE001
+        add("A110-cairosvg-probe-matches-cross-check", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def _stage_r86(tmp, add):
     """A106: the vendored verdict-kit runs and its manifest matches.
 
@@ -5303,6 +5331,7 @@ def main():
     _stage_r87(tmp, add)
     _stage_r89(tmp, add)
     _stage_r90(tmp, add)
+    _stage_r91(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

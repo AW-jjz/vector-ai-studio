@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.23.1 — 2026-11-14 [r91]
+
+- Dependency probes answer the question the cross-check asks. `cairosvg` used to
+  be reported as FOUND by `importlib.util.find_spec`, even when its native cairo
+  library could not load and `A105` therefore skipped in the same environment.
+- `lib_common.cairosvg_probe()` imports the package **and renders a 1x1 SVG**;
+  `scripts/detect_deps.py` and the optional-deps report in `A8` both use it.
+- New `A110` pins the two answers together: `detect_deps` says FOUND if and only
+  if the cross-check does not exit 3. `EXPECTED_ASSERTIONS` 109 → 110.
+
 Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).

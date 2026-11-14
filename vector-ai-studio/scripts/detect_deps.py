@@ -54,10 +54,10 @@ def main():
                      "FOUND" if shutil.which("resvg") else "MISSING",
                      "resvg on PATH" if shutil.which("resvg") else "resvg not on PATH",
                      "optional enhancement; builtin PNG fallback available", optional=True))
+    cairo = L.cairosvg_probe()
     deps.append(_dep("renderer_cairosvg",
-                     "FOUND" if importlib.util.find_spec("cairosvg") else "MISSING",
-                     "cairosvg importable" if importlib.util.find_spec("cairosvg")
-                     else "cairosvg not installed",
+                     "FOUND" if cairo["available"] else "MISSING",
+                     cairo["detail"],
                      "optional enhancement; builtin PNG fallback available", optional=True))
 
     flag = os.environ.get(LLM_FLAG_ENV)

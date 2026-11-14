@@ -82,7 +82,7 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # r89 (verdict-kit phase 1b): +A108 (claims adapter parity) -> 107 + 1 = 108.
 # r90 (verdict-kit phase 2-1): +A109 (contract generator adapter parity) ->
 # 108 + 1 = 109.
-EXPECTED_ASSERTIONS = 109
+EXPECTED_ASSERTIONS = 110
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",
@@ -423,6 +423,42 @@ def run_cli(script, main_fn):
 # Deterministic SVG structural analysis (no scoring, no thresholds here).
 # score.py / sanitize_svg.py / render_png.py consume this shared extraction.
 # ---------------------------------------------------------------------------
+
+def cairosvg_probe():
+    """r91: probe cairosvg the way it is actually used.
+
+    importlib.util.find_spec only proves the Python package exists; a package
+    whose native cairo library cannot load still reports FOUND and then fails
+    (or is skipped) at render time. Dependency probes must answer the same
+    question the cross-check asks: can this machine render one tiny SVG?
+    """
+    out = {"available": False, "stage": "import", "detail": ""}
+    try:
+        import cairosvg  # noqa: F401
+    except Exception as e:                      # noqa: BLE001
+        out["detail"] = ("cairosvg import failed: " + type(e).__name__ +
+                         ": " + str(e)[:120])
+        return out
+    out["stage"] = "render"
+    try:
+        png = cairosvg.svg2png(
+            bytestring=(b'<svg xmlns="http://www.w3.org/2000/svg" width="1" '
+                        b'height="1"><rect width="1" height="1"/></svg>'))
+    except Exception as e:                      # noqa: BLE001
+        out["detail"] = ("cairosvg imported but native cairo failed at render: " +
+                         type(e).__name__ + ": " + str(e)[:120])
+        return out
+    if not png:
+        out["detail"] = "cairosvg rendered empty output"
+        return out
+    out.update(available=True, stage="ok",
+               detail="cairosvg renders (1x1 SVG -> %d bytes PNG)" % len(png))
+    return out
+
+
+def cairosvg_available():
+    return cairosvg_probe()["available"]
+
 
 def _local(tag):
     return tag.split("}")[-1].lower() if isinstance(tag, str) else ""
