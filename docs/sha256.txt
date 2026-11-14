@@ -3815,3 +3815,40 @@ sha256        : 00b9dd33801d9ec4ee96f5ed90678875e25cd27ebc8287ccba659d2c01531464
                 bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
                 上一版：r89 / 1.22.0 = d1402a39473d651f1c5701c72f82f6e38a28c4acb6823284a206fda2dcb51909
                 （542937 B / 214 文件，已在 archive/）
+
+==========================================================================
+r91（v1.23.1 / cairosvg 探测诚实化）
+==========================================================================
+包文件        : vector-ai-studio_r91-222files.zip
+文件数        : 222
+字节数        : 551727
+sha256        : 43aaab74ed052a7d828e37934a87ec51c4035c8e624fde3d9bcca19fb7a58f5a
+版本          : 1.23.1（SKILL.md 顶层与 metadata.version 一致）
+冻结时刻      : 2026-11-14 13:2x
+相对 r90      : 0 新增 / 0 删除 / 5 修改
+逐件 sha256   :
+f8607f30c9fb4f3d347d279784ca0772a4b16a306aa2ffcabb7bf45cae2e65b1  scripts/lib_common.py
+453d39993cc6ae5ef40abf8c35efa394cc5b92e42c80397d15eab96480dfbd67  scripts/detect_deps.py
+30e1a060e3109e1a7aac18830723e32473b83dc6a54b4af9f3366d60dbb9b7ea  scripts/selftest.py
+8c7741b9b20cab8023a7ff3e064e417b5c72b4aafd61f2df45a8f7e7b824e32b  SKILL.md
+29e67b1d88cf05ec2c781f53ad9a39da8976a71855cfeaf5005dbe3de35b1296  CHANGELOG.md
+
+内容摘要      : 1) lib_common.cairosvg_probe() 改为「真 import + 渲染 1x1 SVG」；
+                2) detect_deps 的 renderer_cairosvg 与 A8 的 optional 报告改用该函数；
+                3) 新增 A110：detect_deps 报 FOUND ⇔ fidelity_matrix --cross-check 不退 3；
+                   EXPECTED_ASSERTIONS 109 → 110。
+
+实测证据      : 有 cairo（PATH 前置 Tesseract）selftest 110/0/0 exit 0、
+                --fixtures 111/0/0、run_fixtures 37/37、claims 143/143、
+                redteam 18/16/0/2、validate_skill 0/0；
+                无 cairo 时 109/0/1（A105 声明跳过）、A110 仍绿
+                （detect=MISSING ↔ cross_exit=3）。
+                解压换 cwd 后 110/111/37 全 exit 0。
+
+已知限制      : 1) cairosvg 依赖原生 cairo；本机 DLL 在 Tesseract 目录，PATH 未含时
+                   A105 如实 skipped（exit 3），不是失败；
+                2) PDF/X 规范原文未核；外部真人评审 0 份；path 墨量不可测。
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r91-222files.zip
+                = 43aaab74ed052a7d828e37934a87ec51c4035c8e624fde3d9bcca19fb7a58f5a
+                （551,727 B / 222 文件）
