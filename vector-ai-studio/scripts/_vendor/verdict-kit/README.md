@@ -34,6 +34,8 @@ and throw-away run directories, so they exercise the real subprocess path.
 
 `fixtures.FixtureError` carries **no** exit code and **no** `E-*` code: the
 caller decides how a broken declaration is reported in its own contract.
+A missing script and a duplicate case id are definition errors too -- they
+are refused as `FixtureError`, never folded into a case result.
 
 `attacks.evaluate` has **no default pass predicate**. `expect_no_pass` asks
 whether an acceptance document claims a pass, which is the consuming skill's

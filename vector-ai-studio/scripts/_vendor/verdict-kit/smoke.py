@@ -607,6 +607,54 @@ def test_fixture_summary_and_count_guard() -> None:
         raise AssertionError("check_declared_count accepted %r" % (bad,))
 
 
+def test_fixture_missing_script() -> None:
+    """A case naming a script that does not exist is a broken definition.
+
+    Left to the interpreter it would exit 2 with empty stdout -- the exact
+    reading of a case that declares ``want_exit: [2], want_codes: []``, which
+    would then pass without its script ever running.
+    """
+    with tempfile.TemporaryDirectory(prefix="verdict-kit-smoke-") as td:
+        root = Path(td)
+        scripts = _probe_tree(root)
+        out = root / "out"
+        out.mkdir()
+        case = {"id": "gone", "script": "absent.py", "args": [],
+                "want_exit": [2], "want_codes": []}
+        try:
+            F.run_case(case, scripts_dir=scripts, fixtures_dir=root, out_dir=out)
+        except F.FixtureError as e:
+            assert "gone" in str(e) and "absent.py" in str(e), e
+        else:
+            raise AssertionError("run_case accepted a missing script")
+
+
+def test_fixture_duplicate_id() -> None:
+    """Two cases sharing an id + setup_dir is a definition error, not a crash.
+
+    The second ``copytree`` lands on the first case's run directory; uncaught
+    ``FileExistsError`` would surface as an internal error upstream.
+    """
+    with tempfile.TemporaryDirectory(prefix="verdict-kit-smoke-") as td:
+        root = Path(td)
+        scripts = _probe_tree(root)
+        fx = root / "fx"
+        (fx / "setup").mkdir(parents=True)
+        (fx / "setup" / "acceptance.json").write_text("{}\n", encoding="utf-8")
+        out = root / "out"
+        out.mkdir()
+        case = {"id": "same", "script": "probe.py", "args": [],
+                "setup_dir": "setup", "want_exit": [0], "want_codes": []}
+        first = F.run_case(case, scripts_dir=scripts, fixtures_dir=fx, out_dir=out)
+        assert first["ok"] is True, first
+        try:
+            F.run_case(case, scripts_dir=scripts, fixtures_dir=fx, out_dir=out)
+        except F.FixtureError as e:
+            assert "same" in str(e), e
+        else:
+            raise AssertionError("run_case accepted a duplicate case id")
+
+
 TESTS = [
     ("envelope.shape", test_envelope_shape),
     ("envelope.deterministic", test_envelope_deterministic),
@@ -641,6 +689,8 @@ TESTS = [
     ("fixtures.exact-codes", test_fixture_exact_code_match),
     ("fixtures.acceptance", test_fixture_acceptance_mismatch),
     ("fixtures.summary-guard", test_fixture_summary_and_count_guard),
+    ("fixtures.missing-script", test_fixture_missing_script),
+    ("fixtures.duplicate-id", test_fixture_duplicate_id),
 ]
 
 

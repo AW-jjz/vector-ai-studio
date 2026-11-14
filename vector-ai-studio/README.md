@@ -121,13 +121,14 @@ python scripts/verify_install.py --json
 - **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `output/<run-id>/selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用。反向证明见 red-team 的 `17-self-attested-log`。
 - 跨文件的枚举（保真度、档位、判读字段）只在 `contract/contract.json` 定义一次，由 `scripts/gen_contract.py` 生成给生产侧与判据侧共同 import；`python scripts/gen_contract.py --check` 在 CI 里卡漂移。
 - 保真度矩阵有可选的第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只对 `faithful` 特征要求像素一致，`limited` 只要求渲染非空；cairosvg/原生 cairo 缺席退 3。
-- Phase 0 的 verdict-kit 骨架 vendored 在 `scripts/_vendor/verdict-kit/`：A106 跑 33 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 未改。
+- Phase 0 的 verdict-kit 骨架 vendored 在 `scripts/_vendor/verdict-kit/`：A106 跑 35 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 未改。
 - Phase 1a 起 `lib_common` 的 `envelope()` / `emit()` 委托给 vendored 信封；A107 用 13 组冻结 golden（含 `partial`）做逐字节 parity，`ToolError`/`run_cli` 暂不动。
 - Phase 1b 起 `scripts/validate_claims.py` 委托给 vendored `ClaimRegistry`；A108 用 4 组冻结 golden（无日志 / 通过日志 / 坏跳过 / 哈希漂移）做语义 parity。
 - Phase 2-1 起 `scripts/gen_contract.py` 的装载 / 逐字节比对 / 原子写委托给 vendored `verdict_kit.contract`，四个渲染器与 thresholds 文案键检查留在本技能；A109 用 7 组冻结 golden 做 parity（解析后 JSON + status/code），CLI 形状、信封 data、退出码与错误码一致。
 - Phase 2-2 起 `scripts/redteam.py` 的六种 mutation op、点路径取值与六类声明式期望校验委托给 vendored `verdict_kit.attacks`，基线 `base_run`、验收日志的读取、subprocess 调用与 CLI 形状留在本技能，攻击数据仍是 `tests/attacks/*.json`；A111 用两份冻结 golden 做 parity（整份信封语义全等 + 18 条逐条 exit/codes/problems）。
 - Phase 2-3 起 `scripts/run_fixtures.py` 的三占位符展开、`setup_dir` 物化、单 case 执行、精确码匹配、汇总与声明条数守卫委托给 vendored `verdict_kit.fixtures`，schema、`cases_expected` 读取、脚本目录、CLI 形状与 `E-FIXTURE-MISMATCH` 留在本技能；A112 用冻结的整份 `--json` 信封做逐字节 parity（37 条）。
 - Phase 2-4 起 `scripts/selftest.py` 的门禁层（tally、`A60` 计数守卫、`A76` 跳过声明、`ok`/`partial`/`fail` 三态与退出码 0/1/3）委托给 vendored `verdict_kit.assertions`，断言实现体、`EXPECTED_ASSERTIONS`、`CAPABILITY_SKIPS` 与 CLI 留在本技能；A60/A76 的 id、文案与顺序不变，A113 用五份内存报告验门禁语义，112 条旧断言的 `id`/顺序/`ok` 基线冻结在 `tests/fixtures/release-gate/`。至此 **Phase 2 四片（2-1 ~ 2-4）全部完成**。
+- r95 / 1.26.1 修 Phase 2-3 那段代码的两条定义错误路径，非迁移片：`scripts/_vendor/verdict-kit/verdict_kit/fixtures.py` 的 run_case 现在在 materialize 之前校验脚本存在（脚本缺失时解释器自己退 2、stdout 为空，读数与 want_exit:[2] / want_codes:[] 的 case 相同，会假绿），materialize 在 copytree 前拒绝已存在的 run_dir（同 id 且都带 setup_dir 的第二个 case 原会落 FileExistsError → E-INTERNAL(4)）。两条都统一成 E-SCHEMA / 退 2，对外错误码集合不变；A114 用三组临时最小 fixture set 直接验这两条并保留一条正常路径，`EXPECTED_ASSERTIONS` 113 → 114，`--fixtures` 为 115；kit 冒烟 33 → 35，`scripts/_vendor/verdict-kit/VENDORED.sha256` 仍 14 项（内容已重算）。37 条随包 case 与冻结 golden 逐字节不变。
 
 
 ## 自检说明

@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.26.1 — 2026-11-14 [r95]
+
+Two correctness debts found while reviewing r93/r94, closed together because
+they are the same class of bug: a **broken fixture definition reporting itself
+as something else**. Neither is reachable with the current 37 cases; both were
+traps for the next declaration. Patch release: no new error code, no new
+behaviour on the normal path.
+
+- **Debt 1 — a missing script used to be a false green.** `verdict_kit.fixtures.run_case`
+  only treated `rc=-1` as a subprocess failure, and that is set from
+  `OSError` / `SubprocessError` around subprocess.run. A script file that does
+  not exist never raises: CPython starts, cannot open argv[1], exits **2** with
+  empty stdout. So the reading was `rc=2, got_codes=[]` — exactly what a case
+  declaring `want_exit: [2], want_codes: []` asks for, so such a case would have
+  passed without its script ever running. `run_case` now checks
+  `Path(scripts_dir) / script` with `is_file()` **before** materialisation and
+  raises `FixtureError("script not found for case <id>: <path>")`. The
+  `except` branch is kept (it still maps `rc=-1`), and its comment now says
+  what it always meant: it fires only when the **interpreter itself** cannot
+  start.
+- **Debt 2 — a duplicate case id with `setup_dir` used to be `E-INTERNAL`.**
+  `materialize` called `shutil.copytree(src, run_dir)` directly. A second case
+  with the same id also carrying `setup_dir` lands on the first case's run
+  directory, so `FileExistsError` escaped uncaught and `run_cli` reported
+  `E-INTERNAL` / exit 4. Two cases sharing an id is a definition error, not an
+  internal crash: `materialize` now refuses an existing `run_dir` with
+  `FixtureError("duplicate case id (run dir already exists): <id>")`, which the
+  skill's existing `except FixtureError -> E-SCHEMA / EXIT_USAGE` mapping turns
+  into the same code every other broken declaration gets. The set of codes
+  callers can see is unchanged (still no new `E-*`).
+- **New**: A114 verifies both, using three minimal fixture sets written to a
+  temp dir and pushed through `scripts/run_fixtures.py` as real subprocesses (so the
+  code and exit status are the ones callers see, not just the exception
+  type): missing script -> `E-SCHEMA` / exit 2 (explicitly not
+  `E-FIXTURE-MISMATCH` / 1 and not `E-INTERNAL` / 4); duplicate id + `setup_dir`
+  -> `E-SCHEMA` / exit 2; and a normal case that still materialises `setup_dir`
+  and still reports `ok`. Detail reads
+  `missing_script=E-SCHEMA/2 dup_id=E-SCHEMA/2 normal=ok`.
+  `EXPECTED_ASSERTIONS` 113 -> **114**.
+- **Zero regression on the normal path**: `tests/fixtures/fixtures-run/run-fixtures-frozen.json`
+  is untouched and A112 still reads `bytes_equal=True raw_equal=True
+  want=14514B got=14514B`. `scripts/run_fixtures.py --json` remains 37/37 and
+  byte-identical to the golden.
+- **Kit**: `scripts/_vendor/verdict-kit/verdict_kit/fixtures.py` and `scripts/_vendor/verdict-kit/smoke.py` changed, so
+  `scripts/_vendor/verdict-kit/VENDORED.sha256` was recomputed (still **14**
+  entries) and the smoke test went 33 -> **35** checks (missing script ->
+  `FixtureError`; duplicate id -> `FixtureError`). A106 expects 35. The kit
+  README now states that a missing script and a duplicate id are definition
+  errors too.
+
 ## 1.26.0 — 2026-11-14 [r94]
 
 verdict-kit, phase 2-4: the release gate. `scripts/selftest.py` no longer

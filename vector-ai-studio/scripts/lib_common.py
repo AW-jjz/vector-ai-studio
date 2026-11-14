@@ -91,7 +91,11 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # r94 (verdict-kit phase 2-4): +A113 (the gate semantics themselves: ok / fail /
 # partial / count / undeclared skip, read off the vendored harness) ->
 # 112 + 1 = 113.
-EXPECTED_ASSERTIONS = 113
+# r95: +A114 (two fixture DEFINITION errors: a missing script, which used
+# to read as exit 2 / no codes and could satisfy a case declaring exactly
+# that, and a duplicate case id with setup_dir, which used to escape as
+# FileExistsError -> E-INTERNAL) -> 113 + 1 = 114.
+EXPECTED_ASSERTIONS = 114
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

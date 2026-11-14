@@ -5247,12 +5247,83 @@ def _stage_r94(tmp, add):
             skip_case[0], skip_case[1]))
 
 
+def _stage_r95(tmp, add):
+    """A114: a broken fixture definition is E-SCHEMA, never a green run.
+
+    Two debts found in the r93/r94 review, both unreachable with the current
+    37 cases and both a trap for the next declaration:
+
+    * **missing script** -- `run_case` handed the path to the interpreter,
+      which started fine, failed to open the file and exited 2 with empty
+      stdout. That is the exact reading of a case declaring `want_exit: [2]`,
+      `want_codes: []`, so such a case would have passed without its script
+      ever running. It is now refused before materialisation.
+    * **duplicate case id with setup_dir** -- the second `copytree` landed on
+      the first case's run directory; the uncaught `FileExistsError` reached
+      `run_cli` as E-INTERNAL (4). A broken definition is E-SCHEMA (2).
+
+    Three minimal fixture sets, written into a temp dir and pushed through
+    `run_fixtures.py` as a real subprocess (so the error CODE and the exit
+    status are the ones callers actually see, not just the exception type).
+    The third set is a normal case: it is there so the two refusals cannot be
+    "fixed" by refusing more than they must -- the ordinary path still runs,
+    still materialises setup_dir and still reports ok.
+    """
+    base = Path(tempfile.mkdtemp(prefix="a114-", dir=str(tmp)))
+    # The fixtures directory is the definition file's own parent, so the
+    # setup tree sits next to the three definitions.
+    setup = base / "setup"
+    setup.mkdir(parents=True)
+    (setup / "acceptance.json").write_bytes('{"grade": "ok"}\n'.encode("utf-8"))
+
+    def define(name, cases, expected):
+        p = base / (name + ".json")
+        p.write_text(json.dumps(
+            {"schema": "vector-ai-studio/fixtures-v1",
+             "cases_expected": expected, "cases": cases},
+            ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return p
+
+    # The shape that used to be indistinguishable from a pass: exit 2 with no
+    # codes, and the script it names is not there.
+    miss = define("missing", [{"id": "gone", "script": "no-such-script.py",
+                               "args": [], "want_exit": [2], "want_codes": []}], 1)
+    # Two cases, one id, both carrying setup_dir. The first one runs (so its
+    # run dir exists), the second must be refused rather than crash.
+    dup_case = {"id": "dup", "script": "schema_check.py", "args": ["--help"],
+                "setup_dir": "setup", "want_exit": [0], "want_codes": []}
+    dup = define("duplicate", [dict(dup_case), dict(dup_case)], 2)
+    # The ordinary path, unchanged: one case, setup_dir materialised, ok.
+    norm = define("normal", [dict(dup_case)], 1)
+
+    try:
+        rc_m, env_m, _ = _call("run_fixtures.py", ["--json", "--fixtures", str(miss)], tmp)
+        rc_d, env_d, _ = _call("run_fixtures.py", ["--json", "--fixtures", str(dup)], tmp)
+        rc_n, env_n, _ = _call("run_fixtures.py", ["--json", "--fixtures", str(norm)], tmp)
+    except Exception as e:                      # noqa: BLE001
+        add("A114-fixture-definition-errors", False,
+            type(e).__name__ + ": " + str(e)[:140])
+        return
+
+    miss_ok = (rc_m == 2 and _codes(env_m) == ["E-SCHEMA"])
+    dup_ok = (rc_d == 2 and _codes(env_d) == ["E-SCHEMA"])
+    data_n = env_n.get("data") or {}
+    norm_ok = (rc_n == 0 and data_n.get("all_ok") is True
+               and data_n.get("passed") == 1 and data_n.get("total") == 1)
+    add("A114-fixture-definition-errors", miss_ok and dup_ok and norm_ok,
+        "missing_script=%s/%s dup_id=%s/%s normal=%s" % (
+            ",".join(_codes(env_m)) or "-", rc_m,
+            ",".join(_codes(env_d)) or "-", rc_d,
+            "ok" if norm_ok else "rc=%s codes=%s" % (
+                rc_n, ",".join(_codes(env_n)) or "-")))
+
+
 def _stage_r86(tmp, add):
     """A106: the vendored verdict-kit runs and its manifest matches.
 
     Phase 0 vendors the skeleton under scripts/_vendor/verdict-kit WITHOUT
     changing any existing import. This assertion keeps it honest: every file
-    hashes to VENDORED.sha256, and the 33-check smoke test passes from a
+    hashes to VENDORED.sha256, and the 35-check smoke test passes from a
     foreign cwd with bytecode writing disabled (-B, so no nested __pycache__).
     """
     try:
@@ -5280,7 +5351,7 @@ def _stage_r86(tmp, add):
             last = json.loads((r.stdout or "").strip().splitlines()[-1])
         except (ValueError, IndexError):
             last = {}
-        ok = (r.returncode == 0 and last.get("checks") == 33
+        ok = (r.returncode == 0 and last.get("checks") == 35
               and last.get("failed") == 0 and not bad)
         add("A106-verdict-kit-vendored", ok,
             "rc=%s checks=%s failed=%s manifest_bad=%s" % (
@@ -5575,6 +5646,10 @@ def main():
     # A113: the gate semantics themselves (ok / fail / partial / count /
     # undeclared skip), built in memory from the vendored harness.
     _stage_r94(tmp, add)
+    # A114: the two definition errors that used to read as something else --
+    # a missing script (exit 2 / no codes, i.e. a passable shape) and a
+    # duplicate case id with setup_dir (FileExistsError -> E-INTERNAL).
+    _stage_r95(tmp, add)
 
     # ---- the gate: two meta-assertions, then the tally ------------------------
     # A76: a skip is only honest for a declared capability. CI accepts exit 3

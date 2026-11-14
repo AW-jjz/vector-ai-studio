@@ -81,6 +81,14 @@ def materialize(
     Returns ``None`` when the case declares no ``setup_dir`` -- an absent
     setup is legal, an absent *source* is not: that would hand the CLI an empty
     directory and the case would then fail (or pass) for the wrong reason.
+
+    The destination must not exist yet. Every case owns exactly one run
+    directory (``out_dir / id``), so a second case with the same ``id`` that
+    also declares a ``setup_dir`` lands on a directory the first case already
+    created. ``copytree`` would raise ``FileExistsError`` -- an uncaught
+    ``OSError`` that reads as an internal crash rather than as the broken
+    declaration it is. Two cases sharing an id is a definition error, so it is
+    refused here in the same vocabulary as every other one.
     """
     setup_dir = case.get("setup_dir")
     if not setup_dir:
@@ -89,6 +97,9 @@ def materialize(
     if not src.is_dir():
         raise FixtureError("setup_dir not found for case " + str(case.get("id", "unnamed"))
                            + ": " + str(src))
+    if Path(run_dir).exists():
+        raise FixtureError("duplicate case id (run dir already exists): "
+                           + str(case.get("id", "unnamed")))
     shutil.copytree(src, Path(run_dir))
     return str(run_dir)
 
@@ -112,6 +123,16 @@ def run_case(
     """
     cid = str(case.get("id", "unnamed"))
     script = str(case.get("script", ""))
+    # The script must exist before anything is run or materialised. Until r95
+    # a missing file was left to the interpreter: CPython starts fine, cannot
+    # open the argument, prints to stderr and exits 2 with empty stdout. That
+    # produced ``rc=2, got_codes=[]`` -- indistinguishable from a case that
+    # declares ``want_exit: [2], want_codes: []``, so such a case would have
+    # passed without its script ever running. A missing script is a broken
+    # declaration, not a verdict about the CLI.
+    script_path = Path(scripts_dir) / script
+    if not script_path.is_file():
+        raise FixtureError("script not found for case " + cid + ": " + str(script_path))
     run_dir = Path(out_dir) / cid
     materialize(case, fixtures_dir=fixtures_dir, run_dir=run_dir)
     expanded = expand_args([str(a) for a in case.get("args", [])],
@@ -123,8 +144,11 @@ def run_case(
                            encoding="utf-8", errors="replace", check=False)
         rc, out = r.returncode, (r.stdout or "")
     except (OSError, subprocess.SubprocessError):
-        # A script that cannot even start is a failed case, not a crash of the
-        # whole regression run: rc=-1 can never be in a declared want_exit.
+        # The INTERPRETER itself could not be started (the executable in
+        # ``python`` is absent or not runnable). A missing *script* never
+        # reaches here -- it is refused above, in the declaration's own
+        # vocabulary. rc=-1 can never be in a declared want_exit, so this is a
+        # failed case, not a crash of the whole regression run.
         rc, out = SUBFAIL_EXIT, ""
 
     got_codes: list[str] = []
