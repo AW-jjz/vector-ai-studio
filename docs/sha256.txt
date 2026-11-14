@@ -3852,3 +3852,109 @@ f8607f30c9fb4f3d347d279784ca0772a4b16a306aa2ffcabb7bf45cae2e65b1  scripts/lib_co
 校验方式      : sha256sum 05-发布/vector-ai-studio_r91-222files.zip
                 = 43aaab74ed052a7d828e37934a87ec51c4035c8e624fde3d9bcca19fb7a58f5a
                 （551,727 B / 222 文件）
+
+==========================================================================
+r92（v1.24.0 / verdict-kit Phase 2-2：attacks 抽取）
+==========================================================================
+包文件        : vector-ai-studio_r92-226files.zip
+文件数        : 226
+字节数        : 564936
+sha256        : 48de74b9855cb42133073381b272d5dc7b4b44e6beff40b1fcf5610a6e137ad1
+版本          : 1.24.0（SKILL.md 顶层 version 与 metadata.version 两处镜像一致；
+                CHANGELOG 首条 `## 1.24.0 — 2026-11-14 [r92]`；以上三项均从 zip 内读回核对）
+冻结时刻      : 2026-11-14 14:1x
+打包器        : skill-lifecycle-toolkit/scripts/package_skill.py
+                --platform workbuddy --channel marketplace（未手工 zip；连打两次 sha256 一致）
+旧包归档      : vector-ai-studio_r91-222files.zip 移入 05-发布/archive/（不覆盖、不删除；
+                archive 由 44 件增至 45 件；r91 包 sha256 前后均为 43aaab74…8f5a）
+
+相对 1.23.1 变更 : 15 个文件（4 新增 / 0 删除 / 11 修改），222 → 226
+                对比 05-发布/archive/vector-ai-studio_r91-222files.zip 逐件 sha256
+新增 4        :
+                scripts/_vendor/verdict-kit/verdict_kit/attacks.py  4682308f5652587ee3b067627c53795ef0a26479fc26ac6208c656189d8f3e37
+                tests/fixtures/attacks/README.md                     d575deb7ea9fe227821a82f03e2e740491ea231a6ffe2e92fe50e421cdf2cf1a
+                tests/fixtures/attacks/attacks-frozen.json           2bec0f8723599aed70488ec27ad50ef4e7faa44783bd0d973c4c1eecd8f91ea3
+                tests/fixtures/attacks/redteam-frozen.json           37be203087dce47f9155db490869097498a548a4d0652317b7b63792f3d6121d
+修改 11       :
+                CHANGELOG.md                                         9f386582a9d1f9b41f394a8de79a13ba5d061ae9c84ee3bffb7beaf6f4f77d66
+                MIGRATION.md                                         c474e7126cb603a7e7b9e7719826edf348b14d290b686f957851a7e6ec4d516a
+                README.md                                            d93a82c55a1f116344ea200b67a959bd9f213ceaad1128caaf1fd42d91442695
+                SKILL.md                                             cfc47d6edeae6ff9e8f84bdb12a1b0d34e09106d185454ffc06c3f6b18381921
+                scripts/_vendor/verdict-kit/README.md                5e66d995142a98d212a6de3891ca1d10e7c430109dd1beeeacc1a8ba0f90edb7
+                scripts/_vendor/verdict-kit/VENDORED.sha256          893980475330410641b8cb9ba9cb6dfb88c669262b35f7bf7a62a6e4b7ec7eb7
+                scripts/_vendor/verdict-kit/smoke.py                 0ee876c018e544000485f2dbadde3857868e1d4bf8aa1f83dab2caf852c93c88
+                scripts/_vendor/verdict-kit/verdict_kit/__init__.py  f69be47ee76e987a9ce23436614b480dd4893159ded3f6867557c65f111421bd
+                scripts/lib_common.py                                d2e5bab8023c8d051687da2076d1c7a8fdcfc2d1d6e120c2d8be6403af98d184
+                scripts/redteam.py                                   07ff1e94d67c34fbaa530905d5344940b87759d41474e50334d53922250a51d2
+                scripts/selftest.py                                  ae94e0376e094539b657718939b1d74984d9552658e04c7dd735d0954b5ad02f
+删除 0        :
+内容          : verdict-kit Phase 2-2——把「攻击用例怎么施加、怎么判」搬进 vendored kit，
+                先冻 golden，再换实现：
+                1) kit 新增 `verdict_kit/attacks.py`：`apply_mutations`
+                   （delete / write_text / write_bytes_b64 / write_json / patch_json / copy）、
+                   `dotted_get`、`evaluate(spec, result, *, too_good=None)`。
+                2) `scripts/redteam.py` 317 → 276 行：`_apply` / `_evaluate` 改薄，`_dotted`
+                   死代码删除；`base_run` / `_run_attack` / CLI / 18 份攻击数据保留。
+                3) 换实现前先冻 golden 到 `tests/fixtures/attacks/`（README + 18 条
+                   attacks-frozen.json + 30 行 redteam-frozen.json 整封信封）。
+                   A111 用 r91 旧树与新树各跑一遍，逐字节比对 frozen；旧树（无 attacks.py、
+                   无 A111）能独立复现同一份字节，故 golden 描述的是旧行为，不是新代码自证。
+                4) kit 纯化（主理人裁定）：删除写死「达标 / pass」的 `default_too_good`；
+                   `expect_no_pass` 未注入谓词时抛 `ValueError`（落点 code=4 / E-INTERNAL），
+                   不再猜词通过；技能侧显式注入保持不变。全仓 `default_too_good|兼容默认` 零命中。
+                5) VENDORED.sha256 12 → 13 项（加 attacks.py）并整册重算；
+                   kit smoke 25 → 28（新增 attacks.mutation-ops / expectations / dotted-seam）。
+                6) EXPECTED_ASSERTIONS 110 → 111（A111），`--fixtures` 对应 111 → 112。
+                7) 阈值数值零改动（config/thresholds.json 与 r91 包逐字节相同）；三档
+                   tier、L0–L5、description 三态、五条契约、两条证据轨均未动；
+                   18 份 tests/attacks/*.json 与 r91 逐件 md5 相同。
+行尾修订      : QA 重测时 `scripts/lib_common.py` 与 r91 是整文件 diff（r91 混合行尾，r92 当时纯 LF）。
+                打包前主理人按 r91 行尾归一化，逐行比对后 r92 该文件仅剩 2 行内容差异
+                （1 行注释 + `EXPECTED_ASSERTIONS 110 → 111`），字节数因此 1,614,717 → 1,615,754
+                （+1037 = 1037 个 LF 变 CRLF）。本包全部读数均在修订后的字节上重跑，
+                未沿用 QA 阶段的旧读数；下文九道闸与复测闸均为打包侧实跑。
+
+实测证据      : 九道闸（本机实跑：Python 3.12.10 + 引擎 0.22.0；
+                PATH 前置 C:/Program Files/Tesseract-OCR 以恢复 cairosvg 原生库）：
+                selftest 111/0/0（failed=0、skipped=[]、partial=false、exit 0；
+                A30/A31/A46/A103/A104/A105 全部 skipped=false 真执行）、
+                selftest --fixtures 112/0/0（exit 0）、run_fixtures 37/37（all_ok=true，exit 0）、
+                validate_claims 143/143 覆盖 138/138（ratio 1.0 = floor，exit 0）、
+                redteam 18 攻击 / 16 拦下 / 0 漏拦 / 2 已声明边界（exit 0；
+                输出 md5 00d7320deca68bee7f8967b43b0b5617 与 frozen 逐字节相等）、
+                gen_contract --check 无漂移（4/4 same，exit 0）、
+                VENDORED.sha256 13/13 逐件复算 0 差异、kit smoke 28/28
+                （{"checks":28,"failed":0,"passed":28,"status":"ok"}）、
+                validate_skill（workbuddy / marketplace）0 error / 0 warning（exit 0）
+                A111 env_equal=True cases=18 ran=18 bad=-；A106 checks=28 failed=0 manifest_bad=-
+                双打包 x2 sha256 一致（226 文件 / 564936 B / 48de74b9…7ad1）
+                zip ↔ 源码逐件 md5 全等（missing 0 / extra 0 / diff 0，226/226）；
+                包内 0 目录项、0 个 .pyc / __pycache__ / _dev-logs、0 个 0 字节条目，
+                226 个条目全部以 `vector-ai-studio/` 为根前缀
+                复测闸 19/19 通过 / 0 失败 / 0 无法复测，exit 0；
+                P1（包↔源码）missing 0 / extra 0 / diff 0、
+                P2（包内引擎锁↔本机）ef7860aefe57cf0d… 一致、
+                P3（03-源码↔仓库被审代码）missing 0 / extra 0 / diff 0（226/226）
+                版本实测（从 zip 读回）：SKILL.md version 1.24.0 /
+                metadata.version "1.24.0"、CHANGELOG 首条 1.24.0 [r92]
+
+已知限制      : 1) PDF/X 规范原文未核：L2 只验 GTS_PDFXVersion 与 output_intents≥1，
+                   未逐条比对 ISO 15930 条款
+                2) 外部真人评审 0 份；审美类结论仍不可采信
+                3) path 墨量不可测：AREA-<colour> 只对可解算几何计数，path 一律判不可测（A66 守着）
+                4) cairosvg 依赖原生 cairo：PATH 未含 Tesseract-OCR 目录时 import 失败，
+                   A105 会如实跳过；skipped 记为 pass 的口径不存在
+                5) 声明登记册 143 条中 68 条仍为 unverified；阈值数值零改动
+                6) A111 的 problems 全为空：parity 覆盖的是 file/expect/exit/codes，
+                   「问题消息文本与顺序」这一面未纳入 frozen（属覆盖缺口，非缺陷）
+                7) 1.24.0 只抽了 attacks；Phase 2 其余（fixtures / gate）未做
+
+校验方式      : ① sha256sum 05-发布/vector-ai-studio_r92-226files.zip
+                应为 48de74b9855cb42133073381b272d5dc7b4b44e6beff40b1fcf5610a6e137ad1
+                （564936 B / 226 文件）
+                ② 解压后与源码逐件比对（两种独立实现，任选其一）：
+                win: Expand-Archive 后对两棵树逐件 Get-FileHash -Algorithm MD5 比对；
+                期望 missing 0 / extra 0 / diff 0、包内 0 个目录项
+                bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
+                上一版：r91 / 1.23.1 = 43aaab74ed052a7d828e37934a87ec51c4035c8e624fde3d9bcca19fb7a58f5a
+                （551727 B / 222 文件，已在 archive/）
