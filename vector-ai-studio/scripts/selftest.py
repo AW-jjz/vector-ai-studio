@@ -5065,12 +5065,63 @@ def _stage_r91(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r92(tmp, add):
+    """A111: redteam is an adapter over the vendored attack plumbing.
+
+    Two goldens were frozen BEFORE the switch (`tests/fixtures/attacks/`):
+
+    * the whole `redteam.py --json` envelope -- the summary counts and every
+      result's id/status/codes/detail, compared semantically;
+    * the per-attack table `id / expect / exit / codes / problems`, taken
+      through the two seams that survive the refactor (`_run_attack`,
+      `_evaluate`). The envelope does not carry the invoked script's exit code,
+      so this is the only place a mutation that quietly changed a guard's exit
+      status would show up.
+
+    Nothing is excluded from the comparison: the output has no timestamps, no
+    absolute paths and no machine-specific values (see the fixture README).
+    """
+    try:
+        import redteam as RT
+
+        fix = ROOT / "tests" / "fixtures" / "attacks"
+        want_env = json.loads((fix / "redteam-frozen.json").read_text(encoding="utf-8"))
+        rc, env, _ = _call("redteam.py", ["--json"], tmp)
+        env_ok = (rc == 0 and env == want_env)
+
+        want_cases = json.loads(
+            (fix / "attacks-frozen.json").read_text(encoding="utf-8"))["cases"]
+        work = Path(tempfile.mkdtemp(prefix="a111-", dir=str(tmp)))
+        got = []
+        try:
+            for p in sorted(RT.ATTACK_DIR.glob("*.json")):
+                spec = RT._read_json(p)
+                spec["_file"] = p.name
+                res = RT._run_attack(spec, work)
+                got.append({"id": spec.get("id"), "file": p.name,
+                            "expect": spec.get("expect", "block"),
+                            "exit": res["exit"], "codes": res["codes"],
+                            "problems": RT._evaluate(spec, res)})
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
+        by_id = {c["id"]: c for c in got}
+        bad = [c["id"] for c in want_cases if by_id.get(c["id"]) != c]
+        add("A111-attacks-adapter-parity",
+            env_ok and len(want_cases) == 18 and len(got) == 18 and not bad,
+            "env_equal=%s cases=%d ran=%d bad=%s" % (
+                env_ok, len(want_cases), len(got), ",".join(bad[:3]) or "-"))
+    except Exception as e:                      # noqa: BLE001
+        add("A111-attacks-adapter-parity", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def _stage_r86(tmp, add):
     """A106: the vendored verdict-kit runs and its manifest matches.
 
     Phase 0 vendors the skeleton under scripts/_vendor/verdict-kit WITHOUT
     changing any existing import. This assertion keeps it honest: every file
-    hashes to VENDORED.sha256, and the 25-check smoke test passes from a
+    hashes to VENDORED.sha256, and the 28-check smoke test passes from a
     foreign cwd with bytecode writing disabled (-B, so no nested __pycache__).
     """
     try:
@@ -5098,7 +5149,7 @@ def _stage_r86(tmp, add):
             last = json.loads((r.stdout or "").strip().splitlines()[-1])
         except (ValueError, IndexError):
             last = {}
-        ok = (r.returncode == 0 and last.get("checks") == 25
+        ok = (r.returncode == 0 and last.get("checks") == 28
               and last.get("failed") == 0 and not bad)
         add("A106-verdict-kit-vendored", ok,
             "rc=%s checks=%s failed=%s manifest_bad=%s" % (
@@ -5332,6 +5383,7 @@ def main():
     _stage_r89(tmp, add)
     _stage_r90(tmp, add)
     _stage_r91(tmp, add)
+    _stage_r92(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

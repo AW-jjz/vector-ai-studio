@@ -4,8 +4,10 @@ Reusable verdict plumbing for skills that must produce machine-checkable
 honesty artifacts. Standard library only; no thresholds, no grading, no SVG,
 no engine paths.
 
-This directory is a **probe**, not the release package. It lives in a temporary
-copy of `vector-ai-studio`; nothing here is imported by the skill at runtime.
+This directory started as a **probe** (phase 0) and is now the real dependency:
+`verdict_kit.envelope`, `.registry`, `.contract` and `.attacks` are each
+imported by one CLI of the consuming skill. It is still a vendored copy, not a
+released package on an index.
 
 ## Run
 
@@ -26,6 +28,13 @@ own contract or selftest.
 | `verdict_kit.registry` | `ClaimRegistry`, `.validate(...)`, `sentences`, `text_hash`, `scan_assertion_ids` | claim hashes, mechanisms, coverage ratchet |
 | `verdict_kit.assertions` | `Harness(expected, capability_skips)`, `.add`, `.finalize` | three-valued assertions, A60-style self-count, unique ids |
 | `verdict_kit.contract` | `Artifact`, `load_spec`, `generate(..., check=)` | generated artifacts, byte-exact drift |
+| `verdict_kit.attacks` | `apply_mutations`, `dotted_get`, `evaluate(spec, result, too_good=)`, `MUTATION_OPS` | attack op vocabulary + declared-expectation checks |
+
+`attacks.evaluate` has **no default pass predicate**. `expect_no_pass` asks
+whether an acceptance document claims a pass, which is the consuming skill's
+vocabulary, so the caller must inject `too_good(acceptance)`. A spec that sets
+`expect_no_pass` while no predicate was injected raises `ValueError` -- the
+kit fails loudly instead of guessing a word.
 
 Planned CLI (not in this skeleton):
 
@@ -49,8 +58,11 @@ A skill must provide:
    assertion ids, attack map, and (optionally) a selftest result map.
 5. **Contract renderers** — one pure `Artifact(relpath, render)` per generated
    file. The kit never invents enum values.
-6. **Attack base run + pass predicate** — how to materialize an honest run and
-   what counts as a pass in that skill's vocabulary (`达标` / `pass` / ...).
+6. **Attack base run + pass predicate** — how to materialize an honest run, and
+   the `too_good(acceptance)` callable that says what counts as a pass in that
+   skill's vocabulary (`达标` / `pass` / ...). Both are injected into
+   `verdict_kit.attacks`; the kit applies the mutations and checks the declared
+   expectations, it never decides what a pass is on its own.
 7. **Gate step list** — commands, expectations, and which steps are
    engine-bound.
 

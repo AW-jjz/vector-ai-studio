@@ -82,7 +82,8 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # r89 (verdict-kit phase 1b): +A108 (claims adapter parity) -> 107 + 1 = 108.
 # r90 (verdict-kit phase 2-1): +A109 (contract generator adapter parity) ->
 # 108 + 1 = 109.
-EXPECTED_ASSERTIONS = 110
+# r92 (verdict-kit phase 2-2): +A111 (attacks adapter parity) -> 110 + 1 = 111.
+EXPECTED_ASSERTIONS = 111
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

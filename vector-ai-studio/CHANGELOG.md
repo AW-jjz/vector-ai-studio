@@ -1,5 +1,52 @@
 # Changelog
 
+## 1.24.0 — 2026-11-14 [r92]
+
+verdict-kit, phase 2-2: the attack adapter. `scripts/redteam.py` no longer
+implements the mutation ops, the dotted lookup or the declared-expectation
+checks itself; those three now come from the new vendored
+`verdict_kit.attacks`. The CLI flags (`--attack-dir`, `--only`, `--json`), the
+envelope shape, the exit codes and the problem message text are unchanged --
+the shipped `--json` output is byte-identical to what r91 produced.
+
+- **Golden first**: two goldens were frozen BEFORE the switch, into
+  `tests/fixtures/attacks/`.
+  `tests/fixtures/attacks/redteam-frozen.json` is the whole `--json` envelope
+  (summary counts + the 18 results).
+  `tests/fixtures/attacks/attacks-frozen.json` is the per-attack
+  `id` / `expect` / `exit` / `codes` / `problems` table, taken through the two
+  seams that survive the refactor (`_run_attack`, `_evaluate`) -- the envelope
+  does not carry the invoked script's exit code, so the table is the only
+  place a mutation that silently changed a guard's exit status shows up.
+  A111 replays both. Nothing is excluded from the comparison: the output
+  carries no timestamps, no absolute paths and no machine-specific values
+  (the fixture README records why).
+- **What moved**: `apply_mutations` (the six ops `delete` / `write_text` /
+  `write_bytes_b64` / `write_json` / `patch_json` / `copy`, with an unknown op
+  still a usage error, and `path` kept distinct from `json_path`),
+  `dotted_get`, and `evaluate` (`expect_exit` / `expect_codes` /
+  `reject_codes` / `expect_no_pass` / `expect_grade` / `expect_field`). What
+  stayed: the honest base run, the acceptance-file read, the subprocess
+  call to the attacked script, the CLI shape, and the attack data under
+  `tests/attacks/*.json`.
+- **The pass predicate is injected, never guessed**: `expect_no_pass` asks
+  whether an acceptance document claims a pass, which is this skill's
+  vocabulary. `scripts/redteam.py` passes
+  `too_good=lambda a: a.get("grade") == "达标" or a.get("tier") == "pass"`.
+  The kit has no default: a spec that sets `expect_no_pass` while no predicate
+  was injected raises `ValueError`, so a missing injection fails loudly
+  (`E-INTERNAL`, exit 4) instead of quietly reading some built-in word list.
+- **The kit changed for the first time on this track**: new
+  `scripts/_vendor/verdict-kit/verdict_kit/attacks.py`, so
+  `scripts/_vendor/verdict-kit/VENDORED.sha256`
+  is recomputed (12 → 13 entries) and the smoke test grows 25 → 28 checks
+  (three: the six ops + unknown-op error, the six expectations + an injected
+  predicate, the dotted/write_json seams). A106's pinned count follows.
+- **`_evaluate` keeps its signature** (spec, result) so `selftest` and the
+  parity harness drive the same seam before and after. `_dotted` was deleted
+  rather than kept as a one-line alias -- nothing calls it once `evaluate`
+  delegates. `EXPECTED_ASSERTIONS` 110 → 111.
+
 ## 1.23.1 — 2026-11-14 [r91]
 
 - Dependency probes answer the question the cross-check asks. `cairosvg` used to

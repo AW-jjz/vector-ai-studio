@@ -28,6 +28,7 @@ sys.path.insert(0, str(HERE))
 
 import verdict_kit as vk  # noqa: E402
 import verdict_kit.assertions as A  # noqa: E402
+import verdict_kit.attacks as T  # noqa: E402
 import verdict_kit.contract as K  # noqa: E402
 import verdict_kit.envelope as E  # noqa: E402
 import verdict_kit.registry as R  # noqa: E402
@@ -347,6 +348,117 @@ def test_contract_rejects_escape() -> None:
     raise AssertionError("Artifact accepted a path outside the root")
 
 
+# ---------------------------------------------------------------------------
+# attack mutations / expectations
+# ---------------------------------------------------------------------------
+
+def test_attack_mutation_ops() -> None:
+    with tempfile.TemporaryDirectory(prefix="verdict-kit-smoke-") as td:
+        run = Path(td)
+        (run / "keep.txt").write_text("keep\n", encoding="utf-8")
+        (run / "gone.txt").write_text("gone\n", encoding="utf-8")
+        (run / "deep" / "nested").mkdir(parents=True)
+        (run / "deep" / "nested" / "doc.json").write_text(
+            '{"a": {"b": 1}, "top": 0}\n', encoding="utf-8")
+
+        T.apply_mutations(run, [
+            {"op": "delete", "path": "gone.txt"},
+            {"op": "write_text", "path": "sub/new.txt", "text": "hi\n"},
+            {"op": "write_bytes_b64", "path": "bin/raw.bin", "b64": "AAEC"},
+            {"op": "write_json", "path": "fresh/obj.json", "doc": {"k": "值"}},
+            {"op": "patch_json", "path": "deep/nested/doc.json",
+             "json_path": "a.b", "value": 7},
+            {"op": "patch_json", "path": "deep/nested/doc.json",
+             "key": "top", "value": 9},
+            {"op": "copy", "from": "keep.txt", "to": "copied.txt"},
+        ])
+
+        assert not (run / "gone.txt").exists()
+        assert (run / "keep.txt").read_text(encoding="utf-8") == "keep\n"
+        assert (run / "sub" / "new.txt").read_text(encoding="utf-8") == "hi\n"
+        assert (run / "bin" / "raw.bin").read_bytes() == b"\x00\x01\x02"
+        # canonical JSON: indent 2, non-ASCII kept, trailing newline
+        assert (run / "fresh" / "obj.json").read_text(encoding="utf-8") == \
+            '{\n  "k": "值"\n}\n'
+        patched = json.loads((run / "deep" / "nested" / "doc.json")
+                            .read_text(encoding="utf-8"))
+        # json_path is a path INSIDE the file; a bare key is top-level.
+        assert patched == {"a": {"b": 7}, "top": 9}, patched
+        assert (run / "copied.txt").read_text(encoding="utf-8") == "keep\n"
+
+        # An unknown op is a usage error, never a silent no-op.
+        try:
+            T.apply_mutations(run, [{"op": "chmod", "path": "keep.txt"}])
+        except T.ToolError as e:
+            assert e.code == T.UNKNOWN_OP_CODE and e.exit_code == E.EXIT_USAGE, e
+        else:
+            raise AssertionError("unknown op was silently ignored")
+
+
+def test_attack_expectations() -> None:
+    acceptance = {"grade": "未达标", "a": {"b": 2}}
+    result = {"exit": 0, "codes": ["E-Y"], "acceptance": acceptance}
+
+    assert T.evaluate({"id": "clean"}, {"exit": 0, "codes": [],
+                                        "acceptance": {}}) == []
+
+    # expect_exit / expect_codes / reject_codes, in the shipped order.
+    assert T.evaluate({"id": "x", "expect_exit": [1, 2]}, result) == [
+        "exit code is 0, expected one of 1,2"]
+    assert T.evaluate({"id": "x", "expect_codes": ["E-X"]}, result) == [
+        "expected code E-X not emitted (got E-Y)"]
+    assert T.evaluate({"id": "x", "reject_codes": ["E-Y"]}, result) == [
+        "unexpected code E-Y"]
+
+    # expect_no_pass: there is NO default predicate. Omitting it is a
+    # programming error, and the message names the parameter that is missing.
+    passing = {"exit": 0, "codes": [], "acceptance": {"grade": "达标"}}
+    for spec in ({"id": "x", "expect_no_pass": True},
+                 {"id": "x", "expect_no_pass": True, "expect_codes": []}):
+        try:
+            T.evaluate(spec, passing)
+        except ValueError as e:
+            assert "too_good" in str(e), e
+        else:
+            raise AssertionError(
+                "expect_no_pass without too_good did not raise")
+    # ... and a spec that does not ask for it never demands the predicate.
+    assert T.evaluate({"id": "x"}, passing) == []
+    # Injecting one makes the check real, in both directions.
+    assert T.evaluate({"id": "x", "expect_no_pass": True}, result,
+                      too_good=lambda a: True) == [
+        "the attack still claims a pass (grade=未达标)"]
+    assert T.evaluate({"id": "x", "expect_no_pass": True}, passing,
+                      too_good=lambda a: False) == []
+    assert T.evaluate({"id": "x", "expect_no_pass": True}, passing,
+                      too_good=lambda a: a.get("grade") == "达标") == [
+        "the attack still claims a pass (grade=达标)"]
+
+    # expect_grade / expect_field.
+    assert T.evaluate({"id": "x", "expect_grade": "达标"}, passing) == []
+    assert T.evaluate({"id": "x", "expect_grade": "达标"}, result) == [
+        "grade is '未达标', expected '达标'"]
+    assert T.evaluate({"id": "x", "expect_field": {"a.b": 3}}, result) == [
+        "a.b is 2, expected 3"]
+
+
+def test_attack_dotted_and_write_json_seam() -> None:
+    assert T.dotted_get({"a": {"b": {"c": 1}}}, "a.b.c") == 1
+    assert T.dotted_get({"a": [1, 2]}, "a.0") is None      # list is not a dict
+    assert T.dotted_get({"a": {"b": 1}}, "a.x") is None
+    assert T.dotted_get({"a": 1}, "a.b") is None
+
+    # write_json is injectable: a skill keeps its own byte format.
+    seen = []
+    with tempfile.TemporaryDirectory(prefix="verdict-kit-smoke-") as td:
+        run = Path(td)
+        T.apply_mutations(run, [{"op": "write_json", "path": "x.json",
+                                 "doc": {"n": 1}}],
+                          write_json=lambda p, o: seen.append((Path(p).name, o)))
+        assert seen == [("x.json", {"n": 1})], seen
+        assert not (run / "x.json").exists()
+
+
 TESTS = [
     ("envelope.shape", test_envelope_shape),
     ("envelope.deterministic", test_envelope_deterministic),
@@ -373,6 +485,9 @@ TESTS = [
     ("assertions.skip-policy", test_harness_skip_is_partial_and_declared),
     ("contract.drift", test_contract_generation_and_drift),
     ("contract.no-escape", test_contract_rejects_escape),
+    ("attacks.mutation-ops", test_attack_mutation_ops),
+    ("attacks.expectations", test_attack_expectations),
+    ("attacks.dotted-seam", test_attack_dotted_and_write_json_seam),
 ]
 
 

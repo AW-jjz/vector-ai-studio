@@ -24,10 +24,16 @@ Two kinds of attack:
 
 Every attack file carries its own `why`: what it attacks and what it proves.
 An attack without a reason is decoration.
+
+Phase 2-2 (r92) splits mechanics from vocabulary: the six mutation ops, the
+dotted lookup and the six declared-expectation checks live in the vendored
+`verdict_kit.attacks`. What stays here is what only this skill knows -- the
+honest base run, which script an attack invokes, the CLI shape, and the
+`acceptance.json` reading. `tests/fixtures/attacks/` holds the frozen
+pre-switch output; A111 re-runs the suite and requires it unchanged.
 """
 
 import argparse
-import base64
 import json
 import shutil
 import subprocess
@@ -37,6 +43,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
+
+# Phase 2-2: the vendored attacks module owns the op vocabulary and the
+# declared-expectation checks. Importing the package would create
+# scripts/_vendor/.../__pycache__ (A22), so bytecode writing is disabled for
+# this CLI process -- the same loader rule gen_contract.py follows.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_vendor" / "verdict-kit"))
+import verdict_kit.attacks as VC  # noqa: E402
 
 SCRIPT = "redteam.py"
 ATTACK_SCHEMA = "vector-ai-studio/attack-v1"
@@ -111,41 +125,17 @@ def base_run(dest, run_id):
 
 
 def _apply(dest, mutations):
-    """Apply the attack's mutations to the run directory."""
-    dest = Path(dest)
-    for m in mutations or []:
-        op = m.get("op")
-        target = dest / m["path"] if m.get("path") else None
-        if op == "delete":
-            if target and target.exists():
-                target.unlink()
-        elif op == "write_text":
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(str(m.get("text", "")), encoding="utf-8")
-        elif op == "write_bytes_b64":
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(base64.b64decode(m["b64"]))
-        elif op == "write_json":
-            target.parent.mkdir(parents=True, exist_ok=True)
-            L.write_json_atomic(target, m["doc"])
-        elif op == "patch_json":
-            # `path` is the FILE; `json_path` (dotted) is where inside it.
-            # Keeping them apart matters: a file called selftest.json would
-            # otherwise be read as the JSON path "selftest" -> "json".
-            doc = json.loads(target.read_text(encoding="utf-8"))
-            jpath = str(m.get("json_path", "")).split(".") if m.get("json_path") else []
-            if not jpath:
-                doc[m["key"]] = m["value"]
-            else:
-                cur = doc
-                for seg in jpath[:-1]:
-                    cur = cur.setdefault(seg, {})
-                cur[jpath[-1]] = m["value"]
-            L.write_json_atomic(target, doc)
-        elif op == "copy":
-            shutil.copyfile(dest / m["from"], dest / m["to"])
-        else:
-            raise L.ToolError("E-USAGE", "unknown attack op: " + str(op), L.EXIT_USAGE)
+    """Apply the attack's mutations to the run directory.
+
+    The op vocabulary is the kit's; this wrapper only carries its error type
+    into the skill's, so an unknown op still lands as E-USAGE / exit 2 instead
+    of dying as E-INTERNAL. `L.write_json_atomic` is injected so the bytes an
+    attack writes stay exactly what this skill would have written.
+    """
+    try:
+        VC.apply_mutations(dest, mutations, write_json=L.write_json_atomic)
+    except VC.ToolError as e:
+        raise L.ToolError(e.code, e.msg, e.exit_code)
 
 
 def _read_json(p):
@@ -153,15 +143,6 @@ def _read_json(p):
         return json.loads(Path(p).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-
-
-def _dotted(doc, dotted):
-    cur = doc
-    for seg in str(dotted).split("."):
-        if not isinstance(cur, dict) or seg not in cur:
-            return None
-        cur = cur[seg]
-    return cur
 
 
 def _run_attack(spec, work):
@@ -192,38 +173,16 @@ def _run_attack(spec, work):
 
 
 def _evaluate(spec, result):
-    """Does the observed behaviour match what the attack declares?"""
-    problems = []
-    codes = result["codes"]
-    acceptance = result["acceptance"]
-    want_exit = spec.get("expect_exit")
-    if want_exit is not None and result["exit"] not in want_exit:
-        problems.append("exit code is " + str(result["exit"]) +
-                        ", expected one of " + ",".join(str(x) for x in want_exit))
-    want = spec.get("expect_codes")
-    if want:
-        for c in want:
-            if c not in codes:
-                problems.append("expected code " + c + " not emitted (got " +
-                                (",".join(codes) or "none") + ")")
-    reject = spec.get("reject_codes") or []
-    for c in reject:
-        if c in codes:
-            problems.append("unexpected code " + c)
-    if spec.get("expect_no_pass"):
-        if acceptance.get("grade") == "达标" or acceptance.get("tier") == "pass":
-            problems.append("the attack still claims a pass (grade=" +
-                            str(acceptance.get("grade")) + ")")
-    eg = spec.get("expect_grade")
-    if eg is not None and acceptance.get("grade") != eg:
-        problems.append("grade is " + repr(acceptance.get("grade")) +
-                        ", expected " + repr(eg))
-    for dotted, want_value in (spec.get("expect_field") or {}).items():
-        got = _dotted(acceptance, dotted)
-        if got != want_value:
-            problems.append(dotted + " is " + repr(got) + ", expected " +
-                            repr(want_value))
-    return problems
+    """Does the observed behaviour match what the attack declares?
+
+    The checks and their message text are the kit's. What "a pass" means is
+    this skill's vocabulary, so it is injected rather than guessed: a grade of
+    达标 or a tier of pass is a pass, and an attack that still shows one has
+    not been blocked.
+    """
+    return VC.evaluate(
+        spec, result,
+        too_good=lambda a: a.get("grade") == "达标" or a.get("tier") == "pass")
 
 
 def main():

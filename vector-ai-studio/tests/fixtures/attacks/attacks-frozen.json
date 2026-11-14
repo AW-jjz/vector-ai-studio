@@ -1,0 +1,174 @@
+{
+  "schema": "vector-ai-studio/attack-parity-v1",
+  "note": "r92 冻结：换实现前用 redteam._run_attack / _evaluate 逐条取到的观测值。A111 换实现后重算本表，要求 18 条逐条全等。",
+  "cases": [
+    {
+      "id": "01-fake-ai",
+      "file": "01-fake-ai.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-H1-STRUCTURE"
+      ],
+      "problems": []
+    },
+    {
+      "id": "02-truncated-pdf",
+      "file": "02-truncated-pdf.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-H1-STRUCTURE"
+      ],
+      "problems": []
+    },
+    {
+      "id": "03-missing-preview-meta",
+      "file": "03-missing-preview-meta.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [],
+      "problems": []
+    },
+    {
+      "id": "04-foreign-run-id",
+      "file": "04-foreign-run-id.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [],
+      "problems": []
+    },
+    {
+      "id": "05-mini-selftest",
+      "file": "05-mini-selftest.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [],
+      "problems": []
+    },
+    {
+      "id": "06-l2-fabricated-score",
+      "file": "06-l2-fabricated-score.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-FABRICATED-SCORE"
+      ],
+      "problems": []
+    },
+    {
+      "id": "07-tampered-verdict",
+      "file": "07-tampered-verdict.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-GRADE-MISMATCH"
+      ],
+      "problems": []
+    },
+    {
+      "id": "08-coverage-claim",
+      "file": "08-coverage-claim.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-GRADE-MISMATCH"
+      ],
+      "problems": []
+    },
+    {
+      "id": "09-indeterminate-pass-wording",
+      "file": "09-indeterminate-pass-wording.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-INDETERMINATE-FIELDS"
+      ],
+      "problems": []
+    },
+    {
+      "id": "10-legacy-fidelity-word",
+      "file": "10-legacy-fidelity-word.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [],
+      "problems": []
+    },
+    {
+      "id": "11-narrow-track-laundering",
+      "file": "11-narrow-track-laundering.json",
+      "expect": "block",
+      "exit": 2,
+      "codes": [
+        "E-EXEMPTION-ABUSE"
+      ],
+      "problems": []
+    },
+    {
+      "id": "12-budget-exceeded",
+      "file": "12-budget-exceeded.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-BUDGET-EXCEEDED"
+      ],
+      "problems": []
+    },
+    {
+      "id": "13-f-backfill",
+      "file": "13-f-backfill.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-F-DATA-ISOLATION"
+      ],
+      "problems": []
+    },
+    {
+      "id": "14-exemption-abuse",
+      "file": "14-exemption-abuse.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-EXEMPTION-ABUSE"
+      ],
+      "problems": []
+    },
+    {
+      "id": "15-review-duplicate-same-path",
+      "file": "15-review-duplicate-same-path.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-REVIEW-INVALID"
+      ],
+      "problems": []
+    },
+    {
+      "id": "16-review-duplicate-new-name",
+      "file": "16-review-duplicate-new-name.json",
+      "expect": "block",
+      "exit": 1,
+      "codes": [
+        "E-REVIEW-INVALID"
+      ],
+      "problems": []
+    },
+    {
+      "id": "17-self-attested-log",
+      "file": "17-self-attested-log.json",
+      "expect": "leak",
+      "exit": 1,
+      "codes": [],
+      "problems": []
+    },
+    {
+      "id": "18-review-two-tokens-one-person",
+      "file": "18-review-two-tokens-one-person.json",
+      "expect": "leak",
+      "exit": 0,
+      "codes": [],
+      "problems": []
+    }
+  ]
+}

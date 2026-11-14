@@ -10,12 +10,20 @@ Public surface (see README.md for the consuming-skill contract):
     verdict_kit.registry         outward-claim registry (hashes + coverage)
     verdict_kit.assertions       three-valued harness with a self-count guard
     verdict_kit.contract         generated artifacts + byte-exact drift check
+    verdict_kit.attacks          mutation ops + declared-expectation checks
 
 Deliberately NOT here: thresholds, grading, SVG/PDF analysis, engine locks.
 Those belong to the skill that owns the judgment.
 """
 
 from .assertions import Assertion, Harness, HarnessReport
+from .attacks import (
+    MUTATION_OPS,
+    UNKNOWN_OP_CODE,
+    apply_mutations,
+    dotted_get,
+    evaluate,
+)
 from .context import Context, ContextError
 from .contract import Artifact, GenerationReport, generate, load_spec
 from .envelope import (
@@ -91,4 +99,9 @@ __all__ = [
     "GenerationReport",
     "generate",
     "load_spec",
+    "apply_mutations",
+    "dotted_get",
+    "evaluate",
+    "MUTATION_OPS",
+    "UNKNOWN_OP_CODE",
 ]
