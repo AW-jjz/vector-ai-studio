@@ -4069,3 +4069,36 @@ sha256        : 72e8c57c663667cf8cad56c7acc717843d34712aa80b1d9f074a653ab965ea23
                 bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
                 上一版：r92 / 1.24.0 = 48de74b9855cb42133073381b272d5dc7b4b44e6beff40b1fcf5610a6e137ad1
                 （564936 B / 226 文件，已在 archive/）
+
+==========================================================================
+r93.1（v1.25.1 / A112 跨平台换行修复）
+==========================================================================
+包文件        : vector-ai-studio_r93.1-229files.zip
+文件数        : 229
+字节数        : 576860
+sha256        : 4cce3cbe81ee0ae06f1d31ad1e1fe9a69ff5456a79df48848d8125504cbb72d5
+版本          : 1.25.1（SKILL.md 顶层与 metadata.version 一致）
+冻结时刻      : 2026-11-14 15:4x
+相对 r93      : 0 新增 / 0 删除 / 3 修改
+逐件 sha256   :
+cbaaa22095e93847456bea5125ba2c2313e3ae5d0328399117b632b1c40dcb21  scripts/selftest.py
+6a8f55cc2ce812c49206857faa9c60ff61a10f353cb07cbbfb88073aa929622e  SKILL.md
+27cade8dc2fc3b05851a99d656033101fae180b0c02a3d2fbb250b8b19c7e035  CHANGELOG.md
+
+背景          : v1.25.0（tag 保留）推送后 CI 两个 job 均红，
+                A112 bytes_equal=False want=14514B got=13879B，而
+                json_equal=True cases_equal=True —— 635 B 恰为 JSON 行数的
+                CRLF/LF 差异（golden 在 Windows 冻结，Linux 输出 LF）。
+修复          : A112 比较前对两侧做 CRLF→LF 归一；raw_equal 仍记录在 detail。
+                非换行差异依旧判红（已用篡改样本验证 norm_equal=False）。
+
+实测证据      : Windows selftest 112/112，A112 detail
+                `bytes_equal=True raw_equal=True want=14514B got=14514B rc=0`；
+                Linux 口径模拟：raw_equal=False（差 635B）、norm_equal=True；
+                篡改样本 norm_equal=False。
+                复测闸与 Windows 全闸保持 112/113/37、claims 143/143。
+
+已知限制      : 同 r93（PDF/X 未核、真人评审 0、path 墨量不可测、
+                cairosvg 依赖 PATH；另两条 QA 非阻塞观察登记下一轮）。
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r93.1-229files.zip = 4cce3cbe81ee0ae06f1d31ad1e1fe9a69ff5456a79df48848d8125504cbb72d5
