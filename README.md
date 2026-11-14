@@ -38,7 +38,7 @@ python vector-ai-studio/scripts/run_fixtures.py
 
 | 环境 | `selftest --fixtures` | `run_fixtures` |
 |---|---|---|
-| 装了 VectorCraft CLI | **112/112**（`--fixtures` 为 **113/113**，含 A13），`status=ok`，**exit 0** | **37/37**，exit 0 |
+| 装了 VectorCraft CLI | **113/113**（`--fixtures` 为 **114/114**，含 A13），`status=ok`，**exit 0** | **37/37**，exit 0 |
 | 没装 | 依赖引擎或 Pillow 的断言转 skipped，`status=partial`，**exit 3** | 该组合在 34 条后**未单独实测**，不作承诺 |
 
 **`exit 3` 是"可选项未执行"，不是"检查失败"**——只卡 `exit 0` 的流水线会把它误判成红灯。

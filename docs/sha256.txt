@@ -4102,3 +4102,117 @@ cbaaa22095e93847456bea5125ba2c2313e3ae5d0328399117b632b1c40dcb21  scripts/selfte
                 cairosvg 依赖 PATH；另两条 QA 非阻塞观察登记下一轮）。
 
 校验方式      : sha256sum 05-发布/vector-ai-studio_r93.1-229files.zip = 4cce3cbe81ee0ae06f1d31ad1e1fe9a69ff5456a79df48848d8125504cbb72d5
+
+==========================================================================
+r94（v1.26.0 / verdict-kit Phase 2-4：release-gate 抽取 · Phase 2 收官片）
+==========================================================================
+包文件        : vector-ai-studio_r94-231files.zip
+文件数        : 231
+字节数        : 584218
+sha256        : a0b1c13a8c65177d756a37a6e29631a26742358ca9fe8c1c5f60fd80bc0d8514
+版本          : 1.26.0（SKILL.md 顶层 version 与 metadata.version 两处镜像一致；
+                CHANGELOG 首条 `## 1.26.0 — 2026-11-14 [r94]`；以上三项均从 zip 内读回核对）
+冻结时刻      : 2026-11-14 17:11
+打包器        : skill-lifecycle-toolkit/scripts/package_skill.py
+                --platform workbuddy --channel marketplace（未手工 zip；连打两次 sha256 一致）
+旧包归档      : vector-ai-studio_r93.1-229files.zip 移入 05-发布/archive/（不覆盖、不删除；
+                archive 由 47 件增至 48 件；r93.1 包 sha256 前后均为 4cce3cbe…72d5）
+
+相对 r93.1 变更 : 8 个文件（2 新增 / 0 删除 / 6 修改），229 → 231
+                对比 05-发布/archive/vector-ai-studio_r93.1-229files.zip 逐件 sha256
+新增 2        :
+                tests/fixtures/release-gate/README.md                              cb8e7be3164fb2e25fa10af9aff8be7b575e7433977596534278043cbd392143  (1686 B)
+                tests/fixtures/release-gate/gate-baseline.json                     62e6780c19a55b94c9e0f84ebe4612a1d396c30a8cf2fa5894d901487ba0c494  (8805 B)
+修改 6        :
+                CHANGELOG.md                                                      a7f144964eddddfd747fb9199ae08cf80716e4bd31d16e3b45a561e2d630eb48
+                MIGRATION.md                                                      dbaf2e639da3061a7510567082927de09f27532eb860b1fb5f7c1172881f8a57
+                README.md                                                         97c081900b6b74fc896d4a21444c61b3931f6231e1040ffdfb2f0000800ea980
+                SKILL.md                                                          430c9ce98ece5ae8c7dd0b3ba7c89450a46e1c8aa9d0a79059a72ea3cd969f92
+                scripts/lib_common.py                                             099cdcb6818ca46f4b57fb837b3904bd0f7d5a39e41ec7be30f6b257928900eb
+                scripts/selftest.py                                               daac711b422fd53dfe8e7acbf4293c3f3d3e7c91553b2b0564564b091dc5d91c
+删除 0        :
+内容          : verdict-kit Phase 2-4——把 selftest 的**门禁层**搬进已在包内的
+                `verdict_kit.assertions`（`Harness` / `HarnessReport`），这是 Phase 2
+                （2-1 kit 入包 / 2-2 envelope+registry / 2-3 fixtures / 2-4 release gate）的收官片：
+                1) 搬家的是：passed/failed/skipped 计数、`A60-assertion-count-declared`
+                   （自数守卫，含重复 id 检查）、`A76-capability-skips-are-declared`、
+                   `ok`/`partial`/`fail` 三态推导与 0/1/3 退出码。
+                2) 不搬的是：112 条断言正文、`EXPECTED_ASSERTIONS`、`CAPABILITY_SKIPS`、
+                   `L.emit` 与 artifacts / run_id、CLI 旗标——逐字未动。
+                3) id / 顺序 / 措辞不变：A60、A76 保持原名、原 detail 文案
+                   （`declared=N ran=N` / `skipped=…`）与原顺序（先声明跳过、再数条数）；
+                   kit 的 `count_id` / `skip_id` 默认值同名，故未传参。
+                4) 计数口径：`EXPECTED_ASSERTIONS` =「一次完整运行**含两条元断言**后的条数」，
+                   与手写守卫原有口径一致；因此新增 A113 是 112 → 113（不是 111 → 112），
+                   `--fixtures` 仍只加 1（共 114）。
+                5) 新增 A113：纯内存读五份报告——ok（`ok`/0）、fail（`fail`/1）、
+                   partial（`partial`/3）、条数与实跑不符（A60 红 / 1）、未声明的跳过
+                   （A76 红 / 1）。无 subprocess、无临时文件，故不可「重跑被测套件」来自证。
+                6) 新字段：`selftest.json.problems` 仅在元守卫红时非空，承载同一结论的人话半边。
+                7) 基线：换实现**前**的 112 条（`id` / 顺序 / `ok`）与顶层
+                   `status`/`passed`/`failed`/`skipped`/`partial` 冻在
+                   `tests/fixtures/release-gate/`（纯数据：无路径、无 run_id、无时间戳、无耗时），
+                   供 QA 同环境新旧对照。
+                8) kit 本体零改：`VENDORED.sha256` **仍为 14 项**、`smoke.py` **仍为 33 检查**，
+                   14 项逐件复算全 OK，0 未登记文件；QA 用 `diff -rq` 也确认 vendored 树无变动。
+                9) 阈值与数据零改：`config/thresholds.json`、`tests/fixtures/fixtures.json`
+                   及 contract / config / references / templates / docs / examples 各目录逐件未动；
+                   三档 tier、L0–L5、description 三态、五条契约、两条证据轨均未动。
+
+实测证据      : 九道闸（打包机实跑：Python 3.12.10 + 引擎 0.22.0，r94 包出包后复跑）：
+                selftest 113/0/0，`status=ok`、`failed=0`、`skipped=[]`、`partial=false`、
+                `problems=[]`、exit 0；A60 `declared=113 ran=113`；A76 `skipped=none`；
+                A113 `ok=ok/0 fail=fail/1 partial=partial/3 count=fail/1 undeclared=fail/1`
+                （五组读数逐项命中）；A30 / A31 / A46 / A105 四条能力断言 `skipped=False` 真执行
+                （A30 `land=0 h1=True h2=True version=0.22.0`、A105 `rc=0 faithful=1 rows=11`）。
+                selftest --fixtures 114/0/0（A60 `declared=114 ran=114`、A13 `exit=0`、exit 0）。
+                run_fixtures 37/37 `all_ok=true`，输出 md5 `cc942f0838cd6601f279b3df79705183`
+                与 r93 frozen 逐字节相同（A112 `bytes_equal=True want=14514B got=14514B rc=0`）。
+                validate_claims 143/143，覆盖率 138/138，ratio 1.0 = floor。
+                redteam 18 攻击 / 16 拦下 / 0 漏拦 / 2 已声明边界，md5 `00d7320deca68bee…5617`
+                与 frozen 相等。
+                gen_contract --check 无漂移（4/4 same，contract 1.0.0 / criteria 2.0.0）。
+                kit smoke 33/33（`{"checks":33,"failed":0,"passed":33,"status":"ok"}`）。
+                VENDORED.sha256 14/14 逐件复算 OK、0 未登记文件。
+                validate_skill（workbuddy / marketplace）0 error / 0 warning，exit 0。
+                门禁边界（诚实降级，非缺陷）：无 cairo 时 A105 skip → `status=partial` /
+                exit 3 / `skipped=[A105-cross-renderer-cairosvg]`，A76 仍绿、计数仍 113/113，
+                skip 不记 pass、也不退 1；fail → 1 由 A60 计数不符端到端实测（QA §2c）。
+
+复测闸        : 打包后跑 `04-QA/r72-reaudit/run_r72_reaudit.py`
+                --package 05-发布/vector-ai-studio_r94-231files.zip
+                --log-dir 04-QA/test-log-r94/r94-reaudit，**exit 0**，三栏
+                **通过 19 / 失败 0 / 无法复测 0**：E1–E3（引擎可定位 0.22.0、二进制
+                ef7860aef… 与包内锁一致）、S1–S8（113/0/0、114/0/0、A30/A31/A46 真执行、
+                37/37、18/16/0/2、143/143 覆盖 138/138、无漂移、0/0）、L1–L3（final.ai
+                12664 B 回读 ok、print.pdf 194651 B GTS_PDFX=1 intents=1、smoke
+                degraded/exit 3 判诚实降级）、**P1** 包↔源码逐件 md5 0/0/0（源 231 件）、
+                **P2** 包内引擎锁↔本机引擎一致、**P3** 03-源码↔仓库被审代码 0/0/0
+                （拷贝 231 / 源 231）。QA 阶段的「P3 失败 / P1·P2 无法复测」本轮全部转通过。
+
+已知限制      : 1) PDF/X 只做结构核对（GTS_PDFXVersion / output_intents），未逐条比对
+                   ISO 15930 条款
+                2) 外部真人评审 0 份；审美类结论仍不可采信
+                3) path 墨量不可测：AREA-<colour> 只对可解算几何计数，path 一律判不可测（A66 守着）
+                4) cairosvg 依赖原生 cairo：PATH 未含 Tesseract-OCR 目录时 import 失败，
+                   A105 会如实跳过并落到 `partial` / exit 3；skipped 记为 pass 的口径不存在
+                5) 声明登记册 143 条中 68 条仍为 unverified；阈值数值零改动
+                6) 既有观察（本轮未修，不影响本版，登记给 developer 下轮）：
+                   O1 `verdict_kit/fixtures.py` 注释称「脚本无法启动时 rc=-1」，Windows 实测
+                   少文件时 python 自身退 2；当前 37 条里 want_exit 含 2 的 3 条都写了
+                   want_codes，数据不可达，但将来若声明 want_exit:[2] 且 want_codes:[] 而
+                   script 名写错，该 case 会假绿；
+                   O2 若 fixtures.json 出现两个同 id 且都带 setup_dir 的 case，第二条 copytree
+                   抛 FileExistsError → E-INTERNAL/4，与「定义坏了统一 E-SCHEMA/2」不完全一致；
+                   属 r92 既有行为，现有数据 0 重复 id，不可达
+                7) A112 只比对 run_fixtures 的整封信封字节，不覆盖「case 内部逐字段语义」
+
+校验方式      : ① sha256sum 05-发布/vector-ai-studio_r94-231files.zip
+                应为 a0b1c13a8c65177d756a37a6e29631a26742358ca9fe8c1c5f60fd80bc0d8514
+                （584218 B / 231 文件）
+                ② 解压后与源码逐件比对（两种独立实现，任选其一）：
+                win: Expand-Archive 后对两棵树逐件 Get-FileHash -Algorithm MD5 比对；
+                期望 missing 0 / extra 0 / diff 0、包内 0 个目录项
+                bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
+                上一版：r93.1 / 1.25.1 = 4cce3cbe81ee0ae06f1d31ad1e1fe9a69ff5456a79df48848d8125504cbb72d5
+                （576860 B / 229 文件，已在 archive/）
