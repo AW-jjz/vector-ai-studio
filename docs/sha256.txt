@@ -3958,3 +3958,114 @@ sha256        : 48de74b9855cb42133073381b272d5dc7b4b44e6beff40b1fcf5610a6e137ad1
                 bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
                 上一版：r91 / 1.23.1 = 43aaab74ed052a7d828e37934a87ec51c4035c8e624fde3d9bcca19fb7a58f5a
                 （551727 B / 222 文件，已在 archive/）
+
+==========================================================================
+r93（v1.25.0 / verdict-kit Phase 2-3：fixtures 抽取）
+==========================================================================
+包文件        : vector-ai-studio_r93-229files.zip
+文件数        : 229
+字节数        : 576211
+sha256        : 72e8c57c663667cf8cad56c7acc717843d34712aa80b1d9f074a653ab965ea23
+版本          : 1.25.0（SKILL.md 顶层 version 与 metadata.version 两处镜像一致；
+                CHANGELOG 首条 `## 1.25.0 — 2026-11-14 [r93]`；以上三项均从 zip 内读回核对）
+冻结时刻      : 2026-11-14 15:09
+打包器        : skill-lifecycle-toolkit/scripts/package_skill.py
+                --platform workbuddy --channel marketplace（未手工 zip；连打两次 sha256 一致）
+旧包归档      : vector-ai-studio_r92-226files.zip 移入 05-发布/archive/（不覆盖、不删除；
+                archive 由 45 件增至 46 件；r92 包 sha256 前后均为 48de74b9…7ad1）
+
+相对 1.24.0 变更 : 14 个文件（3 新增 / 0 删除 / 11 修改），226 → 229
+                对比 05-发布/archive/vector-ai-studio_r92-226files.zip 逐件 sha256
+新增 3        :
+                scripts/_vendor/verdict-kit/verdict_kit/fixtures.py            114e99f6ed93a63d7931b518d0b10ec44bd55ea67252742ff21ffa13451ab869
+                tests/fixtures/fixtures-run/README.md                             ab6a84ea085daaae510c127c2ac802514ee89afc1fbbe78a24a538c9668339a5
+                tests/fixtures/fixtures-run/run-fixtures-frozen.json              59253a067924139b9be6fe76241021037264835fcc593e030ee15feff13852a8
+修改 11       :
+                CHANGELOG.md                                                      3f4ab611a49c82fcc92848f3d74b8fb602bc6c5c0772db3a454c01c76e924b17
+                MIGRATION.md                                                      93af2c9e2487b93ae789103505d8907cc36478edbac446ad19c153f68322cb14
+                README.md                                                         1611945e9caed4c3b17834e8a4f6984eca98c1e48bf319e3e2b449c0be01090a
+                SKILL.md                                                          6e3ee2e707c322cb0079873fe297b5bd34c312856c88bb3eeb9eb6e948173f21
+                scripts/_vendor/verdict-kit/README.md                             5c18a70b28f8dda05f3e47fcc72b42359eace9604fd4e7567844c5b5faaecabe
+                scripts/_vendor/verdict-kit/VENDORED.sha256                       09b657e40d0d6d7bab46b4cd054e017aa0b0a60937284559fd0093f2e8436dc3
+                scripts/_vendor/verdict-kit/smoke.py                              130c5fd056fd145e9624957d4c664a7a44176ca4449c907c81b8336329379cc6
+                scripts/_vendor/verdict-kit/verdict_kit/__init__.py               3ced2d6efc293bf5ed605d9faa864e5e212bb3361a612311bc7c2f38c8d8b9dc
+                scripts/lib_common.py                                             c300dad1f726c1a1f1eda4e78ba1c6e6c3c7bf0861c0a1ebb4216e97fe8e3f67
+                scripts/run_fixtures.py                                           92ae060b9d9ad79404496660355d22d820997cb982935eeab3a5e089d4584362
+                scripts/selftest.py                                               f96aca341cb53f7106b180c829e890b1b71a35de1a66c5334e7656eb5b932b20
+删除 0        :
+内容          : verdict-kit Phase 2-3——把「fixtures 怎么展开占位符、怎么物化 setup_dir、
+                怎么跑子进程取错误码、怎么比对期望」搬进 vendored kit，先冻 golden，再换实现：
+                1) kit 新增 `verdict_kit/fixtures.py`（7926 B）：`expand_args`（@F@ / @OUT@ /
+                   @RUN@ 三占位符）、`materialize`（setup_dir 整棵 copytree，源缺失抛
+                   `FixtureError`）、`run_case`（子进程 + 信封取码 + 去重排序后精确匹配 +
+                   `want_acceptance` 点路径）、`summarize`、`check_declared_count`。
+                2) `scripts/run_fixtures.py` 153 → 98 行改薄；数据、CLI、`E-FIXTURE-MISMATCH`、
+                   artifacts 留技能侧；错误码集合与 r92 逐字相同
+                   （定义错误 E-SCHEMA / 2，不匹配 E-FIXTURE-MISMATCH / 1）。
+                3) 换实现前先冻 golden 到 `tests/fixtures/fixtures-run/`（README 5304 B
+                   + run-fixtures-frozen.json 14514 B，含 37 条摘要与「无易变字段」论证）；
+                   新增 A112 做 byte parity：`bytes_equal=True want=14514B got=14514B rc=0`。
+                4) VENDORED.sha256 13 → 14 项并整册重算；kit smoke 28 → 33
+                   （新增 fixtures.expand / materialize / exact-codes / acceptance /
+                   summary-guard 五条），A106 同步 checks=33。
+                5) EXPECTED_ASSERTIONS 111 → 112（A112），`--fixtures` 对应 112 → 113。
+                6) 阈值与数据零改：`tests/fixtures/fixtures.json` md5 f0772382… 与 r92 逐字节
+                   相同（37 条、0 重复 id、cases_expected=37）；`config/thresholds.json`
+                   md5 9c274480… 相同；contract / config / references / templates / docs /
+                   examples 六目录 50 文件逐件 md5 全等；三档 tier、L0–L5、description
+                   三态、五条契约、两条证据轨均未动。
+
+实测证据      : 九道闸（本机实跑：Python 3.12.10 + 引擎 0.22.0；
+                PATH 前置 C:/Program Files/Tesseract-OCR 以恢复 cairosvg 原生库）：
+                selftest 112/0/0（failed=0、skipped=[]、partial=false、exit 0；
+                A30 / A31 / A46 三条引擎断言 skipped=false 真执行）、
+                selftest --fixtures 113/0/0（exit 0）、
+                run_fixtures 37/37（all_ok=true，exit 0；输出 md5 cc942f0838cd6601f279b3df79705183
+                与 run-fixtures-frozen.json 逐字节相等）、
+                validate_claims 143/143 覆盖 138/138（ratio 1.0 = floor，exit 0）、
+                redteam 18 攻击 / 16 拦下 / 0 漏拦 / 2 已声明边界（exit 0；
+                输出 md5 00d7320deca68bee7f8967b43b0b5617 与 redteam-frozen.json 逐字节相等）、
+                gen_contract --check 无漂移（4/4 same，exit 0）、
+                VENDORED.sha256 14/14 逐件复算 0 差异、0 未登记文件、
+                kit smoke 33/33（{"checks":33,"failed":0,"passed":33,"status":"ok"}）、
+                validate_skill（workbuddy / marketplace）0 error / 0 warning（exit 0）
+                A112 bytes_equal=True want=14514B got=14514B rc=0；A106 checks=33 failed=0
+                双打包 x2 sha256 一致（229 文件 / 576211 B / 72e8c57c…ea23）
+                zip ↔ 源码逐件 md5 全等（missing 0 / extra 0 / diff 0，229/229）；
+                包内 0 目录项、0 个 .pyc / __pycache__ / _dev-logs、0 个 0 字节条目，
+                229 个条目全部以 `vector-ai-studio/` 为根前缀
+                复测闸 19/19 通过 / 0 失败 / 0 无法复测，exit 0；
+                P1（包↔源码）missing 0 / extra 0 / diff 0、
+                P2（包内引擎锁↔本机）ef7860aefe57cf0d… 一致、
+                P3（03-源码↔仓库被审代码）missing 0 / extra 0 / diff 0（229/229）
+                版本实测（从 zip 读回）：SKILL.md version 1.25.0 /
+                metadata.version "1.25.0"、CHANGELOG 首条 1.25.0 [r93]
+
+已知限制      : 1) PDF/X 规范原文未核：L2 只验 GTS_PDFXVersion 与 output_intents≥1，
+                   未逐条比对 ISO 15930 条款
+                2) 外部真人评审 0 份；审美类结论仍不可采信
+                3) path 墨量不可测：AREA-<colour> 只对可解算几何计数，path 一律判不可测（A66 守着）
+                4) cairosvg 依赖原生 cairo：PATH 未含 Tesseract-OCR 目录时 import 失败，
+                   A105 会如实跳过；skipped 记为 pass 的口径不存在
+                5) 声明登记册 143 条中 68 条仍为 unverified；阈值数值零改动
+                6) A112 只比对 run_fixtures 的整封信封字节，不覆盖「case 内部逐字段语义」；
+                   golden 描述的是改前实现，篡改 frozen 一条会让 A112 变红（QA 已实测 111/112）
+                7) 1.25.0 只抽了 fixtures；Phase 2 剩余 gate 未做
+                8) QA 两条非阻塞观察（本轮未修，归属 developer 下轮）：
+                   O1 `fixtures.py` 注释称「脚本无法启动时 rc=-1」，Windows 实测少文件时
+                   python 自身退 2；当前 37 条里 want_exit 含 2 的 3 条都写了 want_codes，
+                   数据不可达，故不影响本版，但将来若声明 want_exit:[2] 且 want_codes:[]
+                   而 script 名写错，该 case 会假绿；
+                   O2 若 fixtures.json 出现两个同 id 且都带 setup_dir 的 case，第二条 copytree
+                   抛 FileExistsError → E-INTERNAL/4，与「定义坏了统一 E-SCHEMA/2」不完全一致；
+                   属 r92 既有行为（新旧树输出完全相同），现有数据 0 重复 id，不可达
+
+校验方式      : ① sha256sum 05-发布/vector-ai-studio_r93-229files.zip
+                应为 72e8c57c663667cf8cad56c7acc717843d34712aa80b1d9f074a653ab965ea23
+                （576211 B / 229 文件）
+                ② 解压后与源码逐件比对（两种独立实现，任选其一）：
+                win: Expand-Archive 后对两棵树逐件 Get-FileHash -Algorithm MD5 比对；
+                期望 missing 0 / extra 0 / diff 0、包内 0 个目录项
+                bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
+                上一版：r92 / 1.24.0 = 48de74b9855cb42133073381b272d5dc7b4b44e6beff40b1fcf5610a6e137ad1
+                （564936 B / 226 文件，已在 archive/）
