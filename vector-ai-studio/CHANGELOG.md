@@ -4,6 +4,44 @@ Notable changes to this skill, one heading per shipped version. The round
 identifier in brackets is the internal release tag used by the project's
 test log (round tags `rNN`).
 
+## 1.23.0 — 2026-11-14 [r90]
+
+verdict-kit, phase 2-1: the contract adapter. `scripts/gen_contract.py` no
+longer parses the contract, compares bytes or writes files itself; those three
+mechanics now come from the vendored `verdict_kit.contract`. The CLI flags
+(`--check`, `--json`), the envelope `data` shape, the exit codes and the four
+error codes (`E-CONTRACT-MISSING` / `E-CONTRACT-PARSE` / `E-CONTRACT-SCHEMA` /
+`E-CONTRACT-DRIFT`) are unchanged.
+
+- **Golden first**: seven envelopes were frozen BEFORE the switch -- the
+  shipped `--check` that passes, the write path (plus the four files it must
+  really leave on disk), a hand-edited generated file, and four ways the
+  contract itself can be bad (unparseable JSON, absent file, wrong schema,
+  missing required key). A109 replays each one and compares the parsed
+  envelope plus its status/code; key order is not a promise.
+  `tests/fixtures/contract-gen/` holds the goldens and their `tests/fixtures/contract-gen/cases.json`.
+- **What moved**: contract loading and shape checks, byte-exact `--check`,
+  "a missing target is drift", and the atomic write. What stayed: the four
+  renderers, the required-key list, and the `config/thresholds.json` message-key
+  cross-check -- the kit never invents a value.
+- **The seam is documented**: `_contract_path()` and `ROOT` remain module
+  globals, which is what lets the negative cases run against a throw-away tree
+  instead of the shipped one.
+- **Deliberate differences**, all in the error path and none in the exit/code
+  pair: a contract that is valid JSON but not an object is now
+  `E-CONTRACT-SCHEMA` (exit 2) instead of an `E-INTERNAL` (exit 4) crash;
+  several missing required keys are named in one message instead of only the
+  first; and the kit renders then writes each artifact in order, so a renderer
+  that crashes mid-run can leave earlier artifacts already rewritten where the
+  old code rendered all four first. Each individual write is still atomic.
+- **A28 stays honest**: the three load-time codes are named in the adapter
+  (`CONTRACT_ERROR_CODES`) because `references/error-codes.md` registers what
+  this CLI can emit, and that tuple also bounds what the kit may forward.
+- **A109** pins the seven cases. `EXPECTED_ASSERTIONS` 108 -> 109
+  (--fixtures 110/110; plain 109/109, 3 declared capability skips). The kit
+  itself did not change, so `scripts/_vendor/verdict-kit/VENDORED.sha256` is untouched. Claims stay 143.
+  No threshold value changed.
+
 ## 1.22.0 — 2026-11-13 [r89]
 
 verdict-kit, phase 1b: the claims adapter. `scripts/validate_claims.py` is now a thin

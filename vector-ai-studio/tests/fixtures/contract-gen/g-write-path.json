@@ -1,0 +1,39 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "gen_contract.py",
+  "run_id": "",
+  "status": "ok",
+  "code": 0,
+  "data": {
+    "contract_version": "1.0.0",
+    "criteria_version": "2.0.0",
+    "files": [
+      {
+        "file": "scripts/_contract.py",
+        "same": true,
+        "bytes": 4518
+      },
+      {
+        "file": "references/schemas/contract-enums.schema.json",
+        "same": true,
+        "bytes": 2796
+      },
+      {
+        "file": "docs/generated/contract-table.md",
+        "same": true,
+        "bytes": 2150
+      },
+      {
+        "file": "tests/fixtures/contract/contract-matrix.json",
+        "same": true,
+        "bytes": 1710
+      }
+    ],
+    "mode": "write"
+  },
+  "errors": [],
+  "warnings": [],
+  "artifacts": {
+    "contract": "contract/contract.json"
+  }
+}

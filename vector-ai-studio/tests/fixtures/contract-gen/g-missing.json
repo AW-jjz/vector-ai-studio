@@ -1,0 +1,16 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "gen_contract.py",
+  "run_id": "",
+  "status": "error",
+  "code": 2,
+  "data": {},
+  "errors": [
+    {
+      "code": "E-CONTRACT-MISSING",
+      "msg": "contract not found: contract.json"
+    }
+  ],
+  "warnings": [],
+  "artifacts": {}
+}

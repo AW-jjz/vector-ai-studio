@@ -1,0 +1,16 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "gen_contract.py",
+  "run_id": "",
+  "status": "error",
+  "code": 2,
+  "data": {},
+  "errors": [
+    {
+      "code": "E-CONTRACT-PARSE",
+      "msg": "cannot parse contract: Expecting property name enclosed in double quotes: line 1 column 54 (char 53)"
+    }
+  ],
+  "warnings": [],
+  "artifacts": {}
+}

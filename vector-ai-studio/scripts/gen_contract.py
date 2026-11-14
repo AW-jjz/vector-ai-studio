@@ -22,6 +22,14 @@ disk; a difference is `E-CONTRACT-DRIFT`. CI runs it, so a hand-edited
 generated file (or an un-regenerated contract) is red, not a surprise.
 
 The generator never invents a value: it only moves what the contract says.
+
+Phase 2-1 (r90) splits the mechanics from the vocabulary: loading the
+document, comparing bytes, treating a missing target as drift and writing
+atomically all live in the vendored `verdict_kit.contract`. What stays here is
+the part only this skill knows -- the four renderers, the required keys, and
+the cross-check against `config/thresholds.json`. `_contract_path()` and
+`ROOT` remain module globals so the cases in
+`tests/fixtures/contract-gen/` can point the generator at a throw-away tree.
 """
 
 import argparse
@@ -32,8 +40,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
 
+# Phase 2-1: the vendored contract generator owns load / byte compare / atomic
+# write. Importing the package would create scripts/_vendor/.../__pycache__
+# (A22), so bytecode writing is disabled for this CLI process.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_vendor" / "verdict-kit"))
+import verdict_kit.contract as VC  # noqa: E402
+
 SCRIPT = "gen_contract.py"
 CONTRACT_SCHEMA = "vector-ai-studio/contract-v1"
+CONTRACT_KEYS = ("enums", "verdict", "banned_claim_words")
+# The codes this CLI may emit while loading the contract. They are named here,
+# not only in the kit, because references/error-codes.md registers what THIS
+# CLI can emit and A28 compares the two sets in both directions. The tuple is
+# also the boundary: a code the kit invents later is not forwarded silently.
+CONTRACT_ERROR_CODES = ("E-CONTRACT-MISSING", "E-CONTRACT-PARSE",
+                        "E-CONTRACT-SCHEMA")
 ROOT = L.skill_root()
 CONTRACT_PATH = ROOT / "contract" / "contract.json"
 
@@ -43,24 +65,18 @@ def _contract_path():
 
 
 def load_contract():
-    p = _contract_path()
-    if not p.is_file():
-        raise L.ToolError("E-CONTRACT-MISSING",
-                          "contract not found: " + p.name, L.EXIT_USAGE)
+    """Load and shape-check the contract.
+
+    The kit raises its own ToolError; the skill's run_cli only rescues
+    lib_common.ToolError, so the code/exit pair is carried across unchanged.
+    A contract that is valid JSON but not an object is refused as
+    E-CONTRACT-SCHEMA here instead of dying as E-INTERNAL later.
+    """
     try:
-        obj = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
-        raise L.ToolError("E-CONTRACT-PARSE",
-                          "cannot parse contract: " + str(e), L.EXIT_USAGE)
-    if obj.get("schema") != CONTRACT_SCHEMA:
-        raise L.ToolError("E-CONTRACT-SCHEMA",
-                          "contract schema mismatch: expected " + CONTRACT_SCHEMA +
-                          ", got " + str(obj.get("schema")), L.EXIT_USAGE)
-    for key in ("enums", "verdict", "banned_claim_words"):
-        if key not in obj:
-            raise L.ToolError("E-CONTRACT-SCHEMA",
-                              "contract lacks " + key, L.EXIT_USAGE)
-    return obj
+        return VC.load_spec(_contract_path(), CONTRACT_SCHEMA, CONTRACT_KEYS)
+    except VC.ToolError as e:
+        code = e.code if e.code in CONTRACT_ERROR_CODES else "E-CONTRACT-SCHEMA"
+        raise L.ToolError(code, e.msg, e.exit_code)
 
 
 def thresholds_problems(obj):
@@ -331,12 +347,13 @@ def gen_matrix(obj):
     }, ensure_ascii=False, indent=2) + "\n"
 
 
-def _targets(obj):
+def _artifacts():
+    """One pure renderer per target; the kit only moves the bytes."""
     return [
-        (ROOT / "scripts" / "_contract.py", gen_contract_py(obj)),
-        (ROOT / "references" / "schemas" / "contract-enums.schema.json", gen_schema(obj)),
-        (ROOT / "docs" / "generated" / "contract-table.md", gen_doc_table(obj)),
-        (ROOT / "tests" / "fixtures" / "contract" / "contract-matrix.json", gen_matrix(obj)),
+        VC.Artifact("scripts/_contract.py", gen_contract_py),
+        VC.Artifact("references/schemas/contract-enums.schema.json", gen_schema),
+        VC.Artifact("docs/generated/contract-table.md", gen_doc_table),
+        VC.Artifact("tests/fixtures/contract/contract-matrix.json", gen_matrix),
     ]
 
 
@@ -355,32 +372,19 @@ def main():
                       data={"problems": problems},
                       errors=[L.err("E-CONTRACT-DRIFT", p) for p in problems])
 
-    results = []
-    for path, text in _targets(obj):
-        rel = str(path.relative_to(ROOT)).replace("\\", "/")
-        if args.check:
-            current = path.read_text(encoding="utf-8") if path.is_file() else None
-            same = current == text
-            results.append({"file": rel, "same": same,
-                            "bytes": len(text.encode("utf-8"))})
-        else:
-            L.write_text_atomic(path, text)
-            results.append({"file": rel, "same": True,
-                            "bytes": len(text.encode("utf-8"))})
+    report = VC.generate(obj, _artifacts(), ROOT, check=args.check)
 
-    if args.check:
-        drift = [r["file"] for r in results if not r["same"]]
-        if drift:
-            return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
-                          data={"files": results, "drift": drift},
-                          errors=[L.err("E-CONTRACT-DRIFT",
-                                        "generated files are out of date: " +
-                                        ", ".join(drift) +
-                                        " -- run: python scripts/gen_contract.py")])
+    if args.check and not report.ok:
+        return L.emit(SCRIPT, status="fail", code=L.EXIT_FAIL,
+                      data={"files": report.files, "drift": list(report.drift)},
+                      errors=[L.err("E-CONTRACT-DRIFT",
+                                    "generated files are out of date: " +
+                                    ", ".join(report.drift) +
+                                    " -- run: python scripts/gen_contract.py")])
     return L.emit(SCRIPT, status="ok", code=L.EXIT_OK,
                   data={"contract_version": obj["version"],
                         "criteria_version": obj["criteria_version"],
-                        "files": results, "mode": "check" if args.check else "write"},
+                        "files": report.files, "mode": report.mode},
                   artifacts={"contract": "contract/contract.json"})
 
 

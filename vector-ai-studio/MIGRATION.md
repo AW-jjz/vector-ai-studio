@@ -65,3 +65,17 @@ python -c "import json; d=json.load(open('acceptance.json',encoding='utf-8')); p
 ```
 
 重算出的日志再交给原消费方跑一遍；判「未判定」的地方逐条确认是按「缺证据」而不是按「失败」处理的。
+
+## 7. 附：内部迁移进度（verdict-kit，非对外破坏性变更）
+
+这张表是给维护者的：判定工具按分片迁到 vendored `scripts/_vendor/verdict-kit/`，每片都在换实现**之前**冻结 golden。对外契约（CLI flags、信封 schema、退出码、错误码）逐片保持；表中任何一片都不要求下游改代码。
+
+| 分片 | 轮次 | 交给 kit 的东西 | 留在技能里的东西 | 钉住的断言 |
+|---|---|---|---|---|
+| Phase 0 | r86 | 骨架落盘（envelope / registry / contract / assertions / context） | 全部现有 import 未改 | A106 |
+| Phase 1a | r87 / r88 | `lib_common.envelope()` / `emit()` 的信封形状与键序 | schema id、`ToolError`、`run_cli` | A107（13 组字节 parity） |
+| Phase 1b | r89 | `scripts/validate_claims.py` 的句子切分、锚点解析、哈希比对、机制校验、覆盖率 | 扫描文件、强制词、断言 id、攻击表、`CAPABILITY_SKIPS` | A108（4 组语义 parity） |
+| Phase 2-1 | r90 | `scripts/gen_contract.py` 的契约装载与形状校验、逐字节 `--check`、缺目标即漂移、原子写 | 四个渲染器、必需键清单、`config/thresholds.json` 文案键交叉检查 | A109（7 组 parity：解析后 JSON + status/code） |
+
+迁移期间三条约束照旧：kit 不发明任何取值（词表只有一个来源，即 `contract/contract.json`）；kit 缺能力时补 kit，不让技能侧改值迁就；两侧语义不该合并时停下上报，不硬接。r90 的判定是「kit 能力足够」，因此 `scripts/_vendor/verdict-kit/VENDORED.sha256` 本轮未变。
+

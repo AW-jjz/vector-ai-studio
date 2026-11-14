@@ -5140,6 +5140,102 @@ def _stage_r89(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r90(tmp, add):
+    """A109: gen_contract is an adapter over the vendored contract generator.
+
+    Seven envelopes were frozen BEFORE the switch: the shipped check that
+    passes, the write path (and the files it must really leave on disk), a
+    hand-edited generated file, and four ways the contract itself can be bad
+    (unparseable JSON, absent file, wrong schema, missing required key). The
+    comparison is the parsed envelope plus its status/code; key order is not
+    a promise. The negative cases need a throw-away tree, so they drive the
+    documented `_contract_path()` / `ROOT` seams rather than the real files.
+    """
+    try:
+        import contextlib as _ctx
+        import io as _io
+        import gen_contract as G
+
+        fix = ROOT / "tests" / "fixtures" / "contract-gen"
+        meta = json.loads((fix / "cases.json").read_text(encoding="utf-8"))
+        real_root, real_contract = G.ROOT, G.CONTRACT_PATH
+        good_text = real_contract.read_text(encoding="utf-8")
+
+        def run(argv):
+            old = sys.argv
+            sys.argv = ["gen_contract.py"] + argv
+            buf = _io.StringIO()
+            try:
+                with _ctx.redirect_stdout(buf):
+                    rc = L.run_cli("gen_contract.py", G.main)
+            finally:
+                sys.argv = old
+            return rc, json.loads(buf.getvalue())
+
+        def tree(prefix, text):
+            d = Path(tempfile.mkdtemp(prefix=prefix + "-", dir=str(tmp)))
+            (d / "contract").mkdir(parents=True, exist_ok=True)
+            if text is not None:
+                (d / "contract" / "contract.json").write_text(text, encoding="utf-8")
+            G.ROOT, G.CONTRACT_PATH = d, d / "contract" / "contract.json"
+            return d
+
+        def drive(cid):
+            G.ROOT, G.CONTRACT_PATH = real_root, real_contract
+            if cid == "check-ok":
+                return run(["--check", "--json"])
+            if cid == "write-path":
+                d = tree("g03", good_text)
+                rc, env = run(["--json"])
+                absent = [f["file"] for f in env.get("data", {}).get("files", [])
+                          if not (d / f["file"]).is_file()]
+                if absent:
+                    raise AssertionError("write claimed absent files: " +
+                                         ",".join(absent))
+                return rc, env
+            if cid == "drift":
+                d = tree("g02", good_text)
+                run(["--json"])
+                t = d / "docs" / "generated" / "contract-table.md"
+                t.write_text(t.read_text(encoding="utf-8") + "\nSTALE\n",
+                             encoding="utf-8")
+                return run(["--check", "--json"])
+            if cid == "bad-json":
+                tree("g04", '{"schema": "vector-ai-studio/contract-v1", "enums": {,,,}\n')
+                return run(["--check", "--json"])
+            if cid == "missing":
+                tree("g05", None)
+                return run(["--check", "--json"])
+            if cid == "schema-mismatch":
+                obj = json.loads(good_text)
+                obj["schema"] = "someone-else/contract-v9"
+                tree("g06", json.dumps(obj, ensure_ascii=False, indent=2) + "\n")
+                return run(["--check", "--json"])
+            if cid == "lacks-key":
+                obj = json.loads(good_text)
+                del obj["banned_claim_words"]
+                tree("g07", json.dumps(obj, ensure_ascii=False, indent=2) + "\n")
+                return run(["--check", "--json"])
+            raise AssertionError("unknown case: " + cid)
+
+        bad = []
+        try:
+            for case in meta["cases"]:
+                rc, env = drive(case["id"])
+                want = json.loads((fix / case["golden"]).read_text(encoding="utf-8"))
+                if (rc != case["expect_exit"] or env != want
+                        or env.get("code") != want.get("code")):
+                    bad.append(case["id"])
+        finally:
+            G.ROOT, G.CONTRACT_PATH = real_root, real_contract
+        add("A109-gen-contract-adapter-parity",
+            len(meta["cases"]) >= 4 and not bad,
+            "cases=%d bad=%s" % (len(meta["cases"]), ",".join(bad) or "-"))
+    except Exception as e:                      # noqa: BLE001
+        add("A109-gen-contract-adapter-parity", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def main():
     ap = argparse.ArgumentParser(description="pure-script selftest")
     ap.add_argument("--json", action="store_true")
@@ -5206,6 +5302,7 @@ def main():
     _stage_r86(tmp, add)
     _stage_r87(tmp, add)
     _stage_r89(tmp, add)
+    _stage_r90(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside

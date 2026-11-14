@@ -1,0 +1,42 @@
+{
+  "schema": "vector-ai-studio/contract-gen-cases-v1",
+  "note": "gen_contract 的 golden。r90 换实现之前冻结，A109 逐条回放：解析后 JSON 全等 + status/code（键序不作承诺）。g-check-ok 用真实技能根；其余用例在临时树里跑 _contract_path()/ROOT 两个 seam。",
+  "parity": "parsed-json+status+code",
+  "cases": [
+    {
+      "id": "check-ok",
+      "expect_exit": 0,
+      "golden": "g-check-ok.json"
+    },
+    {
+      "id": "write-path",
+      "expect_exit": 0,
+      "golden": "g-write-path.json"
+    },
+    {
+      "id": "drift",
+      "expect_exit": 1,
+      "golden": "g-drift.json"
+    },
+    {
+      "id": "bad-json",
+      "expect_exit": 2,
+      "golden": "g-bad-json.json"
+    },
+    {
+      "id": "missing",
+      "expect_exit": 2,
+      "golden": "g-missing.json"
+    },
+    {
+      "id": "schema-mismatch",
+      "expect_exit": 2,
+      "golden": "g-schema-mismatch.json"
+    },
+    {
+      "id": "lacks-key",
+      "expect_exit": 2,
+      "golden": "g-lacks-key.json"
+    }
+  ]
+}

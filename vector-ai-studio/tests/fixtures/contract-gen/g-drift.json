@@ -1,0 +1,42 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "gen_contract.py",
+  "run_id": "",
+  "status": "fail",
+  "code": 1,
+  "data": {
+    "files": [
+      {
+        "file": "scripts/_contract.py",
+        "same": true,
+        "bytes": 4518
+      },
+      {
+        "file": "references/schemas/contract-enums.schema.json",
+        "same": true,
+        "bytes": 2796
+      },
+      {
+        "file": "docs/generated/contract-table.md",
+        "same": false,
+        "bytes": 2150
+      },
+      {
+        "file": "tests/fixtures/contract/contract-matrix.json",
+        "same": true,
+        "bytes": 1710
+      }
+    ],
+    "drift": [
+      "docs/generated/contract-table.md"
+    ]
+  },
+  "errors": [
+    {
+      "code": "E-CONTRACT-DRIFT",
+      "msg": "generated files are out of date: docs/generated/contract-table.md -- run: python scripts/gen_contract.py"
+    }
+  ],
+  "warnings": [],
+  "artifacts": {}
+}

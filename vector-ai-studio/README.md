@@ -124,6 +124,7 @@ python scripts/verify_install.py --json
 - Phase 0 的 verdict-kit 骨架 vendored 在 `scripts/_vendor/verdict-kit/`：A106 跑 25 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 未改。
 - Phase 1a 起 `lib_common` 的 `envelope()` / `emit()` 委托给 vendored 信封；A107 用 13 组冻结 golden（含 `partial`）做逐字节 parity，`ToolError`/`run_cli` 暂不动。
 - Phase 1b 起 `scripts/validate_claims.py` 委托给 vendored `ClaimRegistry`；A108 用 4 组冻结 golden（无日志 / 通过日志 / 坏跳过 / 哈希漂移）做语义 parity。
+- Phase 2-1 起 `scripts/gen_contract.py` 的装载 / 逐字节比对 / 原子写委托给 vendored `verdict_kit.contract`，四个渲染器与 thresholds 文案键检查留在本技能；A109 用 7 组冻结 golden 做 parity（解析后 JSON + status/code），CLI 形状、信封 data、退出码与错误码一致。
 
 
 ## 自检说明
