@@ -121,11 +121,12 @@ python scripts/verify_install.py --json
 - **同一次 run 内的自证拦不住**：`output/<run-id>/` 由生成方可写，脚本分不清同一 run 内自写的 `output/<run-id>/selftest.json` 与真跑出来的；H3 的断言数下界与 `run_id` 绑定只挡跨 run 复用。反向证明见 red-team 的 `17-self-attested-log`。
 - 跨文件的枚举（保真度、档位、判读字段）只在 `contract/contract.json` 定义一次，由 `scripts/gen_contract.py` 生成给生产侧与判据侧共同 import；`python scripts/gen_contract.py --check` 在 CI 里卡漂移。
 - 保真度矩阵有可选的第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只对 `faithful` 特征要求像素一致，`limited` 只要求渲染非空；cairosvg/原生 cairo 缺席退 3。
-- Phase 0 的 verdict-kit 骨架 vendored 在 `scripts/_vendor/verdict-kit/`：A106 跑 28 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 未改。
+- Phase 0 的 verdict-kit 骨架 vendored 在 `scripts/_vendor/verdict-kit/`：A106 跑 33 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 未改。
 - Phase 1a 起 `lib_common` 的 `envelope()` / `emit()` 委托给 vendored 信封；A107 用 13 组冻结 golden（含 `partial`）做逐字节 parity，`ToolError`/`run_cli` 暂不动。
 - Phase 1b 起 `scripts/validate_claims.py` 委托给 vendored `ClaimRegistry`；A108 用 4 组冻结 golden（无日志 / 通过日志 / 坏跳过 / 哈希漂移）做语义 parity。
 - Phase 2-1 起 `scripts/gen_contract.py` 的装载 / 逐字节比对 / 原子写委托给 vendored `verdict_kit.contract`，四个渲染器与 thresholds 文案键检查留在本技能；A109 用 7 组冻结 golden 做 parity（解析后 JSON + status/code），CLI 形状、信封 data、退出码与错误码一致。
 - Phase 2-2 起 `scripts/redteam.py` 的六种 mutation op、点路径取值与六类声明式期望校验委托给 vendored `verdict_kit.attacks`，基线 `base_run`、验收日志的读取、subprocess 调用与 CLI 形状留在本技能，攻击数据仍是 `tests/attacks/*.json`；A111 用两份冻结 golden 做 parity（整份信封语义全等 + 18 条逐条 exit/codes/problems）。
+- Phase 2-3 起 `scripts/run_fixtures.py` 的三占位符展开、`setup_dir` 物化、单 case 执行、精确码匹配、汇总与声明条数守卫委托给 vendored `verdict_kit.fixtures`，schema、`cases_expected` 读取、脚本目录、CLI 形状与 `E-FIXTURE-MISMATCH` 留在本技能；A112 用冻结的整份 `--json` 信封做逐字节 parity（37 条）。
 
 
 ## 自检说明

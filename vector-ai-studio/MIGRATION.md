@@ -77,8 +77,11 @@ python -c "import json; d=json.load(open('acceptance.json',encoding='utf-8')); p
 | Phase 1b | r89 | `scripts/validate_claims.py` 的句子切分、锚点解析、哈希比对、机制校验、覆盖率 | 扫描文件、强制词、断言 id、攻击表、`CAPABILITY_SKIPS` | A108（4 组语义 parity） |
 | Phase 2-1 | r90 | `scripts/gen_contract.py` 的契约装载与形状校验、逐字节 `--check`、缺目标即漂移、原子写 | 四个渲染器、必需键清单、`config/thresholds.json` 文案键交叉检查 | A109（7 组 parity：解析后 JSON + status/code） |
 | Phase 2-2 | r92 | `scripts/redteam.py` 的六种 mutation op、点路径取值、六类声明式期望校验（`expect_exit` / `expect_codes` / `reject_codes` / `expect_no_pass` / `expect_grade` / `expect_field`） | 诚实基线 `base_run`、验收日志的读取、被攻击脚本的 subprocess 调用、CLI 形状（`--attack-dir` / `--only` / `--json`）、攻击数据 `tests/attacks/*.json`、「达标/pass」这个通过谓词（以 `too_good` 注入） | A111（整份信封语义 parity + 18 条逐条 `id` / `exit` / `codes` / `problems`） |
+| Phase 2-3 | r93 | `scripts/run_fixtures.py` 的 `@F@` / `@OUT@` / `@RUN@` 展开、`setup_dir` 物化、单 case 子进程执行、`errors[].code` 去重排序后的精确匹配、`want_acceptance` 点路径比对、汇总、声明条数守卫 | `FIX_SCHEMA`、`tests/fixtures/fixtures.json` 数据与 `cases_expected` 读取、脚本目录、CLI 形状（`--json` / `--fixtures` / `--log-dir` / `--run-id`）、`E-FIXTURE-MISMATCH`、artifacts 写盘 | A112（整份 `--json` 信封逐字节 parity，37 条 case） |
 
 迁移期间三条约束照旧：kit 不发明任何取值（词表只有一个来源，即 `contract/contract.json`）；kit 缺能力时补 kit，不让技能侧改值迁就；两侧语义不该合并时停下上报，不硬接。r90 的判定是「kit 能力足够」，因此 `scripts/_vendor/verdict-kit/VENDORED.sha256` 本轮未变。
 
 r92（Phase 2-2）是这条线第一次真正**改 kit**：新增 `scripts/_vendor/verdict-kit/verdict_kit/attacks.py`，因此 `scripts/_vendor/verdict-kit/VENDORED.sha256` 从 12 项重算为 13 项，冒烟从 25 条增到 28 条。kit 保持「不判定通过与否」的分界：`evaluate` 不含任何默认通过词表，`expect_no_pass` 命中而未注入 `too_good` 时抛 `ValueError`（编程错误，经 `run_cli` 落成 `E-INTERNAL` 退 4）；通过谓词（`grade == "达标"` 或 `tier == "pass"`）写在 `scripts/redteam.py` 里，以 `too_good` 注入。
+
+r93（Phase 2-3）是这条线上第二次改 kit：新增 `scripts/_vendor/verdict-kit/verdict_kit/fixtures.py`，因此 `scripts/_vendor/verdict-kit/VENDORED.sha256` 从 13 项重算为 14 项，冒烟从 28 条增到 33 条（五个 fixtures 检查：三占位符展开、物化与缺失报错、精确码匹配、acceptance 比对、汇总与条数守卫）。kit 侧的边界是**谁来决定报错**：`FixtureError` 不带退出码、也不带 `E-*` 码，调用方（`scripts/run_fixtures.py`）把「定义坏了」统一转成既有的 `E-SCHEMA` 退 2、「跑完不匹配」仍报 `E-FIXTURE-MISMATCH` 退 1——对外错误码集合与 r92 逐字相同，`references/error-codes.md` 无需新增条目。
 

@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.25.0 — 2026-11-14 [r93]
+
+verdict-kit, phase 2-3: the fixtures runner. `scripts/run_fixtures.py` no
+longer expands the placeholders, materialises `setup_dir`, runs a case,
+compares the codes or counts the results itself; those five jobs now come from
+the new vendored `verdict_kit.fixtures`. The CLI flags (`--json`, `--fixtures`,
+`--log-dir`, `--run-id`), the envelope, the exit codes, the error codes and
+the success output are unchanged -- the shipped `--json` output is
+byte-identical to what r92 produced (14514 B, 37/37).
+
+- **Golden first**: the whole `scripts/run_fixtures.py --json` envelope was frozen
+  BEFORE the switch, into `tests/fixtures/fixtures-run/`. Two runs before the
+  change were byte-identical, and the envelope carries no timestamp, no
+  absolute path, no temp-directory name and no volatile `run_id` (empty
+  without `--run-id`), so A112 can compare BYTES rather than parsed JSON. The
+  fixture README records that field-by-field check and the 37-case
+  `id / ok / exit / codes / acceptance` table; it also constrains future
+  changes -- anything volatile added to the envelope turns A112 red.
+- **What moved**: `expand_args` (`@F@` / `@OUT@` / `@RUN@`, textual and
+  ordered), `materialize` (`setup_dir` copied wholesale into the case's run
+  directory; a declared-but-absent source is an error, never an empty
+  directory), `run_case` (subprocess + `errors[].code` extraction +
+  dedupe/sort/exact match + optional `want_acceptance` dotted-path compare),
+  `summarize` (`total` / `passed` / `failed` / `all_ok` / `cases`), and
+  `check_declared_count` (the truncation guard that used to report
+  `total=0, all_ok=true, exit 0`).
+- **The matching rules are unchanged**: extra code fails, missing code fails,
+  and a warning whose text starts with `E-` can never satisfy a wanted code --
+  only `errors[].code` is read. The behaviour lives in the kit now, so the
+  next skill gets the same rules instead of a near-copy.
+- **Who decides the error code**: `FixtureError` carries no exit code and no
+  `E-*` code. `scripts/run_fixtures.py` maps "the definition is broken" to the
+  existing `E-SCHEMA` (exit 2) and keeps `E-FIXTURE-MISMATCH` (exit 1) for
+  "ran, but did not match". The emitted code set is identical to r92, so
+  `references/error-codes.md` gains no entry. The wording of the two
+  definition errors is now kit-neutral ("fixture set has N cases, declared M"
+  rather than naming `tests/fixtures/fixtures.json`); no test asserted the old text.
+- **The kit changed again**: new
+  `scripts/_vendor/verdict-kit/verdict_kit/fixtures.py`, so
+  `scripts/_vendor/verdict-kit/VENDORED.sha256`
+  is recomputed (13 → 14 entries) and the smoke test grows 28 → 33 checks
+  (five: placeholder expansion, materialisation + missing-source error, exact
+  code matching in all four directions, acceptance mismatch, summary +
+  declared-count guard). A106's pinned count follows.
+- `EXPECTED_ASSERTIONS` 111 → 112.
+
 ## 1.24.0 — 2026-11-14 [r92]
 
 verdict-kit, phase 2-2: the attack adapter. `scripts/redteam.py` no longer

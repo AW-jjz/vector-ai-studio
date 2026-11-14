@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.24.0
+version: 1.25.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.24.0"
+  version: "1.25.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -316,7 +316,7 @@ H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生
 
 **跨渲染器（r84/r85，M3 第二/三片）**：r84 修了 Pillow 参考的两处 bug（stroke 居中、transform 旋转符号）并重测矩阵；r85 加可选第三渲染器：`scripts/fidelity_matrix.py --cross-check` 用 cairosvg，只要求分类器宣称 faithful 的特征与它像素一致，limited 只要求渲染非空。cairosvg/原生 cairo 缺席退 3（声明式缺失），绝不报通过。
 
-**verdict-kit Phase 0（r86）**：`scripts/_vendor/verdict-kit/` 是 vendored 的判定工具骨架（信封 / claims / 断言 / 契约），A106 在异目录跑 28 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 一个都没改。
+**verdict-kit Phase 0（r86）**：`scripts/_vendor/verdict-kit/` 是 vendored 的判定工具骨架（信封 / claims / 断言 / 契约），A106 在异目录跑 33 条冒烟并校验 `scripts/_vendor/verdict-kit/VENDORED.sha256`；现有 import 一个都没改。
 
 **verdict-kit Phase 1a（r87/r88）**：`scripts/lib_common.py` 的 `envelope()` / `emit()` 改为调用 vendored `verdict_kit.envelope`，schema 仍是 vector-ai-studio/v1；`ToolError` 与 `run_cli` 暂不动。A107 用改动前冻结的 golden bytes 逐字节比对（13 组，含 Linux 上常见的 `partial` / unicode / degraded / missing / fail / error / ok+code1 / artifacts），不是拿同一份代码自证。
 
@@ -325,6 +325,8 @@ H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生
 **verdict-kit Phase 2-1（r90）**：`scripts/gen_contract.py` 的契约装载、逐字节比对、缺目标即漂移与原子写改由 vendored `verdict_kit.contract` 承担；CLI flags、信封 data 形状、退出码与四个错误码（`E-CONTRACT-MISSING` / `E-CONTRACT-PARSE` / `E-CONTRACT-SCHEMA` / `E-CONTRACT-DRIFT`）逐项保持一致。四个渲染器、必需键清单与 `config/thresholds.json` 的文案键一致性检查仍在本技能。A109 用改动前冻结的 7 组 golden（通过 / 生成 / 手改生成物 / 坏 JSON / 缺文件 / schema 不符 / 缺必需键）做 parity：解析后 JSON 全等 + status/code（键序不是承诺）。
 
 **verdict-kit Phase 2-2（r92）**：`scripts/redteam.py` 的六种 mutation op、点路径取值与六类声明式期望校验改由 vendored `verdict_kit.attacks` 承担；诚实基线 `base_run`、验收日志的读取、被攻击脚本的 subprocess 调用与 CLI 形状（`--attack-dir` / `--only` / `--json`）留在本技能，攻击数据仍旧是 `tests/attacks/*.json`。A111 用改动前冻结的两份 golden 做 parity：整份 `--json` 信封语义全等（18 条结果的 id/status/codes/detail 与 summary 四项计数），外加 18 条逐条的 `id / expect / exit / codes / problems`。「达标 / pass」这个通过谓词以 `too_good` 显式注入；kit 侧无默认值，未注入而命中 `expect_no_pass` 时报 `ValueError`。
+
+**verdict-kit Phase 2-3（r93）**：`scripts/run_fixtures.py` 的三占位符展开（`@F@` / `@OUT@` / `@RUN@`）、`setup_dir` 物化、单 case 子进程执行与码匹配（去重 + 排序 + 精确相等）、汇总与声明条数守卫改由 vendored `verdict_kit.fixtures` 承担；`FIX_SCHEMA`、`tests/fixtures/fixtures.json` 的 `cases_expected` 读取、脚本目录、CLI 形状（`--json` / `--fixtures` / `--log-dir` / `--run-id`）、`E-FIXTURE-MISMATCH` 与 artifacts 写盘留在本技能。warning 的 `E-` 前缀凑不上想要的码，多一个码或少一个码都判红。A112 用改动前冻结的整份 `--json` 信封做逐字节 parity，37 条 case 的 `id` / `ok` / `exit` / `codes` / `acceptance` 摘要与「为什么没有易变字段」记在 `tests/fixtures/fixtures-run/` 的说明里。
 
 `scripts/verify_install.py` 回答的是另一个问题：**这台机器上的引擎路径通不通**。自检里 A30 / A31 / A46 三条依赖真实引擎，没有引擎时它们是 *skipped*（跳过是「没测」，不是「通过」）——所以「自检全绿」并不证明引擎能用。`scripts/verify_install.py` 复用这三条断言（不另立判据），再真跑一次 `land_vc` 与 `land_craft` 留下产物证据，并核对引擎二进制哈希与 `engine.lock.json` 里钉的那一个是否一致。**引擎缺席时它只报「无法复测」并退 3，绝不报 ok**；哈希对不上则报 `E-ENGINE-DRIFT`（同版本、不同构建，之前的回归结论不再成立）。
 

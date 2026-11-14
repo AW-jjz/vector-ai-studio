@@ -1,0 +1,635 @@
+{
+  "schema": "vector-ai-studio/v1",
+  "script": "run_fixtures.py",
+  "run_id": "",
+  "status": "ok",
+  "code": 0,
+  "data": {
+    "schema": "vector-ai-studio/fixtures-result-v1",
+    "run_id": "",
+    "total": 37,
+    "passed": 37,
+    "failed": 0,
+    "all_ok": true,
+    "cases": [
+      {
+        "id": "good-freeze-spec",
+        "script": "freeze_spec.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-sanitize",
+        "script": "sanitize_svg.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-judge",
+        "script": "llm_judge.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-score",
+        "script": "score.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-render-png-fallback",
+        "script": "render_png.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-bitmap",
+        "script": "sanitize_svg.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-BITMAP"
+        ],
+        "got_codes": [
+          "E-BITMAP"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-empty-spec",
+        "script": "freeze_spec.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-EMPTY-SPEC"
+        ],
+        "got_codes": [
+          "E-EMPTY-SPEC"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-degenerate-forbidden",
+        "script": "sanitize_svg.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-DEGENERATE",
+          "E-FORBIDDEN"
+        ],
+        "got_codes": [
+          "E-DEGENERATE",
+          "E-FORBIDDEN"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-palette-overflow",
+        "script": "score.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-C-PALETTE-OVERFLOW"
+        ],
+        "got_codes": [
+          "E-C-PALETTE-OVERFLOW"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-l2-degraded",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-o4-isolated",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-l2-fabricated",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-FABRICATED-SCORE"
+        ],
+        "got_codes": [
+          "E-FABRICATED-SCORE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-budget-exceeded",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-BUDGET-EXCEEDED"
+        ],
+        "got_codes": [
+          "E-BUDGET-EXCEEDED"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-f-backfill",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-F-DATA-ISOLATION"
+        ],
+        "got_codes": [
+          "E-F-DATA-ISOLATION"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-quick-claimed-pass",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-QUICK-UNVERIFIED"
+        ],
+        "got_codes": [
+          "E-QUICK-UNVERIFIED"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-acceptance-reachable",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-no-score",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-NO-SCORE"
+        ],
+        "got_codes": [
+          "E-NO-SCORE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-landing-only",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-exemption-abuse-full",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-EXEMPTION-ABUSE"
+        ],
+        "got_codes": [
+          "E-EXEMPTION-ABUSE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-exemption-abuse-lo",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-EXEMPTION-ABUSE",
+          "E-NO-SCORE"
+        ],
+        "got_codes": [
+          "E-EXEMPTION-ABUSE",
+          "E-NO-SCORE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-missing-f",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-NO-SCORE"
+        ],
+        "got_codes": [
+          "E-NO-SCORE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-missing-a",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-NO-SCORE"
+        ],
+        "got_codes": [
+          "E-NO-SCORE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "good-render-png-rect-faithful",
+        "script": "render_png.py",
+        "ok": true,
+        "want_exit": [
+          0
+        ],
+        "got_exit": 0,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-pass-missing-e",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-NO-SCORE"
+        ],
+        "got_codes": [
+          "E-NO-SCORE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-grade-v1-e-zero",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "got_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-grade-v2-a-zero",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "got_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-grade-v3-h1-false",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "got_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-grade-v7-all-zero",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "got_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-grade-v8-no-gates",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "got_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-grade-v9-excellent",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "got_codes": [
+          "E-GRADE-MISMATCH"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "run-dir-fake-ai",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-H1-STRUCTURE"
+        ],
+        "got_codes": [
+          "E-H1-STRUCTURE"
+        ],
+        "want_acceptance": {
+          "hard_gates.H1.pass": false,
+          "grade": "不达标"
+        },
+        "got_acceptance": {
+          "hard_gates.H1.pass": false,
+          "grade": "不达标"
+        }
+      },
+      {
+        "id": "run-dir-no-meta",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {
+          "capability_missing": true,
+          "degraded": true,
+          "grade": "未判定",
+          "tier": "indeterminate",
+          "deliverable_status": "deliverable_with_human_review"
+        },
+        "got_acceptance": {
+          "capability_missing": true,
+          "degraded": true,
+          "grade": "未判定",
+          "tier": "indeterminate",
+          "deliverable_status": "deliverable_with_human_review"
+        }
+      },
+      {
+        "id": "run-dir-one-assertion",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [],
+        "got_codes": [],
+        "want_acceptance": {
+          "hard_gates.H3.pass": false,
+          "grade": "不达标"
+        },
+        "got_acceptance": {
+          "hard_gates.H3.pass": false,
+          "grade": "不达标"
+        }
+      },
+      {
+        "id": "run-dir-raster-image-mismatch",
+        "script": "aggregate_log.py",
+        "ok": true,
+        "want_exit": [
+          1
+        ],
+        "got_exit": 1,
+        "want_codes": [
+          "E-H1-STRUCTURE"
+        ],
+        "got_codes": [
+          "E-H1-STRUCTURE"
+        ],
+        "want_acceptance": {
+          "hard_gates.H1.pass": false,
+          "grade": "不达标"
+        },
+        "got_acceptance": {
+          "hard_gates.H1.pass": false,
+          "grade": "不达标"
+        }
+      },
+      {
+        "id": "bad-sanitize-missing-input",
+        "script": "sanitize_svg.py",
+        "ok": true,
+        "want_exit": [
+          2
+        ],
+        "got_exit": 2,
+        "want_codes": [
+          "E-SCHEMA"
+        ],
+        "got_codes": [
+          "E-SCHEMA"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-studio-usage-envelope",
+        "script": "studio.py",
+        "ok": true,
+        "want_exit": [
+          2
+        ],
+        "got_exit": 2,
+        "want_codes": [
+          "E-USAGE"
+        ],
+        "got_codes": [
+          "E-USAGE"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      },
+      {
+        "id": "bad-schema-check-unreadable",
+        "script": "schema_check.py",
+        "ok": true,
+        "want_exit": [
+          2
+        ],
+        "got_exit": 2,
+        "want_codes": [
+          "E-SCHEMA"
+        ],
+        "got_codes": [
+          "E-SCHEMA"
+        ],
+        "want_acceptance": {},
+        "got_acceptance": {}
+      }
+    ]
+  },
+  "errors": [],
+  "warnings": [],
+  "artifacts": {}
+}

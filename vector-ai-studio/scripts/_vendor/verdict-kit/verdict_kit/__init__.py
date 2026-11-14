@@ -11,6 +11,7 @@ Public surface (see README.md for the consuming-skill contract):
     verdict_kit.assertions       three-valued harness with a self-count guard
     verdict_kit.contract         generated artifacts + byte-exact drift check
     verdict_kit.attacks          mutation ops + declared-expectation checks
+    verdict_kit.fixtures         fixture regression: expand, materialise, match
 
 Deliberately NOT here: thresholds, grading, SVG/PDF analysis, engine locks.
 Those belong to the skill that owns the judgment.
@@ -47,6 +48,15 @@ from .envelope import (
     validate,
     write_json_atomic,
     write_text_atomic,
+)
+from .fixtures import (
+    DEFAULT_TIMEOUT,
+    FixtureError,
+    check_declared_count,
+    expand_args,
+    materialize,
+    run_case,
+    summarize,
 )
 from .registry import (
     ClaimRegistry,
@@ -104,4 +114,11 @@ __all__ = [
     "evaluate",
     "MUTATION_OPS",
     "UNKNOWN_OP_CODE",
+    "FixtureError",
+    "DEFAULT_TIMEOUT",
+    "expand_args",
+    "materialize",
+    "run_case",
+    "summarize",
+    "check_declared_count",
 ]

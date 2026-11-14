@@ -5,11 +5,15 @@ Run from any directory:
 
     python <skill>/verdict-kit/smoke.py
 
-Exercises the two seams that matter before a full extraction:
+Exercises the seams that matter before a full extraction:
 
   * envelope determinism, exit-code policy, and the CLI error wrapper;
   * claim hashing, mechanism checks, capability skips, and the coverage
-    ratchet -- against a tiny fixture, not against vector-ai-studio.
+    ratchet -- against a tiny fixture, not against vector-ai-studio;
+  * contract rendering, byte drift and atomic writes;
+  * attack mutations and declared expectations;
+  * fixture expansion, materialisation, exact code matching and the
+    declared-count guard.
 
 Exit 0 = every check passed. Exit 1 = at least one check failed.
 """
@@ -31,6 +35,7 @@ import verdict_kit.assertions as A  # noqa: E402
 import verdict_kit.attacks as T  # noqa: E402
 import verdict_kit.contract as K  # noqa: E402
 import verdict_kit.envelope as E  # noqa: E402
+import verdict_kit.fixtures as F  # noqa: E402
 import verdict_kit.registry as R  # noqa: E402
 
 FIX = HERE / "fixtures"
@@ -459,6 +464,149 @@ def test_attack_dotted_and_write_json_seam() -> None:
         assert not (run / "x.json").exists()
 
 
+# ---------------------------------------------------------------------------
+# fixture regression
+# ---------------------------------------------------------------------------
+
+_PROBE = '''import json, sys
+codes = [c for c in (sys.argv[1].split(",") if len(sys.argv) > 1 else []) if c]
+print(json.dumps({"errors": [{"code": c} for c in codes],
+                  "warnings": ["E-WARN: a warning is not an error"]}))
+sys.exit(int(sys.argv[2]) if len(sys.argv) > 2 else 0)
+'''
+
+
+def _probe_tree(root: Path) -> Path:
+    scripts = root / "scripts"
+    scripts.mkdir()
+    (scripts / "probe.py").write_text(_PROBE, encoding="utf-8")
+    return scripts
+
+
+def test_fixture_expand_args() -> None:
+    fd, od = Path("/fx"), Path("/out")
+    rd = od / "case-1"
+    got = F.expand_args(["@F@/a.json", "--out=@OUT@", "@RUN@/acceptance.json",
+                         "plain", 7],
+                        fixtures_dir=fd, out_dir=od, run_dir=rd)
+    # Expansion is textual: the literal "/" after a placeholder survives, so
+    # the expected value is built the same way rather than via Path joining.
+    assert got == [str(fd) + "/a.json", "--out=" + str(od),
+                   str(rd) + "/acceptance.json", "plain", "7"], got
+    assert F.expand_args([], fixtures_dir=fd, out_dir=od, run_dir=rd) == []
+
+
+def test_fixture_materialize() -> None:
+    with tempfile.TemporaryDirectory(prefix="verdict-kit-smoke-") as td:
+        root = Path(td)
+        fx = root / "fx"
+        (fx / "setup" / "deep").mkdir(parents=True)
+        (fx / "setup" / "acceptance.json").write_text(
+            '{"grade": "达标"}\n', encoding="utf-8")
+        (fx / "setup" / "deep" / "log.json").write_text("{}\n", encoding="utf-8")
+
+        run = root / "out" / "case-1"
+        # No setup_dir -> no directory invented.
+        assert F.materialize({"id": "case-1"}, fixtures_dir=fx, run_dir=run) is None
+        assert not run.exists()
+
+        F.materialize({"id": "case-1", "setup_dir": "setup"},
+                      fixtures_dir=fx, run_dir=run)
+        assert json.loads((run / "acceptance.json").read_text(encoding="utf-8")) == \
+            {"grade": "达标"}
+        assert (run / "deep" / "log.json").is_file()
+
+        # A declared-but-absent source is an error, not an empty directory.
+        try:
+            F.materialize({"id": "case-2", "setup_dir": "absent"},
+                          fixtures_dir=fx, run_dir=root / "out" / "case-2")
+        except F.FixtureError as e:
+            assert "case-2" in str(e), e
+        else:
+            raise AssertionError("materialize accepted a missing setup_dir")
+
+
+def test_fixture_exact_code_match() -> None:
+    with tempfile.TemporaryDirectory(prefix="verdict-kit-smoke-") as td:
+        root = Path(td)
+        scripts = _probe_tree(root)
+        out = root / "out"
+        out.mkdir()
+
+        def run(cid, args, **declared):
+            case = {"id": cid, "script": "probe.py", "args": args}
+            case.update(declared)
+            return F.run_case(case, scripts_dir=scripts, fixtures_dir=root,
+                              out_dir=out)
+
+        # Deduplicated and sorted on both sides: declaration order is free.
+        exact = run("exact", ["E-B,E-A,E-A", "1"], want_exit=[1],
+                    want_codes=["E-A", "E-B"])
+        assert exact["ok"] is True, exact
+        assert exact["got_codes"] == ["E-A", "E-B"] and exact["want_codes"] == \
+            ["E-A", "E-B"]
+        assert exact["want_exit"] == [1] and exact["got_exit"] == 1
+
+        # One extra emitted code fails...
+        assert run("extra", ["E-A,E-B,E-C", "1"], want_exit=[1],
+                   want_codes=["E-A", "E-B"])["ok"] is False
+        # ... one missing code fails ...
+        assert run("missing", ["E-A", "1"], want_exit=[1],
+                   want_codes=["E-A", "E-B"])["ok"] is False
+        # ... and a warning whose text starts with E- can never satisfy one.
+        warn = run("warning", ["E-A", "1"], want_exit=[1],
+                   want_codes=["E-A", "E-WARN"])
+        assert warn["ok"] is False and warn["got_codes"] == ["E-A"], warn
+        # The exit code is part of the match too.
+        assert run("exit", ["E-A", "0"], want_exit=[1],
+                   want_codes=["E-A"])["ok"] is False
+
+
+def test_fixture_acceptance_mismatch() -> None:
+    with tempfile.TemporaryDirectory(prefix="verdict-kit-smoke-") as td:
+        root = Path(td)
+        scripts = _probe_tree(root)
+        setup = root / "setup"
+        setup.mkdir()
+        (setup / "acceptance.json").write_text(
+            '{"grade": "未达标", "gates": {"H1": {"pass": false}}}\n',
+            encoding="utf-8")
+        case = {"id": "acc", "script": "probe.py", "args": [],
+                "setup_dir": "setup", "want_exit": [0], "want_codes": [],
+                "want_acceptance": {"grade": "达标", "gates.H1.pass": False}}
+
+        # Exit code and codes agree; only the acceptance field does not.
+        bad = F.run_case(case, scripts_dir=scripts, fixtures_dir=root,
+                         out_dir=root / "out-1")
+        assert bad["ok"] is False, bad
+        assert bad["got_acceptance"] == {"grade": "未达标",
+                                         "gates.H1.pass": False}, bad
+
+        case["want_acceptance"] = {"grade": "未达标", "gates.H1.pass": False}
+        good = F.run_case(case, scripts_dir=scripts, fixtures_dir=root,
+                          out_dir=root / "out-2")
+        assert good["ok"] is True, good
+
+
+def test_fixture_summary_and_count_guard() -> None:
+    cases = [{"id": "a", "ok": True}, {"id": "b", "ok": True},
+             {"id": "c", "ok": False}]
+    s = F.summarize(cases)
+    assert list(s) == ["total", "passed", "failed", "all_ok", "cases"], list(s)
+    assert s["total"] == 3 and s["passed"] == 2 and s["failed"] == 1
+    assert s["all_ok"] is False and s["cases"] == cases
+    assert F.summarize([])["all_ok"] is True
+
+    assert F.check_declared_count(cases, 3) == 3
+    # A shrink, a bool (an int in Python) and a non-int are all refusals.
+    for bad in (2, 4, True, None, "3", 3.0):
+        try:
+            F.check_declared_count(cases, bad)
+        except F.FixtureError:
+            continue
+        raise AssertionError("check_declared_count accepted %r" % (bad,))
+
+
 TESTS = [
     ("envelope.shape", test_envelope_shape),
     ("envelope.deterministic", test_envelope_deterministic),
@@ -488,6 +636,11 @@ TESTS = [
     ("attacks.mutation-ops", test_attack_mutation_ops),
     ("attacks.expectations", test_attack_expectations),
     ("attacks.dotted-seam", test_attack_dotted_and_write_json_seam),
+    ("fixtures.expand-args", test_fixture_expand_args),
+    ("fixtures.materialize", test_fixture_materialize),
+    ("fixtures.exact-codes", test_fixture_exact_code_match),
+    ("fixtures.acceptance", test_fixture_acceptance_mismatch),
+    ("fixtures.summary-guard", test_fixture_summary_and_count_guard),
 ]
 
 

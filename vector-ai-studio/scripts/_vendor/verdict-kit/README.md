@@ -5,9 +5,9 @@ honesty artifacts. Standard library only; no thresholds, no grading, no SVG,
 no engine paths.
 
 This directory started as a **probe** (phase 0) and is now the real dependency:
-`verdict_kit.envelope`, `.registry`, `.contract` and `.attacks` are each
-imported by one CLI of the consuming skill. It is still a vendored copy, not a
-released package on an index.
+`verdict_kit.envelope`, `.registry`, `.contract`, `.attacks` and `.fixtures`
+are each imported by one CLI of the consuming skill. It is still a vendored
+copy, not a released package on an index.
 
 ## Run
 
@@ -17,7 +17,8 @@ python verdict-kit/smoke.py
 
 Exit 0 = all checks pass. Exit 1 = at least one check failed. The smoke test
 uses a 3-sentence fixture and a 3-claim registry; it does not read the skill's
-own contract or selftest.
+own contract or selftest. The five fixture checks build their own probe script
+and throw-away run directories, so they exercise the real subprocess path.
 
 ## Public API
 
@@ -29,6 +30,10 @@ own contract or selftest.
 | `verdict_kit.assertions` | `Harness(expected, capability_skips)`, `.add`, `.finalize` | three-valued assertions, A60-style self-count, unique ids |
 | `verdict_kit.contract` | `Artifact`, `load_spec`, `generate(..., check=)` | generated artifacts, byte-exact drift |
 | `verdict_kit.attacks` | `apply_mutations`, `dotted_get`, `evaluate(spec, result, too_good=)`, `MUTATION_OPS` | attack op vocabulary + declared-expectation checks |
+| `verdict_kit.fixtures` | `expand_args`, `materialize`, `run_case`, `summarize`, `check_declared_count`, `FixtureError` | fixture regression: placeholder expansion, run-dir materialisation, subprocess execution, exact code match, declared-count guard |
+
+`fixtures.FixtureError` carries **no** exit code and **no** `E-*` code: the
+caller decides how a broken declaration is reported in its own contract.
 
 `attacks.evaluate` has **no default pass predicate**. `expect_no_pass` asks
 whether an acceptance document claims a pass, which is the consuming skill's

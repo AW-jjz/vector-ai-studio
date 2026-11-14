@@ -5116,12 +5116,61 @@ def _stage_r92(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r93(tmp, add):
+    """A112: run_fixtures is an adapter over the vendored fixture runner.
+
+    r93 moved the whole mechanics of the fixtures regression into
+    `verdict_kit.fixtures`: placeholder expansion, `setup_dir` materialisation,
+    running one case as a subprocess, the exact code match (dedupe + sort +
+    equality), the summary and the declared-count guard. The whole
+    `run_fixtures.py --json` envelope was frozen BEFORE the switch
+    (`tests/fixtures/fixtures-run/`), so this is a real regression gate, not the
+    kit agreeing with itself.
+
+    The comparison is BYTE equality over the entire envelope. That is available
+    here because the output carries no timestamp, no absolute path, no
+    temp-directory name and no run id (it is an empty string whenever --json is
+    used without --run-id); the fixture README records the field-by-field check
+    that makes this true, and it also constrains the implementation: anything
+    volatile added to the envelope turns this red.
+    """
+    try:
+        fix = ROOT / "tests" / "fixtures" / "fixtures-run"
+        want = (fix / "run-fixtures-frozen.json").read_bytes()
+        cmd = [sys.executable, str(SCRIPTS / "run_fixtures.py"), "--json"]
+        try:
+            r = subprocess.run(cmd, cwd=str(tmp), timeout=180,
+                               capture_output=True, check=False)
+        except (OSError, subprocess.SubprocessError) as e:
+            add("A112-fixtures-adapter-parity", False,
+                type(e).__name__ + ": " + str(e)[:120])
+            return
+        got = r.stdout or b""
+        same = got == want
+        detail = "bytes_equal=%s want=%dB got=%dB rc=%s" % (
+            same, len(want), len(got), r.returncode)
+        if not same:
+            # Record how far off it is; the gate still fails, but the detail
+            # says whether this was formatting or a real behaviour change.
+            try:
+                a, b = json.loads(want), json.loads(got)
+                detail += " json_equal=%s cases_equal=%s" % (
+                    a == b, a.get("data", {}).get("cases") ==
+                    b.get("data", {}).get("cases"))
+            except (ValueError, UnicodeDecodeError):
+                detail += " json_unparsable"
+        add("A112-fixtures-adapter-parity", same and r.returncode == 0, detail)
+    except Exception as e:                      # noqa: BLE001
+        add("A112-fixtures-adapter-parity", False,
+            type(e).__name__ + ": " + str(e)[:140])
+
+
 def _stage_r86(tmp, add):
     """A106: the vendored verdict-kit runs and its manifest matches.
 
     Phase 0 vendors the skeleton under scripts/_vendor/verdict-kit WITHOUT
     changing any existing import. This assertion keeps it honest: every file
-    hashes to VENDORED.sha256, and the 28-check smoke test passes from a
+    hashes to VENDORED.sha256, and the 33-check smoke test passes from a
     foreign cwd with bytecode writing disabled (-B, so no nested __pycache__).
     """
     try:
@@ -5149,7 +5198,7 @@ def _stage_r86(tmp, add):
             last = json.loads((r.stdout or "").strip().splitlines()[-1])
         except (ValueError, IndexError):
             last = {}
-        ok = (r.returncode == 0 and last.get("checks") == 28
+        ok = (r.returncode == 0 and last.get("checks") == 33
               and last.get("failed") == 0 and not bad)
         add("A106-verdict-kit-vendored", ok,
             "rc=%s checks=%s failed=%s manifest_bad=%s" % (
@@ -5384,6 +5433,7 @@ def main():
     _stage_r90(tmp, add)
     _stage_r91(tmp, add)
     _stage_r92(tmp, add)
+    _stage_r93(tmp, add)
 
     # ---- r70 meta-assertions (C-3 / C-4): machine-checkable anti-regression ----
     # A77 (C-3): the pass-tier assignment must exist exactly once, inside
