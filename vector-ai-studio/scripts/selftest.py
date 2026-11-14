@@ -5127,12 +5127,20 @@ def _stage_r93(tmp, add):
     (`tests/fixtures/fixtures-run/`), so this is a real regression gate, not the
     kit agreeing with itself.
 
-    The comparison is BYTE equality over the entire envelope. That is available
-    here because the output carries no timestamp, no absolute path, no
-    temp-directory name and no run id (it is an empty string whenever --json is
-    used without --run-id); the fixture README records the field-by-field check
-    that makes this true, and it also constrains the implementation: anything
-    volatile added to the envelope turns this red.
+    The comparison is byte equality over the entire envelope **after newline
+    normalisation**. Content equality alone is available here because the
+    output carries no timestamp, no absolute path, no temp-directory name and
+    no run id (it is an empty string whenever --json is used without --run-id);
+    the fixture README records the field-by-field check that makes this true,
+    and it also constrains the implementation: anything volatile added to the
+    envelope turns this red.
+
+    r93.1: the first version compared raw bytes. It was green on Windows (where
+    the golden was frozen) and red on both Linux CI jobs, because CPython writes
+    CRLF to stdout on Windows and LF elsewhere -- 635 bytes of pure terminator
+    difference while `json_equal` and `cases_equal` were both true. The gate now
+    normalises CRLF to LF on both sides; any non-newline difference still fails,
+    and the detail keeps `raw_equal` so the host's terminator stays visible.
     """
     try:
         fix = ROOT / "tests" / "fixtures" / "fixtures-run"
@@ -5146,9 +5154,14 @@ def _stage_r93(tmp, add):
                 type(e).__name__ + ": " + str(e)[:120])
             return
         got = r.stdout or b""
-        same = got == want
-        detail = "bytes_equal=%s want=%dB got=%dB rc=%s" % (
-            same, len(want), len(got), r.returncode)
+        # r93.1: normalise the host's line terminator before comparing. Windows
+        # writes CRLF to stdout, Linux writes LF; the golden was frozen on
+        # Windows. Raw equality is reported but not required; any non-newline
+        # difference still fails the gate.
+        raw_same = got == want
+        same = (got.replace(b"\r\n", b"\n") == want.replace(b"\r\n", b"\n"))
+        detail = "bytes_equal=%s raw_equal=%s want=%dB got=%dB rc=%s" % (
+            same, raw_same, len(want), len(got), r.returncode)
         if not same:
             # Record how far off it is; the gate still fails, but the detail
             # says whether this was formatting or a real behaviour change.

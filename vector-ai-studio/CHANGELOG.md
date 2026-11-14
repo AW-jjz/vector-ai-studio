@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.25.1 — 2026-11-14 [r93.1]
+
+- A112 compared raw bytes against a golden frozen on Windows. Both Linux CI
+  jobs failed on the first push of 1.25.0: `bytes_equal=False want=14514B
+  got=13879B rc=0 json_equal=True cases_equal=True` -- 635 bytes of CRLF vs LF
+  terminators, with identical parsed content and identical 37 cases.
+- The gate now normalises CRLF to LF on both sides before comparing. Any
+  non-newline difference still fails; `raw_equal` stays in the detail so the
+  host's terminator remains visible. This is the fourth "green locally, red on
+  another platform" case in this project (r74 A93, r88 partial, r92 line
+  endings, now r93.1).
+
 ## 1.25.0 — 2026-11-14 [r93]
 
 verdict-kit, phase 2-3: the fixtures runner. `scripts/run_fixtures.py` no
