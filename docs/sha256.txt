@@ -2815,3 +2815,1003 @@ sha256        : 0c86960c95962bd6bcb992905ec32f9e72c65c526a6fe8e787e14692729450d5
                 （451876 B / 172 文件）
                 上一版：r75 / 1.9.0 = 8925ad535ace79b85e3cea76e0c2f03d4ac34f30b87ccf253a9a8b3aa917b1b8
                 （444,002 B / 171 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r77（2026-11-13）　M4 第二片：pairwise 偏好 + Bradley-Terry 标度（取代 1.10.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r77-173files.zip
+版本          : r77（SKILL.md 1.11.0，metadata.version "1.11.0"）
+文件数        : 173
+字节数        : 460343
+sha256        : 660ad5e2fad4158175f324d35a2fc0ca5777637a911c8ab61dbf253f86c21728
+冻结时刻      : 2026-11-13 17:46（源码 173 文件 / 1289043 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（173 条目、0 目录项）
+旧包归档      : r76-172files.zip 已在 archive/（r76 段归档，不删除、不覆盖）；
+                r77 首版草稿（未发布、版本号仍为 1.9.0）、二版草稿（metadata
+                布尔被 round 压成 1）与三版草稿（CHANGELOG 行尾被脚本改为 LF）
+                移入 archive/vector-ai-studio_r77-173files-draft3.zip 等（archive 现有 28 件）
+取代关系      : 本段取代 r76 段。1.10.0 已 tag（v1.10.0）、已推送；本轮在其上新增能力（M4 第二片）。
+
+** 版本号更正（r77）**
+                r76 段声称「SKILL.md 1.10.0 / metadata.version "1.10.0"」与包体不符：
+                实测 archive/vector-ai-studio_r76-172files.zip 内 SKILL.md 仍为 1.9.0，
+                CHANGELOG 也无 1.10.0 段（版本号漏改）。r76 的功能内容与 sha256 均属实，
+                包已归档不追改；本段起版本线修正为 1.11.0，并在 CHANGELOG 补记 1.10.0 [r76]。
+                r77 首版草稿同样漏改版本号，已在发布前拦下并归档，不对外。
+
+相对 1.10.0 变更 : 8 个文件（1 新增 / 0 删除 / 7 修改）
+                对比 05-发布/archive/vector-ai-studio_r76-172files.zip 逐件 md5
+新增 1        :
+                scripts/bradleyterry.py                          c4ee2f41c7f80638ae4156161e845c307aaab64ac09d10088210dfd72853f96e
+修改 7        :
+                CHANGELOG.md                                     3c82b3b46722a982625ba243b8f2d2b998a74f8e8f4c32001f70329abe08bf27
+                SKILL.md                                         5ce4a70e2b2a208a1b203e01430e1c4a1be204826283d6e42fc423b53c924f5e
+                scripts/review.py                                e2030209a5497c5e34152d38fd7b7dcdfd67c8e96113d13f80c1f49d5f5fc4be
+                scripts/studio.py                                c400ba49c3b739870676012896cc700b009fbb45f5124c8bda3e0338d3644cea
+                scripts/selftest.py                              87876f15d8446ad771280c88963b21ccce16a6d7cf40a3fcf99bf9d5b37c57e7
+                scripts/lib_common.py                            adfae96ac92c29e694c2ce87239444508729a57ff468c2ba5542ac1e2bd0b1dc
+                contract/claims.json                             1f793849b0fae416a97756171fa43235b5f863854bfc862be1df87f34a9de539
+内容          : M4 第二片——两两偏好与标度：
+                1) 盲评包增 review-pairs.csv（全配对轮换，winner 填两者之一或
+                   tie）——绝对分要评审人同时判断质量并校准尺子；两两偏好只问
+                   「哪个更好」，是人类可靠的判断。
+                2) review.py --pairs：逐对验证（未知 pair_id / 换对 / 越界
+                   winner / 缺格 → E-REVIEW-INVALID），跨评审人合并后用
+                   Bradley-Terry（MM/Zermelo 迭代，平局计半）拟合标度强度。
+                3) 两个诚实边界被拟合并文档化：全败者 MLE 恰为 0（固定 0，
+                   剔除出归一化——首跑曾发散到 17320）；零 upset 时似然在
+                   边界上无有限 MLE——量值是边界快照，**排序才是发现**
+                   （结果字典带 upsets / no_upsets 声明处于哪种状态）。
+                4) **只报告不闸**（无经校准的 BT 阈值）；配对表去重沿用 r70 #4。
+                5) 新增 A97（迭代性质 10 条全过）与 A98（pack 生成→验证→
+                   越界 winner 拒绝的整环回），EXPECTED_ASSERTIONS 96 → 98
+                   （--fixtures 99）。
+                6) 版本号更正：SKILL.md 双子段 1.9.0 → 1.11.0；CHANGELOG 补记
+                   1.10.0 [r76] 与 1.11.0 [r77]；claims 122 → 124。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 99/99（98 + A13，skipped=0，exit 0）、
+                selftest 98/98、run_fixtures 37/37、redteam 17/15/0/2、
+                validate_claims 124/124 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（173 文件 / 460343 B / 660ad5e2fad4…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r77 重取 PASS
+                BT 实测（3 案例全配对，A 全胜）：强度 1.7321/0.5774/0.0、
+                排序 case-01 > case-02 > case-03、无 upset 声明在案
+                版本实测：包内 SKILL.md version 1.11.0 / metadata.version "1.11.0"、
+                CHANGELOG 首条 1.11.0 [r77]
+                阈值数值零改动
+
+已知限制      : 1) BT 只报告不闸；无 upset 时量值是边界快照（排序才是发现）
+                2) M4 后续（token 身份）未做——同内容换文件名仍是同一人
+                   （r70 #4 起声明的边界）
+                3) 声明登记册 124 条中 65 条仍为 unverified
+                4) PDF/X 规范原文未核；外部真人评审 0 份
+                5) r76 包版本号错误已在 r77 声明并修正，包体不追改
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r77-173files.zip
+                两者均应为 660ad5e2fad4158175f324d35a2fc0ca5777637a911c8ab61dbf253f86c21728
+                （460343 B / 173 文件）
+                上一版：r76 / 包内实际 1.9.0（声称 1.10.0） = 0c86960c95962bd6bcb992905ec32f9e72c65c526a6fe8e787e14692729450d5
+                （451,876 B / 172 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r78（2026-11-13）　M4 收尾：内容去重 + reviewer_token 身份（取代 1.11.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r78-174files.zip
+版本          : r78（SKILL.md 1.12.0，metadata.version "1.12.0"）
+文件数        : 174
+字节数        : 465815
+sha256        : 17c896cb9e3a92b0c2a5cc2a6efbaa701879ff9f98b5727a1c90054ebaa535f0
+冻结时刻      : 2026-11-13 19:28（源码 174 文件 / 1307540 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（174 条目、0 目录项）
+旧包归档      : vector-ai-studio_r77-173files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 29 件）
+取代关系      : 本段取代 r77 段。1.11.0 已签收、已 tag（v1.11.0）、已推送；本轮在其上新增能力（M4 收尾）。
+
+相对 1.11.0 变更 : 11 个文件（1 新增 / 0 删除 / 10 修改）
+                对比 05-发布/archive/vector-ai-studio_r77-173files.zip 逐件 md5
+新增 1        :
+                tests/attacks/18-review-two-tokens-one-person.json 16a30fd166115e97e920ebd00e8ad33d6c5ba10ddfa85781006ec488927a9a72
+修改 10        :
+                CHANGELOG.md                                     59b10bbb124bb345dd405cd268fcf3f139f67281d9f064622682cd50a65c93f6
+                README.md                                        4bc5afb8819ea4b8aa629d96a3d1591b2f1845c91ad7c020237b922b08a15408
+                SKILL.md                                         f41a1f7c50453cbe4ea0ec41b2a8912f978530ff2278188c7e13a7ff3abc1235
+                contract/claims.json                             0949ac3a0496c05071c39e8513a0344a722d26f0afc9edfb2fd8953bd8879c21
+                scripts/lib_common.py                            4ce27dfd2c1d7a6785129ab9f5a3eb35882b9200648a768816550ad7e896120c
+                scripts/review.py                                a2a819ee74a903d6543017a057a2941a8ab26e6a289e7369947c046020984b43
+                scripts/selftest.py                              41545b6be45b2dddc1c1c26ce3abf23421ec658b7522d892e5b08b35cba8db76
+                scripts/studio.py                                ea3229a43f615d5d0045cd43d0f9c9c94d7b229031e5c6017a414084f62861ef
+                templates/review-request.md                      21daa00bb04556581b65d0d336497cdab5f4536ba135cd4e4a1755cf1fe00120
+                tests/attacks/16-review-duplicate-new-name.json  2ffd4655464630136a9e643a808a60d022812465ffb764a0053ead56c4fc489e
+内容          : M4 收尾——评审人身份：
+                1) 去重键从（绝对路径 + 内容 sha256）改为**纯内容 sha256**：
+                   同一份表换文件名再交一次也被拒（16 号攻击从「已声明边界」
+                   变为「拦下」）。
+                2) review-sheet.csv 增 `reviewer_token` 列：评审人自报稳定假名
+                   （3-64 字符），同一张表每行一致；一个 token 只能提交一份
+                   不同内容的表（重复即 E-REVIEW-INVALID）。不是凭证、不是
+                   账号（H4 零凭据不变），换文件名不丢。
+                3) evidence.usable_for_claim 追加身份条件：所有计入表都带
+                   token 且互不相同；无 token 的旧表仍聚合，但只当记录。
+                4) 新增 18 号攻击记录剩余边界（一人编两个 token 无法分辨）；
+                   新增 A99 钉四件事：不同 token 可用、同 token 不同内容拒绝、
+                   同内容换名拒绝、无 token 只记录。
+                5) EXPECTED_ASSERTIONS 98 → 99（--fixtures 100）；
+                   claims 124 → 130（coverage 1.0）。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 100/100（99 + A13，skipped=0，exit 0）、
+                selftest 99/99、run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 130/130 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（174 文件 / 465815 B / 17c896cb9e3a…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r78 重取 PASS
+                版本实测：包内 SKILL.md version 1.12.0 / metadata.version "1.12.0"、
+                CHANGELOG 首条 1.12.0 [r78]
+                阈值数值零改动
+
+已知限制      : 1) token 是自报假名——同一人编两个 token 无法分辨
+                   （18 号攻击是这条边界的反向证明）
+                2) 两两偏好表不带 token（BT 只报告不闸，不进对外证据）
+                3) 声明登记册 130 条中 65 条仍为 unverified
+                4) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r78-174files.zip
+                两者均应为 17c896cb9e3a92b0c2a5cc2a6efbaa701879ff9f98b5727a1c90054ebaa535f0
+                （465815 B / 174 文件）
+                上一版：r77 / 1.11.0 = 660ad5e2fad4158175f324d35a2fc0ca5777637a911c8ab61dbf253f86c21728
+                （460,343 B / 173 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r79（2026-11-13）　M5 第一片：阈值晋升守卫 + 证据分级（取代 1.12.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r79-175files.zip
+版本          : r79（SKILL.md 1.13.0，metadata.version "1.13.0"）
+文件数        : 175
+字节数        : 473201
+sha256        : fa62420c12104f05ff35091e2a64d4ed27cfb2cce295f54e068b5def394f0059
+冻结时刻      : 2026-11-13 19:43（源码 175 文件 / 1329792 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（175 条目、0 目录项）
+旧包归档      : vector-ai-studio_r78-174files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 30 件）
+取代关系      : 本段取代 r78 段。1.12.0 已签收、已 tag（v1.12.0）、已推送；本轮在其上新增能力（M5 第一片）。
+
+相对 1.12.0 变更 : 11 个文件（1 新增 / 0 删除 / 10 修改）
+                对比 05-发布/archive/vector-ai-studio_r78-174files.zip 逐件 md5
+新增 1        :
+                scripts/thresholds_guard.py                      05699d6cc7e124de3e18e509961f8f02d7b75a0ebd32d8257882399e7cc21d3f
+修改 10        :
+                CHANGELOG.md                                     871c3579d19b6d40002c4342e997c8df7349053bf3872e8bb6a97e5bc771e040
+                README.md                                        5581faac893eba284e814e668ad026f738ad85fe8ae0132bc5c5021d1ee47d3c
+                SKILL.md                                         d23612c3c4d73e531ba43a5316656e7711f589631c376a4996004ea5d96aa9c3
+                config/thresholds.json                           ecc0c69d0cdc047ba526f31142c3c0c8df1aa00adc0de69c6ba661ed2c580a87
+                contract/claims.json                             3a4c3dcc3a81b8fcc0969f0a91c490ee9f4378ecd49f2fa08c9407b9fadbf965
+                references/error-codes.md                        4dfc0d76f6f3a45ae7666fb336c5325cd72bb629ba974929f662b3adfc1577c4
+                references/pipeline-contract.md                  49465d390ca2386b1988fde718feb2d417f520dc3743715f47a7215417b49d8b
+                scripts/aggregate_log.py                         81aaadaf11521c638abde7577a747c5f0a389961e9d9a7a955f18319e404c3ca
+                scripts/lib_common.py                            73a50f0466900b3e4fe1d1700cb01ca28bb64066a07ce9c438e89c86c1ad3e4f
+                scripts/selftest.py                              eeb9e201b1a3421d0337bad96a001651b5130363564705c0afa4f8d961a9178c
+内容          : M5 第一片——阈值晋升守卫：
+                1) 新增 scripts/thresholds_guard.py（标准库）：把
+                   calibration_policy 从声明变成可执行判据——字段必须命中
+                   calibratable 且不得命中 locked；方向由 calibration_direction
+                   的 max/min/range 推出，mislabelled loosening 直接拒；
+                   sample_n 必须正整数、real_run_log_ref 必须指向非空真机
+                   日志；放宽还要 ruling_ref 与外部真人证据。
+                2) 两种模式：proposal（before == 当前值，改配置前）与 entry
+                   （after == 当前值，aggregate_log 回核每条 calibration_log）。
+                   旧码 E-CALIB-MISMATCH / NO-LOG / LOOSENING 保留，新增
+                   E-CALIB-LOCKED / NOT-WHITELISTED / DIRECTION / STALE /
+                   NOOP / SAMPLE / PROVENANCE / FIELD。
+                3) 证据分级 A/B/C（external/internal/machine）只报告不闸：
+                   没有经校准的「等级→真值」映射，闸只做结构判定。
+                4) thresholds.json 只加策略元数据（calibration_direction /
+                   evidence_provenance / evidence_grade /
+                   loosening_requires_external），**阈值数值零改动**。
+                5) 新增 A100（15 个 case：锁定 / 非白名单 / stale / noop /
+                   方向错标 / 区间混合 / 小样本 / 缺日志 / 放宽缺裁决 /
+                   放宽非外部 / 两条正路 / 机器等级 / aggregate 接线）；
+                   EXPECTED_ASSERTIONS 99 → 100（--fixtures 101）；
+                   claims 130 → 133（coverage 1.0）。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 101/101（100 + A13，skipped=0，exit 0）、
+                selftest 100/100、run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 133/133 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（175 文件 / 473201 B / fa62420c1210…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r79 重取 PASS
+                A100 实测 15/15 case 通过（含 aggregate_log 的 entry 接线）
+                版本实测：包内 SKILL.md version 1.13.0 / metadata.version "1.13.0"、
+                CHANGELOG 首条 1.13.0 [r79]
+
+已知限制      : 1) 证据分级只报告不闸；「A 级」不等于校准已成立
+                2) 白名单仍只有 8 类几何/统计字段；感知阈值未升格为判据
+                3) 声明登记册 133 条中 65 条仍为 unverified
+                4) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r79-175files.zip
+                两者均应为 fa62420c12104f05ff35091e2a64d4ed27cfb2cce295f54e068b5def394f0059
+                （473201 B / 175 文件）
+                上一版：r78 / 1.12.0 = 17c896cb9e3a92b0c2a5cc2a6efbaa701879ff9f98b5727a1c90054ebaa535f0
+                （465,815 B / 174 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r80（2026-11-13）　M5 第二片：校准台（fit / holdout 平衡错误率）（取代 1.13.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r80-176files.zip
+版本          : r80（SKILL.md 1.14.0，metadata.version "1.14.0"）
+文件数        : 176
+字节数        : 479909
+sha256        : 4c3e8fa43dec8dd273579d77d102b705f569767729ef83a3d345e9eab1dd8c8d
+冻结时刻      : 2026-11-13 20:05（源码 176 文件 / 1352774 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（176 条目、0 目录项）
+旧包归档      : vector-ai-studio_r79-175files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 31 件）
+取代关系      : 本段取代 r79 段。1.13.0 已签收、已 tag（v1.13.0）、已推送；本轮在其上新增能力（M5 第二片）。
+
+相对 1.13.0 变更 : 11 个文件（1 新增 / 0 删除 / 10 修改）
+                对比 05-发布/archive/vector-ai-studio_r79-175files.zip 逐件 md5
+新增 1        :
+                scripts/calibration_bench.py                     29b9c2867136950373e6fc19534b91e1181c55a04fee204e0738cceeb7fc0585
+修改 10        :
+                CHANGELOG.md                                     93af5f712c8d0eda75677ef0ee3ece03bc026c20ce744a394e62421ce1bd39f7
+                README.md                                        2dd561ec74c53ba30eee53041eb7e3f42716c44d3de518a9bb39672350e51b9e
+                SKILL.md                                         82bc5f32ad71dcd9d7e1d79ee74d7e3011fd5a6a4e0e9abfc2e789235ea83a8b
+                config/thresholds.json                           0566110543b5697ed5347a9965b64735fa32276c3c3ba648a414f0b158d8318a
+                contract/claims.json                             121c01ff8d877fc2abda03e143372b702e330bfa8b78a945659323b7f1cb145c
+                references/error-codes.md                        8d2416831b3e8cc56c16df7224fe9f5b93db288216b9dd6df64967541537e940
+                references/pipeline-contract.md                  1d391668ef46d527c0c5f0580df0ab9eb16814b4bf23ade4d62b832cca7a5987
+                scripts/lib_common.py                            f54b33c992a6270f6d74acc442376cc3fc6ae43f10b148892e0571d03e0c4609
+                scripts/selftest.py                              11723dac9e38baddecf05ab6f17258bdc9c65c703f43d2a877626dbd68cf8d03
+                scripts/thresholds_guard.py                      d16f0ae62000f5fd96542330bd8ffea28bf9fcf73c2f0a75c145829992e6ce09
+内容          : M5 第二片——文书不是证据：
+                1) 新增 scripts/calibration_bench.py（标准库）：校准集 =
+                   测得值 + 人工 pass/fail + fit/holdout 划分。把当前与提案
+                   阈值分别套到两个 split，算平衡错误率 BER（假阳率与假阴率
+                   的均值；0 完美、0.5 抛硬币）。
+                2) 晋升要求 **fit BER 不变差且 holdout BER 严格改善**——
+                   在自己拟合过的样本上变好不算数；噪声（标签与数值无关）
+                   与过拟合（fit 变好、holdout 变差）都拒。
+                3) 放宽没有 calibration_set 直接拒（E-CALIB-NO-BENCH）；
+                   新增 E-CALIB-DATASET / NO-GAIN / NO-HOLDOUT /
+                   HOLDOUT-THIN，sample_n 必须与集合大小一致。
+                4) 样本量只报告不闸：小留出集上的严格增益仍可能是运气，
+                   报告写明 n；没有引入未经校准的 p 值闸门。
+                5) 新增 A101（12 个 case：separable 接受、噪声、过拟合、
+                   无 holdout、薄 holdout、字段不符、重复 id、守卫缺校准集、
+                   守卫拒噪声/过拟合、sample_n 不符、集合缺失）；A100 的
+                   放宽正路也改为携带真实校准集。EXPECTED_ASSERTIONS
+                   100 → 101（--fixtures 102）；claims 133 → 134。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 102/102（101 + A13，skipped=0，exit 0）、
+                selftest 101/101、run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 134/134 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（176 文件 / 479909 B / 4c3e8fa43dec…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r80 重取 PASS
+                A101 实测 12/12：separable 集 fit/holdout BER 均降到 0；
+                噪声集 holdout 0.5 → 0.5 被拒；过拟合集 fit 0.1667 → 0、
+                holdout 0.3333 → 0.5 被拒
+                版本实测：包内 SKILL.md version 1.14.0 / metadata.version "1.14.0"、
+                CHANGELOG 首条 1.14.0 [r80]
+
+已知限制      : 1) 样本量只报告不闸；小留出集上的严格增益仍可能是运气
+                2) 校准集由申请人提供，标签质量本身未被独立复核
+                3) 白名单仍只有 8 类几何/统计字段；感知阈值未升格为判据
+                4) 声明登记册 134 条中 65 条仍为 unverified
+                5) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r80-176files.zip
+                两者均应为 4c3e8fa43dec8dd273579d77d102b705f569767729ef83a3d345e9eab1dd8c8d
+                （479909 B / 176 文件）
+                上一版：r79 / 1.13.0 = fa62420c12104f05ff35091e2a64d4ed27cfb2cce295f54e068b5def394f0059
+                （473,201 B / 175 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r81（2026-11-13）　M5 收尾：可核验的裁决记录（取代 1.14.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r81-177files.zip
+版本          : r81（SKILL.md 1.15.0，metadata.version "1.15.0"）
+文件数        : 177
+字节数        : 483800
+sha256        : 535628ca7a54cde67cfed89f42c540f9fefb43b0b18457e495b7b62403707331
+冻结时刻      : 2026-11-13 20:20（源码 177 文件 / 1366137 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（177 条目、0 目录项）
+旧包归档      : vector-ai-studio_r80-176files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 32 件）
+取代关系      : 本段取代 r80 段。1.14.0 已签收、已 tag（v1.14.0）、已推送；本轮在其上新增能力（M5 收尾）。
+
+相对 1.14.0 变更 : 11 个文件（1 新增 / 0 删除 / 10 修改）
+                对比 05-发布/archive/vector-ai-studio_r80-176files.zip 逐件 md5
+新增 1        :
+                config/rulings.json                              ca5ebd75277f44b437b33fd4612f7fefd65f84f0dc95a458ea3d3421f9c0a223
+修改 10        :
+                CHANGELOG.md                                     daee7cf85bc9e97bda4155af859b429697043b1f8f9cda4746d52bad88dd0278
+                README.md                                        f512b4380245cf454be21375cf1bb7dfd251c45bacc1ff8d48c990423eb79d6b
+                SKILL.md                                         1216439f4bfcee6962244fe621a224c93101e585bb2bc412f29cfcefb6c9b772
+                config/thresholds.json                           ad116540a84c03e170fb88216260db2af6cb1cd0b63f163837b2665e14926e88
+                contract/claims.json                             6a086f49b5c7104f61b94b139f979fb1bb180ff08783f79862285f4494ad2df1
+                references/error-codes.md                        13ffd7243542a3082225e8f63f7fd261cd9c45c59ce59ae8f677b1f6a6d7d31c
+                references/pipeline-contract.md                  76683572f61430d6515cd287f9aaa0d4d862e6bcd000f68b0ae91779c908ee98
+                scripts/lib_common.py                            bae452520f3fb2c8a2103e0a98abab1a99643c0631b9b2e2a1c785c15ab30ece
+                scripts/selftest.py                              aa8ae68607533e8644b1b723af5e62ad1827165380d77e3f788cf7e051f01b11
+                scripts/thresholds_guard.py                      ad43a4322f99a83eabb1c5318c3d776314f14541262c589f94eaa9aed777c067
+内容          : M5 收尾——裁决不是自由字符串：
+                1) 新增 config/rulings.json（schema rulings-v1）；每条记录含
+                   id / ISO date / decider / decision(approve|reject) /
+                   fields(可通配) / rationale / evidence_refs。
+                2) ruling_ref 必须是 `ruling:<ID>`，解析到注册表中恰好一条
+                   记录；未知/重复 ID、非 ruling: 格式、reject、字段越界、
+                   日期非法、理由为空、证据文件不存在，全部 E-CALIB-RULING。
+                3) decider 是自报角色，不是凭证（H4 零凭据不变）；
+                   仓库历史才是这条记录的锚。注册表检查挡的是悬空与越界
+                   引用，不是恶意改写历史。
+                4) 新增 A102（11 个 case：有效裁决、自由字符串、未知 ID、
+                   reject、越界字段、缺证据、空理由、重复 ID、坏日期、
+                   随包空注册表、policy 指针）；EXPECTED_ASSERTIONS
+                   101 → 102（--fixtures 103）；claims 134 → 136。
+                5) 阈值数值零改动；只新增 ruling_registry / ruling_format
+                   两个 policy 元数据。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 103/103（102 + A13，skipped=0，exit 0）、
+                selftest 102/102、run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 136/136 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（177 文件 / 483800 B / 535628ca7a54…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r81 重取 PASS
+                A102 实测 11/11；有效裁决返回 ruling.id=R-81
+                版本实测：包内 SKILL.md version 1.15.0 / metadata.version "1.15.0"、
+                CHANGELOG 首条 1.15.0 [r81]
+
+已知限制      : 1) decider 是自报角色；零凭据链路没有「人」的强身份
+                2) 注册表挡悬空/越界引用，不挡有权限者改写仓库历史
+                3) 校准集标签仍由申请人提供，未独立复核
+                4) 声明登记册 136 条中 65 条仍为 unverified
+                5) PDF/X 规范原文未核；外部真人评审 0 份
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r81-177files.zip
+                两者均应为 535628ca7a54cde67cfed89f42c540f9fefb43b0b18457e495b7b62403707331
+                （483800 B / 177 文件）
+                上一版：r80 / 1.14.0 = 4c3e8fa43dec8dd273579d77d102b705f569767729ef83a3d345e9eab1dd8c8d
+                （479,909 B / 176 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r82（2026-11-13）　4.3：PDF/X 独立预检交叉校验（取代 1.15.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r82-179files.zip
+版本          : r82（SKILL.md 1.16.0，metadata.version "1.16.0"）
+文件数        : 179
+字节数        : 490371
+sha256        : 33daa68e07bbc2f27ffab4092a328ff0b323b363d9c7c8bf3611317de15b6d2e
+冻结时刻      : 2026-11-13 20:36（源码 179 文件 / 1383866 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（179 条目、0 目录项）
+旧包归档      : vector-ai-studio_r81-177files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 33 件）
+取代关系      : 本段取代 r81 段。1.15.0 已签收、已 tag（v1.15.0）、已推送；本轮在其上新增能力（4.3）。
+
+相对 1.15.0 变更 : 10 个文件（2 新增 / 0 删除 / 8 修改）
+                对比 05-发布/archive/vector-ai-studio_r81-177files.zip 逐件 md5
+新增 2        :
+                scripts/pdf_preflight.py                         a58a7aa3b51c6a85cb0f0442cfa52302f6e47f0944a8b3aa6ea65757b7a87ff0
+                tests/fixtures/pdf/minimal.pdf                   ea383ba7a08a56d79168514bb421d3cc8aca5e7233fe24563a07232cb255c817
+修改 8        :
+                CHANGELOG.md                                     fffe0c3522497dfd49399225a521dda568bcf8c3e22c1d1ab5ec647c844e7cc4
+                README.md                                        0bbcee9ee465921bb1d4a180ebc1324e95df1291f553197ca9cf5c454fc3167d
+                SKILL.md                                         5e96562b73ca9bb6a956e79129b3074b0e9162e1609e60aef0a89456952496c6
+                contract/claims.json                             e9663639b138a348f5d1f9d284405fe5c548646be866c8ef7c9d2046bd6af1aa
+                references/error-codes.md                        7184e9c3df08fa8aeb6bf4ad67f04b90632bed0389144558f3f4de30a04cacd2
+                references/pipeline-contract.md                  0e5354327810c7e8d9cec32b207847f058d3cacf773cdbc1af47f146fe527397
+                scripts/lib_common.py                            e32174495d5bae008f0ac19a6a1836433f1d9913fe2c5598a9b9f2cf34e8eb16
+                scripts/selftest.py                              6639fd72fe26fdb4fca2504b6bf9638612f21955f01b408ba5beb6f31692e340
+内容          : 4.3——一个解析器与自己一致不算交叉校验：
+                1) 新增 scripts/pdf_preflight.py：用 PyMuPDF（MuPDF）作为
+                   第二个 PDF 引擎重读同一份文件，与 scripts/lib_pdf.py
+                   交叉核对页数、页面尺寸、图像、字体存在性、输出意图，
+                   并把页面真实渲染成非白像素。
+                2) --require-pdfx：GTS 标记（字节层）+ 输出意图（独立
+                   解析器）+ 未加密 + 无未嵌入字体；缺一 E-PDFX-MISSING。
+                   两解析器不一致 E-PDF-CROSS；打不开 E-PDF-PREFLIGHT。
+                3) PyMuPDF 是可选依赖，不是默认链依赖：缺席时脚本退 3
+                   （声明式缺失），绝不报 0；CI 仅把它当测试依赖安装。
+                4) 新增 tests/fixtures/pdf/minimal.pdf（462 B，手工最小
+                   PDF），A103 用它跑交叉校验并验证 -S 下的缺失分支；
+                   A104 用 land_craft 真机产出 print.pdf 跑 --require-pdfx。
+                5) EXPECTED_ASSERTIONS 102 → 104（--fixtures 105）；
+                   claims 136 → 137；A103/A104 登记为能力跳过。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 105/105（104 + A13，skipped=0，exit 0）、
+                selftest 104/104、run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 137/137 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（179 文件 / 490371 B / 33daa68e07bb…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r82 重取 PASS
+                A103：minimal.pdf 交叉 agree、pages=1、ink=2400、缺失分支 exit 3
+                A104：真机 print.pdf 交叉 agree、pages=1、OI=1、GTS=1、
+                ink>0、未嵌入字体 0
+                版本实测：包内 SKILL.md version 1.16.0 / metadata.version "1.16.0"、
+                CHANGELOG 首条 1.16.0 [r82]
+
+已知限制      : 1) PyMuPDF 是可选依赖；缺席时独立预检是声明式跳过
+                2) 交叉核对只覆盖页数/尺寸/图像/字体存在性/输出意图，
+                   不逐像素比对两个 PDF 渲染器
+                3) 独立预检不等于 PDF/X 规范合规（规范原文仍未核）
+                4) 声明登记册 137 条中 65 条仍为 unverified
+                5) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r82-179files.zip
+                两者均应为 33daa68e07bbc2f27ffab4092a328ff0b323b363d9c7c8bf3611317de15b6d2e
+                （490371 B / 179 文件）
+                上一版：r81 / 1.15.0 = 535628ca7a54cde67cfed89f42c540f9fefb43b0b18457e495b7b62403707331
+                （483,800 B / 177 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r83（2026-11-13）　4.3 后续：PDF/X 取证台账 + 精确标识（取代 1.16.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r83-180files.zip
+版本          : r83（SKILL.md 1.17.0，metadata.version "1.17.0"）
+文件数        : 180
+字节数        : 497746
+sha256        : e3f27952d1f4ab95571852b49cdbd16e82977ac268582cb318f8e81ec3945b6b
+冻结时刻      : 2026-11-13 21:32（源码 180 文件 / 1403374 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（180 条目、0 目录项）
+旧包归档      : vector-ai-studio_r82-179files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 35 件）
+取代关系      : 本段取代 r82 段。1.16.0 已签收、已 tag（v1.16.0）、已推送；本轮在其上新增能力（4.3 后续）。
+
+相对 1.16.0 变更 : 11 个文件（1 新增 / 0 删除 / 10 修改）
+                对比 05-发布/archive/vector-ai-studio_r82-179files.zip 逐件 md5
+新增 1        :
+                references/pdfx-requirements.md                  9bb19b026bf16df413dcf6cf7339ab2c22b665a478e13ca2a203b9357b0ad157
+修改 10        :
+                CHANGELOG.md                                     1955243831ce084f78ac2a23bd63bf777d3820db680ecd4d836ac26d6ebb93ce
+                README.md                                        c86cb8c0ed32ad3f06abbdebfd19dc8c39dc62aef8e2b496af84dd933cf214b4
+                SKILL.md                                         aae89ff4432be0919e90b663f89357be466ea03dfeb15617381b9877039c42ff
+                contract/claims.json                             e33c044a2b74f4ba3f9b8cd64840872c14fe7d1deb710c3599d05077f3f4fc09
+                references/error-codes.md                        560ebab0fc4595d81f9eb68d5ca8641be8f18a02a240b8c91bc1a2ef067a9b5e
+                references/pipeline-contract.md                  6a226fc2ff0513311050d22e29651890eca53120804693b7f8e0a16bae2bb99a
+                scripts/lib_pdf.py                               ebbfcf98be20d3e5a27d0d285fa7eb9701520688a007e18ea7141298f1edfe1e
+                scripts/pdf_preflight.py                         7df38faa97b3fbdd18babcc5e4afaba8399c071a3e6d1915c39828b72e75f4d8
+                scripts/selftest.py                              01d70685558237485debcc2f34fc5d257533e9cffca33166d6ce7956c9865ecb
+                scripts/smoke_ai.py                              c35aa41e69752519ea195022d0fe523460f1f1790f2a1d4e8f9b66b88ad3f2d5
+内容          : 4.3 后续——标识要精确，取证要可引用：
+                1) 新增 references/pdfx-requirements.md：PDF/X-1a / X-3 /
+                   X-4 的关键要求台账，含精确标识值、来源 URL/访问状态、
+                   以及仍未核的清单。关键条款引自 ISO 15930 预览、PRONOM、
+                   LoC、PDF Association、Adobe TN #5413、ECI；完整 ISO
+                   文本未购，无外部验证器运行记录。
+                2) lib_pdf.pdfx_id_ok 成为唯一映射：X-1a:2001 =
+                   PDF/X-1:2001 + GTS_PDFXConformance(PDF/X-1a:2001)；
+                   X-1a:2003 = PDF/X-1a:2003；X-3 = PDF/X-3:2002/:2003；
+                   X-4 = PDF/X-4（XMP 或 Info）。
+                3) pdf_preflight.py --expect-standard x1a|x3|x4 按精确值
+                   核对（E-PDFX-ID）；smoke_ai.py --print 不再用
+                   startswith("PDF/X")，改用同一映射。
+                4) A104 扩展：真实 print.pdf 的精确对、X-3 反向请求
+                   （必须 E-PDFX-ID）、以及「裸 PDF/X-1a:2001 版本键
+                   不算 X-1a:2001」的真值表。断言总数保持 104。
+                5) 诚实边界：结构存在 ≠ 合规。ICC 有效性、全字体嵌入、
+                   透明度/图层、元数据、盒子嵌套与真实外部预检仍未核。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 105/105（skipped=0，exit 0）、
+                selftest 104/104、run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 140/140 覆盖全满、gen_contract --check 无漂移、
+                validate_skill 0 error / 0 warning
+                双打包 x2 sha256 一致（180 文件 / 497746 B / e3f27952d1f4…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r83 重取 PASS
+                真机 print.pdf 实测：版本 PDF/X-1:2001 + 一致性
+                PDF/X-1a:2001；X-3 请求被 E-PDFX-ID 拒绝；smoke_ai 的
+                同一映射返回 True
+                版本实测：包内 SKILL.md version 1.17.0 / metadata.version "1.17.0"、
+                CHANGELOG 首条 1.17.0 [r83]
+
+已知限制      : 1) 完整 ISO 文本未购；关键条款来自预览/登记库/厂商文档
+                2) 没有运行 Acrobat Preflight / callas / veraPDF；任何
+                   产物的实际 PDF/X 合规性仍未验证
+                3) ICC 有效性、全字体嵌入、透明度/图层、元数据、盒子
+                   嵌套均未检查
+                4) 声明登记册 140 条中 65 条仍为 unverified
+                5) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r83-180files.zip
+                两者均应为 e3f27952d1f4ab95571852b49cdbd16e82977ac268582cb318f8e81ec3945b6b
+                （497746 B / 180 文件）
+                上一版：r82 / 1.16.0 = 33daa68e07bbc2f27ffab4092a328ff0b323b363d9c7c8bf3611317de15b6d2e
+                （490,371 B / 179 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r84（2026-11-13）　M3 测量修正：参考渲染器两处 bug（取代 1.17.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r84-180files.zip
+版本          : r84（SKILL.md 1.18.0，metadata.version "1.18.0"）
+文件数        : 180
+字节数        : 498427
+sha256        : 20f46282dfbfc934862720eeab0ae3b56fa202dfd51050772a1e4b7a598fab8d
+冻结时刻      : 2026-11-13 21:49（源码 180 文件 / 1405009 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（180 条目、0 目录项）
+旧包归档      : vector-ai-studio_r83-180files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 36 件）
+取代关系      : 本段取代 r83 段。1.17.0 已签收、已 tag（v1.17.0）、已推送。
+
+相对 1.17.0 变更 : 4 个文件（0 新增 / 0 删除 / 4 修改）
+                对比 05-发布/archive/vector-ai-studio_r83-180files.zip 逐件 md5
+修改 4        :
+                CHANGELOG.md                                     73fb75a54e38d8591d9219760bbe1b5ed38df75e9252e0054c2fe70030ca9bbd
+                SKILL.md                                         bdf82fd9a21bcc4786daaef7b20e29baf3772c809af9af89dd67ff8c47f7577c
+                references/fidelity/capability-matrix.json       1c0da704002f2b67e62a7a5142742867a957c3a50b24804f42b1a67f3d21d14f
+                scripts/fidelity_matrix.py                       a59cce7cbe9d48143a2c23f0df02a59dd971597c924febd7a29a22bebf4204de
+内容          : M3 测量修正——参考错了，比值就不可信：
+                1) rect-stroked：SVG stroke 居中；Pillow 的 rectangle(outline=)
+                   把描边画在框内，参考每边窄 2px。改为画外描边边与可见填充。
+                2) transform：SVG 矩阵 [cos -sin; sin cos] 且 y 向下，
+                   rotate(45) 在屏幕上是顺时针；参考用了 -π/4，bbox 镜像。
+                   修正符号。
+                3) 重测 committed capability-matrix.json：rect-stroked
+                   0.0567 → 0.0560，transform 0.0751 → 0.0745；两者仍
+                   divergent（builtin 完全忽略 stroke 与 transform），
+                   分类不变，只是数字现在对的是正确参考。
+                4) 阈值/闸门/声明零改动；A94 --check 在新矩阵上通过。
+
+实测证据      : 七道闸（有引擎机器实跑，含 selftest 两种模式）：
+                selftest --fixtures 105/105（skipped=0，exit 0）、
+                selftest 104/104、fidelity_matrix --check 无漂移、
+                run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 140/140 覆盖全满、
+                gen_contract --check 无漂移、validate_skill 0/0
+                双打包 x2 sha256 一致（180 文件 / 498427 B / 20f46282dfbf…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r84 重取 PASS
+                版本实测：包内 SKILL.md version 1.18.0 / metadata.version "1.18.0"、
+                CHANGELOG 首条 1.18.0 [r84]
+
+已知限制      : 1) 只修了参考实现的两个 bug；cairosvg 跨渲染器仍是
+                   子代理实测阶段，未进随包闸门
+                2) 分类判据（EDGE_BAND / OVERALL_TOL）未改；曲线/抗锯齿
+                   的内部判据仍偏粗
+                3) 声明登记册 140 条中 68 条仍为 unverified
+                4) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r84-180files.zip
+                两者均应为 20f46282dfbfc934862720eeab0ae3b56fa202dfd51050772a1e4b7a598fab8d
+                （498427 B / 180 文件）
+                上一版：r83 / 1.17.0 = e3f27952d1f4ab95571852b49cdbd16e82977ac268582cb318f8e81ec3945b6b
+                （497,746 B / 180 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r85（2026-11-13）　M3 第三片：cairosvg 可选交叉检查（取代 1.18.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r85-180files.zip
+版本          : r85（SKILL.md 1.19.0，metadata.version "1.19.0"）
+文件数        : 180
+字节数        : 501569
+sha256        : 75341e7017cdf212004a78633257608d6c5e00a61ebf686ee6c12bc35eafc4de
+冻结时刻      : 2026-11-13 22:07（源码 180 文件 / 1416500 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（180 条目、0 目录项）
+旧包归档      : vector-ai-studio_r84-180files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 37 件）
+取代关系      : 本段取代 r84 段。1.18.0 已签收、已 tag（v1.18.0）、已推送。
+
+相对 1.18.0 变更 : 9 个文件（0 新增 / 0 删除 / 9 修改）
+                对比 05-发布/archive/vector-ai-studio_r84-180files.zip 逐件 md5
+修改 9        :
+                CHANGELOG.md                                     a705f12770ea165bfaadde9059bc4f2e5ddd94d5092e78e57954b3cc20e0f0ba
+                README.md                                        241adbb27484f90aef917a0abd8aba19983bdc41f034aff5e529b348c9b505bb
+                SKILL.md                                         156169d0ad8ff5ce4a90b8925d7afd4e36242d8e1c9b26e4512a31dc10847975
+                contract/claims.json                             b9a01faebd48577266e2f43e004f9f31b676b1bb044d10dd3759d88f918ac4f4
+                references/error-codes.md                        4fa8b7885f2b729ca8ccd0058f786063c39fb24aa49da1cb61b3e582d1961b7b
+                references/pipeline-contract.md                  e42fa17c624968f8e91523be59040d8bbc3a69c89860338d938826012bf16e4a
+                scripts/fidelity_matrix.py                       c3e71fa3235666d7ccb5cb3d7f701f2171a8e74950b92ee15315e7e5b3d39df2
+                scripts/lib_common.py                            69b41dc3845c68a47dea10cc659f4ed0d0e35b9c22bf74553d7df8d90c8c46d6
+                scripts/selftest.py                              50c1814a729cce4fed907b12ed3aedee58296403f1640f235a15cd894a6fbd29
+内容          : M3 第三片——第二个 SVG 渲染器，但只按声明收窄：
+                1) fidelity_matrix.py --cross-check 用 cairosvg 渲染同一批
+                   探针，合成到白底后按同一度量与 builtin 比对。
+                2) 只要求分类器宣称 faithful 的特征（当前 rect-solid）像素
+                   一致；limited 只要求渲染非空、尺寸正确。对 limited 要求
+                   像素一致是必然误红——bbox 平涂是 builtin 的已声明行为。
+                3) cairosvg 依赖原生 cairo（Windows libcairo-2.dll / Linux
+                   libcairo2）。探测是真 import + 渲染，不是 find_spec；
+                   缺席退 3（声明式缺失），绝不报通过。
+                4) A105 钉住：rect-solid consistent、faithful_checked>=1、
+                   全部探针非空、-S 下缺失分支 exit 3。EXPECTED_ASSERTIONS
+                   104 → 105（--fixtures 106）；claims 140 → 143。
+                5) CI 只把 cairosvg/libcairo2 当测试依赖安装；默认运行链
+                   仍是零第三方依赖。阈值数值零改动。
+
+实测证据      : 九道闸（有引擎机器实跑）：
+                selftest --fixtures 106/106（skipped=0，exit 0）、
+                selftest 105/105、matrix --check 无漂移、
+                matrix --cross-check exit 0（faithful=1, rect-solid
+                consistent ratio 0.0071，11 行全部非空）、
+                run_fixtures 37/37、redteam 18/16/0/2、
+                validate_claims 143/143 覆盖全满、
+                gen_contract --check 无漂移、validate_skill 0/0
+                双打包 x2 sha256 一致（180 文件 / 501569 B / 75341e7017cd…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r85 重取 PASS
+                版本实测：包内 SKILL.md version 1.19.0 / metadata.version
+                "1.19.0"、CHANGELOG 首条 1.19.0 [r85]
+
+已知限制      : 1) 只对 faithful 子集做像素级要求；limited 只验非空
+                2) 不逐像素比对两个 PDF/SVG 渲染器的所有特征
+                3) 原生 cairo 在 Windows 上依赖 PATH 中的 DLL；缺席即声明式跳过
+                4) 声明登记册 143 条中 68 条仍为 unverified
+                5) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r85-180files.zip
+                两者均应为 75341e7017cdf212004a78633257608d6c5e00a61ebf686ee6c12bc35eafc4de
+                （501569 B / 180 文件）
+                上一版：r84 / 1.18.0 = 20f46282dfbfc934862720eeab0ae3b56fa202dfd51050772a1e4b7a598fab8d
+                （498,427 B / 180 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r86（2026-11-13）　verdict-kit Phase 0：vendored 骨架（取代 1.19.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r86-193files.zip
+版本          : r86（SKILL.md 1.20.0，metadata.version "1.20.0"）
+文件数        : 193
+字节数        : 527116
+sha256        : 2bf0ae1c1beed9db293e56a2a9552fa3e3269d61d8b604a21c8e3d293e47bb46
+冻结时刻      : 2026-11-13 22:33（源码 193 文件 / 1481998 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（193 条目、0 目录项）
+旧包归档      : vector-ai-studio_r85-180files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 39 件）
+取代关系      : 本段取代 r85 段。1.19.0 已签收、已 tag（v1.19.0）、已推送。
+
+相对 1.19.0 变更 : 18 个文件（13 新增 / 0 删除 / 5 修改）
+                对比 05-发布/archive/vector-ai-studio_r85-180files.zip 逐件 md5
+新增 13        :
+                scripts/_vendor/verdict-kit/README.md            62fb0e0b7dfe65b954dcddd227f527d4d8a79c13097ee009d9b09250bd12b3ee
+                scripts/_vendor/verdict-kit/VENDORED.sha256      d7d952f32f91b4c41a48b59c4afdc26323db31836efbf809e9e8df48e7f5dcbd
+                scripts/_vendor/verdict-kit/fixtures/claims-partial.json 6f786d7fcfcdf0900098b132c2aecb4309d36012aeb1daea217c979d634083a9
+                scripts/_vendor/verdict-kit/fixtures/claims-tampered.json acec41f8de7ae8e561167b83d167a52ab88df5417a1ed849fcbf7363e819de03
+                scripts/_vendor/verdict-kit/fixtures/claims.json 38d9d6abb7477c8cd85f2a97d7241f5c3b007c07f7b51e121f8ccee176c0637d
+                scripts/_vendor/verdict-kit/fixtures/doc.md      b9ce84947fab51f7f459919edbc0239aa60686e165e432d13d8e63a1b4c70aff
+                scripts/_vendor/verdict-kit/smoke.py             8e2af3fc975c70372b40f8744ca14593bf4ec1bb77ba905bd858ce77cea0b801
+                scripts/_vendor/verdict-kit/verdict_kit/__init__.py af4fa0c0941f4edf9297a88a66de4d5bd61e6aba7d2f1615810089a476894e3c
+                scripts/_vendor/verdict-kit/verdict_kit/assertions.py 866e697777f8bd89db5b9d90cefe7ea1617c83fd78047a91115b41aac1320f5a
+                scripts/_vendor/verdict-kit/verdict_kit/context.py af1518b854c4b4bee1f5160f2e541e9d5459b2b888ba4a015b21b905368880b5
+                scripts/_vendor/verdict-kit/verdict_kit/contract.py 56075a3c292ff822dd8fdccf280519512bd2874eac7dea0afaa14a9895a0d8b2
+                scripts/_vendor/verdict-kit/verdict_kit/envelope.py c7f218dd9f8809b63b776fbdcb7acd10840a2919adf4b593f28cb5e9fab8af52
+                scripts/_vendor/verdict-kit/verdict_kit/registry.py b9596441296238e2caa89bce748ae0eb051e49829d708620997ce3035ab2d50d
+修改 5        :
+                CHANGELOG.md                                     45b37ed5d6b6c0df12c6c73f37d70d0e109c782e0f77e87a6bd8ff211b4eaf0e
+                README.md                                        f462ac1d8ca2a3e3b9008105eeb7dcc58cb1435471857c462d9a3532cce49b92
+                SKILL.md                                         80ca3a972371b63cfe01ed22751e3d7dfd0c5741312c8d0af879ac43979ecc0a
+                scripts/lib_common.py                            a319225e8f062b9c70eb1f14b986c3d4091db3b9737b2d376f00523412dd76fa
+                scripts/selftest.py                              35edc61e22ea88e8097010a7e9e3fb6009630e2954661ff86a2114e068efa4cf
+内容          : verdict-kit Phase 0——先 vendor，不改 import：
+                1) scripts/_vendor/verdict-kit/ 放入子代理验证过的骨架：
+                   verdict_kit（信封 / context / claims registry / 断言
+                   harness / 契约生成）、25 条冒烟、fixtures、README。
+                   仅标准库，无本 skill 的阈值/路径/词汇。
+                2) VENDORED.sha256 记录 12 个 vendored 文件的逐件 sha256。
+                3) A106 在异目录用 -B 跑 smoke（25/25），并校验清单；
+                   纯脚本断言，无能力跳过。EXPECTED_ASSERTIONS 105 → 106
+                   （--fixtures 107）。
+                4) 现有 lib_common / validate_claims / 流水线 import 一个
+                   未改；Phase 1 才做 facade，且必须过字节级 parity。
+
+实测证据      : 九道闸（有引擎机器实跑）：
+                selftest --fixtures 107/107（skipped=0，exit 0）、
+                selftest 106/106、matrix --check 无漂移、
+                matrix --cross-check exit 0、run_fixtures 37/37、
+                redteam 18/16/0/2、validate_claims 143/143
+                覆盖全满、gen_contract --check 无漂移、validate_skill 0/0
+                双打包 x2 sha256 一致（193 文件 / 527116 B / 2bf0ae1c1bee…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r86 重取 PASS
+                A106 实测：rc=0、checks=25、failed=0、manifest_bad=-
+                版本实测：包内 SKILL.md version 1.20.0 / metadata.version
+                "1.20.0"、CHANGELOG 首条 1.20.0 [r86]
+
+已知限制      : 1) Phase 0 只是 vendoring；现有代码尚未使用该骨架
+                2) Phase 1（lib_common facade / validate_claims adapter）
+                   仍需字节级 parity 与 A84/A89 回归
+                3) 声明登记册 143 条中 68 条仍为 unverified
+                4) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r86-193files.zip
+                两者均应为 2bf0ae1c1beed9db293e56a2a9552fa3e3269d61d8b604a21c8e3d293e47bb46
+                （527116 B / 193 文件）
+                上一版：r85 / 1.19.0 = 75341e7017cdf212004a78633257608d6c5e00a61ebf686ee6c12bc35eafc4de
+                （501,569 B / 180 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r87（2026-11-13）　verdict-kit Phase 1a：信封 facade + golden parity（取代 1.20.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r87-206files.zip
+版本          : r87（SKILL.md 1.21.0，metadata.version "1.21.0"）
+文件数        : 206
+字节数        : 533627
+sha256        : 07484d817fd610a3bc37c4103da4d3425a42234cce2f491493259a6ee51922f0
+冻结时刻      : 2026-11-13 22:56（源码 206 文件 / 1491172 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（206 条目、0 目录项）
+旧包归档      : vector-ai-studio_r86-193files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 40 件）
+取代关系      : 本段取代 r86 段。1.20.0 已签收、已 tag（v1.20.0）、已推送。
+
+相对 1.20.0 变更 : 18 个文件（13 新增 / 0 删除 / 5 修改）
+                对比 05-发布/archive/vector-ai-studio_r86-193files.zip 逐件 md5
+新增 13        :
+                tests/fixtures/envelope/c01-ok.json              1eadf641696dd1a40a319ef8c906d89985464739882016c65924f02e26d92d04
+                tests/fixtures/envelope/c02-degraded.json        c30639f64846d5c4294ad40a6d6ded964b5d37e5a0dfe47f914a563b9a218e3c
+                tests/fixtures/envelope/c03-missing.json         2e94a32ae24b746279569d2ba1b0cf4e98abcbf37f8325d73633f24f977476a9
+                tests/fixtures/envelope/c04-fail.json            154f4df1cc9677255169598e04d75261bdc5bb329e0d842ddc8523e22008a3ff
+                tests/fixtures/envelope/c05-error-usage.json     16576429fe3fa4edb21e5bbb0a3bd319b4120d4efca61e86cb7b8f3849a1b9dc
+                tests/fixtures/envelope/c06-error-internal.json  76ae87a9cb36dcb07a0fd934b2a0eef22b9056a6ad2156bb01e4ca9aee0947c2
+                tests/fixtures/envelope/c07-artifacts.json       2d60dfefc28ff0871fdb9f46cf1d377d1e25b999cf6ceb50a7f9bb12c917c062
+                tests/fixtures/envelope/c08-legacy-ok-code1.json 88e0647b0a4cefb01f0dc2d334b3d7479d0d3946524d739f2a36e417bad12396
+                tests/fixtures/envelope/c09-unicode.json         ecfb8f2eadbda9e4687f5f81a22ef41e5c0b95092ad991dd2797d2e268988da5
+                tests/fixtures/envelope/c10-empty.json           87762adaa91c103596114174c9815fb9fc3084e76ac6f7ffbba9f6b6dbd7074e
+                tests/fixtures/envelope/c11-multi-error.json     cef3b75931a533affee155aa1d461bac6390a0d655e016c73846e5e582376446
+                tests/fixtures/envelope/c12-degraded-ok.json     4a2e7579a0021e2bc1bfac27a2e013ec407b16b9ac5cae991b550e943de24383
+                tests/fixtures/envelope/cases.json               c219ba4df6946c99d3e0e6dae82ba66cbeb6a3fea2524425e0fd28c1a80531c3
+修改 5        :
+                CHANGELOG.md                                     09c395bd92871fec3bdf18e29483455e4a66d532ce7474269f306de1dd7b3ce0
+                README.md                                        0db75493cd7d20287eae66553271e242af2b9d8017ae4b816498f7fa98895e8d
+                SKILL.md                                         207cf54c4dc20aeba63b88f732673b5d363b3b4eca384cb4363bd05882121b66
+                scripts/lib_common.py                            17239f6ea69d28e6a6ffd188cecb82af869163d14391d6a2bb4fabb93360e984
+                scripts/selftest.py                              7f103086c21975a7115a0e51bbcd658143959ac3dfa1e32d588ce1a1e70205c6
+内容          : verdict-kit Phase 1a——先把旧输出冻成 golden，再换实现：
+                1) lib_common.envelope() / emit() 改为委托 vendored
+                   verdict_kit.envelope；schema 仍是 vector-ai-studio/v1。
+                2) 改动前冻结 12 组代表信封（ok / degraded / missing / fail /
+                   error / ok+code1 / unicode / artifacts / multi-error /
+                   empty）到 tests/fixtures/envelope/；A107 逐字节比对，
+                   不是拿同一份代码自证。
+                3) ToolError 与 run_cli 暂不动，异常类与调用方行为不变。
+                   kit 的 E-* 校验暴露了一个测试 stub 用 COLLAPSED（判词 id）
+                   当错误码；stub 改为 E-INTERNAL。
+                4) 按路径加载 vendor 模块时临时关闭字节码写入，避免
+                   scripts/_vendor/.../__pycache__（A22 会红）。
+                5) EXPECTED_ASSERTIONS 106 → 107（--fixtures 108）；
+                   claims 143 不变；阈值数值零改动。
+
+实测证据      : 九道闸（有引擎机器实跑）：
+                selftest --fixtures 108/108（skipped=0，exit 0）、
+                selftest 107/107、matrix --check 无漂移、
+                matrix --cross-check exit 0、run_fixtures 37/37、
+                redteam 18/16/0/2、validate_claims 143/143
+                覆盖全满、gen_contract --check 无漂移、validate_skill 0/0
+                双打包 x2 sha256 一致（206 文件 / 533627 B / 07484d817fd6…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r87 重取 PASS
+                A107 实测 12/12 字节一致；A50 stub 修正后仍 6 阶段顺序
+                版本实测：包内 SKILL.md version 1.21.0 / metadata.version
+                "1.21.0"、CHANGELOG 首条 1.21.0 [r87]
+
+已知限制      : 1) 只换了信封；ToolError/run_cli 与 claims adapter 未动
+                2) Phase 1b（validate_claims adapter）仍需独立 parity
+                3) 声明登记册 143 条中 68 条仍为 unverified
+                4) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r87-206files.zip
+                两者均应为 07484d817fd610a3bc37c4103da4d3425a42234cce2f491493259a6ee51922f0
+                （533627 B / 206 文件）
+                上一版：r86 / 1.20.0 = 2bf0ae1c1beed9db293e56a2a9552fa3e3269d61d8b604a21c8e3d293e47bb46
+                （527,116 B / 193 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r88（2026-11-13）　1.21.1 补丁：partial 状态 + 第 13 组 golden（取代 1.21.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r88-207files.zip
+版本          : r88（SKILL.md 1.21.1，metadata.version "1.21.1"）
+文件数        : 207
+字节数        : 534530
+sha256        : 36e2df1fefca72824a2aa973a86fc6ff5716f01468129bac7f6c63aad69169c9
+冻结时刻      : 2026-11-13 23:18（源码 207 文件 / 1493108 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（207 条目、0 目录项）
+旧包归档      : vector-ai-studio_r87-206files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 41 件）
+取代关系      : 本段取代 r87 段。**v1.21.0 在 Linux CI 上红（EnvelopeError:
+                unknown status 'partial'），已撤回；本补丁修复后重新签收。**
+
+相对 1.21.0 变更 : 8 个文件（1 新增 / 0 删除 / 7 修改）
+                对比 05-发布/archive/vector-ai-studio_r87-206files.zip 逐件 md5
+新增 1        :
+                tests/fixtures/envelope/c13-partial.json         8274b2c2e18e83228808ce20b665134e08384167d903b8052c3606482f147cd2
+修改 7        :
+                CHANGELOG.md                                     dc9bc5e298aee3f4df19c76e7977121ed1a50031a815f7d1c15c045805e9cf49
+                README.md                                        acd41acd8f08c6c0f1216106245176f8b1a10b904e28e52da2ec39ada2b72bd3
+                SKILL.md                                         7bf649d4a4848fa8d0b67d1a6fc579039a001d2ecc2ae82b0a4db7b29fcd7369
+                scripts/_vendor/verdict-kit/VENDORED.sha256      03dc74bc4f31d296533a3421ce930298547649672cb341f7e96a2da104104d36
+                scripts/_vendor/verdict-kit/verdict_kit/envelope.py 3cbe9b9b4c83fa4b2b9796a481c8ebda2b2fcc4d6fe6027a818f55e0a4a14d37
+                scripts/selftest.py                              a58a10c5f555388c78a05809c1d179b5f30f48f7955c029693541ee1147ce94f
+                tests/fixtures/envelope/cases.json               90cd1347050fe877c66f46b2cba4fe2d60172ce6cf164de78c5b85080c9bc6e7
+内容          : 1.21.1——补上 Linux 每个非引擎 CI run 都会走的状态：
+                1) vendored envelope 的 STATUSES 增 `partial`（code 3）：
+                   「所有剩余断言通过，但至少一个可选能力缺席」既不是失败、
+                   也不是干净通过。1.21.0 的信封不认识它，Linux CI 在写
+                   assertions 之前就 EnvelopeError 崩掉（CODE=4）。
+                2) A107 增第 13 组 golden c13-partial（status=partial,
+                   code=3），逐字节 parity 覆盖这个状态。
+                3) VENDORED.sha256 重新生成（envelope.py 变了）。
+                4) CI 的 selftest 步骤现在在非 0/3 退出时打印信封 errors；
+                   就是这行诊断在第一次重跑时定位了 partial。
+                5) 无阈值/声明/断言数变化；EXPECTED_ASSERTIONS 仍 107
+                   （--fixtures 108）；claims 仍 143。
+
+实测证据      : 九道闸（有引擎机器实跑）：
+                selftest --fixtures 108/108（skipped=0，exit 0）、
+                selftest 107/107、matrix --check 无漂移、
+                matrix --cross-check exit 0、run_fixtures 37/37、
+                redteam 18/16/0/2、validate_claims 143/143
+                覆盖全满、gen_contract --check 无漂移、validate_skill 0/0
+                无引擎模拟（VECTORCRAFT_CLI 指向不存在路径）：
+                status=partial、code=3、failed=0、skipped=5、errors=E-SELFTEST
+                双打包 x2 sha256 一致（207 文件 / 534530 B / 36e2df1fefca…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r88 重取 PASS
+                A107 实测 13/13 字节一致；A106 25/25 + manifest 12 件
+                版本实测：包内 SKILL.md version 1.21.1 / metadata.version
+                "1.21.1"、CHANGELOG 首条 1.21.1 [r88]
+
+已知限制      : 1) 1.21.0 的 tag 保留但标为 CI 红/撤回；包在 archive/
+                2) only envelope facade 变了；ToolError/run_cli 与
+                   claims adapter 仍未动
+                3) 声明登记册 143 条中 68 条仍为 unverified
+                4) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r88-207files.zip
+                两者均应为 36e2df1fefca72824a2aa973a86fc6ff5716f01468129bac7f6c63aad69169c9
+                （534530 B / 207 文件）
+                上一版（撤回）：r87 / 1.21.0 = 07484d817fd610a3bc37c4103da4d3425a42234cce2f491493259a6ee51922f0
+                （533,627 B / 206 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r89（2026-11-13）　verdict-kit Phase 1b：claims adapter（取代 1.21.1）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r89-214files.zip
+版本          : r89（SKILL.md 1.22.0，metadata.version "1.22.0"）
+文件数        : 214
+字节数        : 542937
+sha256        : d1402a39473d651f1c5701c72f82f6e38a28c4acb6823284a206fda2dcb51909
+冻结时刻      : 2026-11-13 23:49（源码 214 文件 / 1562572 B / 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（214 条目、0 目录项）
+旧包归档      : vector-ai-studio_r88-207files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 42 件）
+取代关系      : 本段取代 r88 段。1.21.1 已签收、已 tag（v1.21.1）、已推送。
+
+相对 1.21.1 变更 : 14 个文件（7 新增 / 0 删除 / 7 修改）
+                对比 05-发布/archive/vector-ai-studio_r88-207files.zip 逐件 md5
+新增 7        :
+                tests/fixtures/claims/expected-bad-skip.json     7faf11771584cdc208bc652ce370c628c797a9a77d0a0b42eb3e00702a17760b
+                tests/fixtures/claims/expected-no-log.json       dc491ecaa215feebb84477c49fb27926ae54890851b366bebe3ffb1a0dd75dc3
+                tests/fixtures/claims/expected-tampered.json     7ba801c07b4dc233b898184a60f0c2711132bafd54dfabf06c7161aa795ec0d0
+                tests/fixtures/claims/expected-with-log.json     34c5cd393701948355197f781a8a90f5f654943147d3c2e1c7d16b310982c935
+                tests/fixtures/claims/selftest-bad-skip.json     703d2db97dbc9055fad740cd58a62ed5af65e7b809dcdd4ef4cb568d39a33cd2
+                tests/fixtures/claims/selftest-pass.json         8497367bddbefca4ea6fc2eab43a37ef47554f3372f3a9c66109af43a26e8f64
+                tests/fixtures/claims/tampered.json              5213736a293b0f5912b72e5a63f31377973160def1877af16b3f2d30c6b1591c
+修改 7        :
+                CHANGELOG.md                                     2082b61da4959f6d5a69745a92d3d13a690d15b711304030ed5dbb19d59420e8
+                README.md                                        00c654a1a986f3af05d75dd4d3e56eb8022863e7cf1a0f3046f6a0fe71a1cfed
+                SKILL.md                                         05b63c60ff59201a4f3230301e9e75a8c9f135ce27669a493df65e7f21b37fe3
+                contract/claims.json                             4f785c3fea8989fc4a818d1dfc33e05a0dce4ee6b35131669cdadf9dba9251f2
+                scripts/lib_common.py                            881a4df9560e73b4d4c20ff94f4ae012e70977d2206a4aee5615c3b2e2a27e23
+                scripts/selftest.py                              8ec7c1e0a1359cbae8100bffdc825359bd2f326e283c1e1d713a82a8e3731f4f
+                scripts/validate_claims.py                       b5f6a09cada3839ad4e6f8f766e760402ade16553833b3fb6df59e75cde90231
+内容          : verdict-kit Phase 1b——claims 也先冻 golden，再换实现：
+                1) validate_claims.py 变成 vendored ClaimRegistry 的薄
+                   CLI adapter；--claims / --selftest-json / --json 与
+                   claims-result-v1 结果 schema 不变。
+                2) 改动前冻结 4 组 golden：无日志 / 通过日志 / 坏跳过
+                   （guard 不在 CAPABILITY_SKIPS）/ 哈希漂移；A108 逐组
+                   语义比对（by_mechanism 键序不是承诺），并核对
+                   status/code。
+                3) 句子切分 / 锚点 / 哈希 / 机制 / skip 策略 / 覆盖率
+                   ratchet 都搬进 vendored registry；本 skill 只注入
+                   scan files、mandatory words、assertion ids、attack map
+                   与 CAPABILITY_SKIPS。
+                4) kit 的两处更严是有意的：claim 文件不得逃出 skill root；
+                   没有 text_hash 的 claim 直接拒（现有 143 条全有）。
+                5) 修了一个锚点碰撞：CLAIM-061 的锚点在新增的 Phase 1b
+                   句子里也出现，导致覆盖率掉到 137/138；改成唯一锚点并
+                   重算哈希。EXPECTED_ASSERTIONS 107 → 108（--fixtures
+                   109）；claims 143 不变；阈值数值零改动。
+
+实测证据      : 九道闸（有引擎机器实跑）：
+                selftest --fixtures 109/109（skipped=0，exit 0）、
+                selftest 108/108、matrix --check 无漂移、
+                matrix --cross-check exit 0、run_fixtures 37/37、
+                redteam 18/16/0/2、validate_claims 143/143
+                覆盖 138/138、gen_contract --check 无漂移、
+                validate_skill 0/0
+                A108 实测 4/4 语义一致；A84/A89 走 adapter 后仍绿
+                双打包 x2 sha256 一致（214 文件 / 542937 B / d1402a39473d…）
+                zip ↔ 源码逐件 md5 全等；冻结基线 r89 重取 PASS
+                版本实测：包内 SKILL.md version 1.22.0 / metadata.version
+                "1.22.0"、CHANGELOG 首条 1.22.0 [r89]
+
+已知限制      : 1) 只换了 claims；ToolError/run_cli 仍未动
+                2) Phase 2（contract/attacks/fixtures/gate 抽取）未做
+                3) 声明登记册 143 条中 68 条仍为 unverified
+                4) 外部真人评审 0 份；阈值数值零改动
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r89-214files.zip
+                两者均应为 d1402a39473d651f1c5701c72f82f6e38a28c4acb6823284a206fda2dcb51909
+                （542937 B / 214 文件）
+                上一版：r88 / 1.21.1 = 36e2df1fefca72824a2aa973a86fc6ff5716f01468129bac7f6c63aad69169c9
+                （534,530 B / 207 文件，已在 archive/）
+
+────────────────────────────────────────────────────────────
+r90（2026-11-14）　verdict-kit Phase 2-1：contract 抽取（取代 1.22.0）
+────────────────────────────────────────────────────────────
+产物          : vector-ai-studio_r90-222files.zip
+版本          : r90（SKILL.md 1.23.0，metadata.version "1.23.0"）
+文件数        : 222
+字节数        : 550569
+sha256        : 00b9dd33801d9ec4ee96f5ed90678875e25cd27ebc8287ccba659d2c01531464
+冻结时刻      : 2026-11-14 12:32（源码 222 文件 / 1577722 B / 包内 0 个 .pyc / 0 个 __pycache__）
+包内根前缀    : vector-ai-studio/（222 条目、0 目录项、0 个 0 字节条目）
+旧包归档      : vector-ai-studio_r89-214files.zip 移入 05-发布/archive/（不覆盖、不删除；archive 现有 43 件）
+取代关系      : 本段取代 r89 段。1.22.0 已签收（QA 重测 r89 + 复测闸 19/19）；tag 与推送由主理人执行。
+
+相对 1.22.0 变更 : 15 个文件（8 新增 / 0 删除 / 7 修改）
+                对比 05-发布/archive/vector-ai-studio_r89-214files.zip 逐件 md5
+新增 8        :
+                tests/fixtures/contract-gen/cases.json         a5d61a6585aaf30273950875103204e5b55f6bdef79949a0fc873a076002c770
+                tests/fixtures/contract-gen/g-bad-json.json    957d72cb6e7b0b5d9f558a099f430271241cbbab4c0e3b5d0fa920bc356e36b1
+                tests/fixtures/contract-gen/g-check-ok.json    6dbdf459502caca15c4df40507c11326cc649f6cff925055de6986e896ba9316
+                tests/fixtures/contract-gen/g-drift.json       62cc7841c954d92ef92a18a286c20e90c822952ce341e19115f636e0021fc48e
+                tests/fixtures/contract-gen/g-lacks-key.json   6fd948601d03c4411d68620401e26e2f32bb7cb2f132ba16774448d0fddc037d
+                tests/fixtures/contract-gen/g-missing.json     bd24c2a37a21931cb10dc458084bffc02aff8eaab7ab3d0d6431aa073322c228
+                tests/fixtures/contract-gen/g-schema-mismatch.json e3459bbb563813d672d91e3cd78c1e7c8854a93ff23530ae02c776137cae710d
+                tests/fixtures/contract-gen/g-write-path.json  70de499233fa0435bcbdb0b6c9949a1da3e60e959e9bb9d68fb033f0c7f37ed8
+修改 7        :
+                CHANGELOG.md                                   e5b236afb96135a5954c4cdb62ad770d4459a368edb84cdba1920802449451c5
+                MIGRATION.md                                   ed4056bdf8c9830f4df076ef94a7d0db0656794539e2e3b9b7889f671c63b43f
+                README.md                                      4f9e7cd26c86b36e13b69b434089743149fb9585a50b38a2a34ffe044d8f0439
+                SKILL.md                                       f61f63f2f8bfc81cea830dfcf528b1b1f1fcf9ec86816c2a1eb782653b389045
+                scripts/gen_contract.py                        361ed0c7a012c9de13598a86bd32f810e4991174387d32f9c1f5bd104c7d8ebf
+                scripts/lib_common.py                          ae39348a48d28ef56e288ed843f7a11b9f2178bfcea0eb1539cd6c12ea9c72ff
+                scripts/selftest.py                            a21894efd56fa04a0134f829962445fbafd8eebf2d5dac7697e5850218d89812
+内容          : verdict-kit Phase 2-1——contract 也先冻 golden，再换实现：
+                1) scripts/gen_contract.py 不再自己解析契约、比字节、写文件；
+                   这三项机制改由 vendored verdict_kit.contract 承担。
+                   --check / --json 两个开关、信封 data 形状、退出码与四个
+                   错误码（E-CONTRACT-MISSING / -PARSE / -SCHEMA / -DRIFT）
+                   全部不变。
+                2) 换实现前先冻 7 组 golden 到 tests/fixtures/contract-gen/
+                   （cases.json + 7 份信封）：通过的 --check、写入路径（含它
+                   必须落盘的 4 个文件）、手改生成物造成的漂移，以及契约本身
+                   四种坏法（JSON 不可解析 / 文件缺失 / schema 不符 / 缺必需键）。
+                   A109 逐组重放，比对解析后的信封与 status/code；键序不是承诺。
+                3) 留在 skill 侧的是四个 renderer、必需键清单，以及与
+                   config/thresholds.json 的消息键交叉校验——kit 不发明取值。
+                4) 有意差异只落在错误路径：合法 JSON 但不是对象 → E-CONTRACT-SCHEMA
+                   (exit 2) 而非 E-INTERNAL (exit 4) 崩溃；多个缺键一次列全；
+                   kit 逐个 render 后 write（每次写入仍原子）。
+                5) A28 仍诚实：CONTRACT_ERROR_CODES 在 adapter 里登记三个装载期
+                   码，同时约束 kit 可转发的范围。
+                6) EXPECTED_ASSERTIONS 108 → 109（--fixtures 110）；kit 未变更，
+                   VENDORED.sha256 未重算；claims 143 条不变；阈值数值零改动。
+
+实测证据      : 九道闸（本机实跑：Python 3.12.10 + 引擎 0.22.0；
+                PATH 前置 C://Program Files\Tesseract-OCR 以恢复 cairosvg）：
+                selftest 109/0/0（assertions 109 全跑、skipped 0、partial=false、
+                exit 0）、selftest --fixtures 110/0/0（exit 0）、
+                run_fixtures 37/37（exit 0）、validate_claims 143/143 覆盖 138/138
+                （exit 0）、redteam 18 攻击 / 16 拦下 / 0 漏拦 / 2 已声明边界
+                （exit 0）、gen_contract --check 无漂移（4/4 same，exit 0）、
+                VENDORED.sha256 12/12 逐件复算 0 差异、kit smoke 25/25
+                （A106 checks=25 failed=0）、validate_skill 0 error / 0 warning、
+                A105 真跑（cairosvg 恢复后 rc=0 faithful=1）
+                双打包 x2 sha256 一致（222 文件 / 550569 B / 00b9dd33…）
+                zip ↔ 源码逐件 md5 全等（missing 0 / extra 0 / diff 0，222/222）；
+                包内 0 目录项、0 个 .pyc / __pycache__ / _dev-logs、0 个 0 字节条目
+                复测闸 19/19 通过 / 0 失败 / 0 无法复测，exit 0；
+                P1（包↔源码）missing 0 / extra 0 / diff 0、
+                P2（包内引擎锁↔本机）ef7860aefe57cf0d… 一致、
+                P3（03-源码↔仓库被审代码）missing 0 / extra 0 / diff 0（222/222）
+                版本实测（从 zip 读回）：SKILL.md version 1.23.0 /
+                metadata.version "1.23.0"、CHANGELOG 首条 1.23.0 [r90]
+
+已知限制      : 1) PDF/X 规范原文未核：L2 只验 GTS_PDFXVersion 与
+                   output_intents≥1，未逐条比对 ISO 15930 条款
+                2) 外部真人评审 0 份；审美类结论仍不可采信
+                3) path 墨量不可测：AREA-<colour> 只对可解算几何计数，
+                   path 一律判不可测（A66 守着这条）
+                4) cairosvg 依赖原生 cairo：PATH 未含 Tesseract-OCR 目录时
+                   import 失败，A105 会如实跳过；skipped 记为 pass 的口径不存在
+                5) 声明登记册 143 条中 68 条仍为 unverified；阈值数值零改动
+                6) 1.23.0 只抽了 contract；Phase 2 其余（attacks / fixtures /
+                   gate）未做
+
+校验方式      : ① sha256sum 05-发布/vector-ai-studio_r90-222files.zip
+                应为 00b9dd33801d9ec4ee96f5ed90678875e25cd27ebc8287ccba659d2c01531464
+                （550569 B / 222 文件）
+                ② 解压后与源码逐件比对（两种独立实现，任选其一）：
+                win: Expand-Archive 后对两棵树逐件 Get-FileHash -Algorithm MD5 比对；
+                期望 missing 0 / extra 0 / diff 0、包内 0 个目录项
+                bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
+                上一版：r89 / 1.22.0 = d1402a39473d651f1c5701c72f82f6e38a28c4acb6823284a206fda2dcb51909
+                （542937 B / 214 文件，已在 archive/）
