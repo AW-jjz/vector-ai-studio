@@ -4216,3 +4216,201 @@ sha256        : a0b1c13a8c65177d756a37a6e29631a26742358ca9fe8c1c5f60fd80bc0d8514
                 bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
                 上一版：r93.1 / 1.25.1 = 4cce3cbe81ee0ae06f1d31ad1e1fe9a69ff5456a79df48848d8125504cbb72d5
                 （576860 B / 229 文件，已在 archive/）
+==========================================================================
+r95（v1.26.1 / 两条定义错误路径清理：fixtures 缺脚本、重复 case id）
+==========================================================================
+包文件        : vector-ai-studio_r95-231files.zip
+文件数        : 231
+字节数        : 588640
+sha256        : 2f1c7f362f496fb7e29bb4a662798ab1159d32a8ef9aa4fa077aa08178b32742
+版本          : 1.26.1（SKILL.md 顶层 version 与 metadata.version 两处镜像一致；
+                CHANGELOG 首条 `## 1.26.1`；以上三项均从 zip 内读回核对）
+冻结时刻      : 2026-11-14 18:28
+打包器        : skill-lifecycle-toolkit/scripts/package_skill.py
+                --platform workbuddy --channel marketplace（未手工 zip；连打两次 sha256 一致）
+旧包归档      : vector-ai-studio_r94-231files.zip 移入 05-发布/archive/（不覆盖、不删除；
+                archive 由 48 件增至 49 件；r94 包 sha256 前后均为 a0b1c13a…8514 / 584218 B）
+
+相对 r94 变更 : 11 个文件（0 新增 / 0 删除 / 11 修改），231 → 231
+                对比 05-发布/archive/vector-ai-studio_r94-231files.zip 逐件 sha256
+新增 0        :
+修改 11       :
+                CHANGELOG.md                                                      7659369d554776684b4f8e8ac09552d77d94b7b86ac7f74c6793f0cac661769e
+                MIGRATION.md                                                      884687c8dbc63fef0c499943ed4320bc4df68058703eb36721060c7a5a514095
+                README.md                                                         d0b81388ea5c01ead85ccdcd3949c942668181e1b746982d5e8bdcd48d1dd03a
+                SKILL.md                                                          15cf46b81d613b49e574db3eff9d7689d329041e12e3a041c260a40c3a8d7f59
+                scripts/_vendor/verdict-kit/README.md                             956bb01aef6f39c97aa83346d4c66ce5e12e9fafa6ad1fbac27f4dc948e7ba83
+                scripts/_vendor/verdict-kit/VENDORED.sha256                       034616f5bb72e46018a81c927a0170fa34c68c6b97f6541503b5f33f5ab5dbb1
+                scripts/_vendor/verdict-kit/smoke.py                              abd92c222fd2872210b4b756b1cbc1e3c447d878ac792424ca9299a3cc903b5d
+                scripts/_vendor/verdict-kit/verdict_kit/fixtures.py               9dd1842fd27bb66b07f3f49a2e120d2b12e3611736e85093af33425f87df365a
+                scripts/lib_common.py                                             1e5f03be15cafac7259de8fa343c60a28bfd480b4a2292f0d56e09a439a8039a
+                scripts/selftest.py                                               f9cbefa72f96cef27fdb6d8e9c1ab22a90dcece74a9ed6155608aabb5ab76d76
+                tests/fixtures/release-gate/README.md                             68cbe3d0e1cb22ab40d1e0079fa22ef80d1d7a918539235e3722d175e0f4218a
+删除 0        :
+内容          : r95 为 1.26.1 补丁：清两条定义错误路径，无新增错误码。
+                1) fixtures 定义的 case 指向不存在的 script 时，旧树把它当「case 结果」记
+                   passed（want_exit [2] 与 python 自身退 2 撞上，脚本从未运行也算绿）；
+                   新树在 `materialize`/`run_case` 前就抛 FixtureError → E-SCHEMA/2，
+                   定义坏了不再折叠成 case 结果。
+                2) fixtures.json 出现两个同 id 且都带 setup_dir 的 case 时，旧树第二条
+                   copytree 抛 FileExistsError → E-INTERNAL/4；新树在重复 id 处即抛
+                   FixtureError → E-SCHEMA/2，与「定义坏了统一 E-SCHEMA」一致。
+                3) 新增断言 A114-fixture-definition-errors：真子进程跑同一条
+                   run_fixtures.py，三段独立复算——缺脚本 exit 2 / E-SCHEMA、重复 id
+                   exit 2 / E-SCHEMA、normal exit 0 / passed=1 total=1 all_ok=true；
+                   断言形式为 `_codes(env) == ["E-SCHEMA"]`（列表全等，非子集）。
+                4) EXPECTED_ASSERTIONS 113 → 114；`--fixtures` 仍只加 1（共 115）。
+                5) A106 期望冒烟检查数 33 → 35（kit 新增 fixtures.missing-script /
+                   fixtures.duplicate-id 两条）；kit 语义同步写进 kit README。
+                6) 错误码集合零新增：两条路径都归到既有 E-SCHEMA / exit 2。
+                7) 阈值与数据零改：`config/thresholds.json`（md5 9c274480…）、
+                   `tests/fixtures/fixtures.json`（md5 f0772382…，37 条 / declared 37）、
+                   `tests/fixtures/release-gate/gate-baseline.json`（md5 2cdb5188…）
+                   逐字节相同；contract / config / references / docs / templates 未动。
+
+实测证据      : 九道闸（打包机实跑：Python 3.12.10 + 引擎 0.22.0，r95 包出包后复跑）：
+                selftest 114/0/0，`status=ok`、`failed=0`、`skipped=[]`、`partial=false`、
+                `problems=[]`、exit 0；A60 `declared=114 ran=114`；A76 `skipped=none`；
+                A106 `rc=0 checks=35 failed=0`；A112 `bytes_equal=True raw_equal=True
+                want=14514B got=14514B rc=0`；A113 `ok=ok/0 fail=fail/1 partial=partial/3
+                count=fail/1 undeclared=fail/1`；A114 三段 `missing_script=E-SCHEMA/2
+                dup_id=E-SCHEMA/2 normal=ok`；A30 / A31 / A46 / A105 四条能力断言
+                `skipped=False` 真执行（A30 `version=0.22.0`、A105 `rc=0 faithful=1 rows=11`）。
+                selftest --fixtures 115/0/0（A60 `declared=115 ran=115`、A13 `exit=0`、exit 0）。
+                run_fixtures 37/37 `all_ok=true`，stdout 14514 B 与 frozen
+                `tests/fixtures/fixtures-run/run-fixtures-frozen.json` **逐字节相等**
+                （cmp 无输出；md5 双方 `cc942f0838cd6601f279b3df79705183`）。
+                validate_claims 143/143，覆盖率 138/138，ratio 1.0 = floor。
+                redteam 18 攻击 / 16 拦下 / 0 漏拦 / 2 已声明边界，exit 0。
+                gen_contract --check 无漂移（4/4 same，contract 1.0.0 / criteria 2.0.0）。
+                kit smoke 35/35（`{"checks":35,"failed":0,"passed":35,"status":"ok"}`）。
+                VENDORED.sha256 14 项逐件重算全 OK、0 未登记文件（3 项本轮更新：
+                README.md / smoke.py / verdict_kit/fixtures.py，清单内 14 条已同步重算）。
+                validate_skill（workbuddy / marketplace）0 error / 0 warning，exit 0。
+                旧树假绿对照（同一最小 fixture set：script=no_such_script.py、
+                want_exit [2]、want_codes []，分别喂旧树 / 新树）：
+                  旧树（00-快照/vector-ai-studio-20261114-173213）exit 0、status=ok、
+                  total=1 passed=1 all_ok=true ← 脚本从未运行也算通过；
+                  新树（本包）exit 2、status=error、errors=[E-SCHEMA]
+                  「script not found for case missing_script」← 假绿消除。
+
+复测闸        : 打包后跑 `04-QA/r72-reaudit/run_r72_reaudit.py`
+                --package 05-发布/vector-ai-studio_r95-231files.zip
+                --log-dir 04-QA/test-log-r95/r95-reaudit，**exit 0**（耗时 8m47s），三栏
+                **通过 19 / 失败 0 / 无法复测 0**：E1–E3（引擎可定位 0.22.0、二进制
+                ef7860aef… 与包内锁一致）、S1–S8（114/0/0、115/0/0、A30/A31/A46 真执行、
+                37/37、18/16/0/2、143/143 覆盖 138/138、无漂移、0/0）、L1–L3（final.ai
+                12664 B 回读 ok、print.pdf 194426 B GTS_PDFX=1 intents=1、smoke
+                degraded/exit 3 判诚实降级）、**P1** 包↔源码逐件 md5 0/0/0（源 231 件）、
+                **P2** 包内引擎锁↔本机引擎一致、**P3** 03-源码↔仓库被审代码 0/0/0
+                （拷贝 231 / 源 231）。QA 阶段遗留的「P1·P2 无法复测」本轮全部转通过；
+                P3 保持通过（仓库副本 11 个文件已同步）。
+
+已知限制      : 1) PDF/X 只做结构核对（GTS_PDFXVersion / output_intents），未逐条比对
+                   ISO 15930 条款
+                2) 外部真人评审 0 份；审美类结论仍不可采信
+                3) path 墨量不可测：AREA-<colour> 只对可解算几何计数，path 一律判不可测（A66 守着）
+                4) cairosvg 依赖原生 cairo：PATH 未含 Tesseract-OCR 目录时 import 失败，
+                   A105 会如实跳过并落到 `partial` / exit 3；skipped 记为 pass 的口径不存在
+                （r94 登记的两条既有观察 O1 缺脚本假绿 / O2 重复 id 走 E-INTERNAL，
+                  本轮已清并各配一条断言（A114 三段），故不再列入已知限制）
+
+校验方式      : ① sha256sum 05-发布/vector-ai-studio_r95-231files.zip
+                应为 2f1c7f362f496fb7e29bb4a662798ab1159d32a8ef9aa4fa077aa08178b32742
+                （588640 B / 231 文件）
+                ② 解压后与源码逐件比对（两种独立实现，任选其一）：
+                win: Expand-Archive 后对两棵树逐件 Get-FileHash -Algorithm MD5 比对；
+                期望 missing 0 / extra 0 / diff 0、包内 0 个目录项
+                bash: unzip -q 到临时目录后 diff -r --brief，期望无输出
+                上一版：r94 / 1.26.0 = a0b1c13a8c65177d756a37a6e29631a26742358ca9fe8c1c5f60fd80bc0d8514
+                （584218 B / 231 文件，已在 archive/）
+
+==========================================================================
+r95（v1.26.1 / 清两条定义错误路径）
+==========================================================================
+包文件        : vector-ai-studio_r95-231files.zip
+文件数        : 231
+字节数        : 588640
+sha256        : 2f1c7f362f496fb7e29bb4a662798ab1159d32a8ef9aa4fa077aa08178b32742
+版本          : 1.26.1（SKILL.md 顶层与 metadata.version 一致）
+冻结时刻      : 2026-11-14 18:4x
+相对 r94      : 0 新增 / 0 删除 / 11 修改
+逐件 sha256   :
+7659369d554776684b4f8e8ac09552d77d94b7b86ac7f74c6793f0cac661769e  CHANGELOG.md
+884687c8dbc63fef0c499943ed4320bc4df68058703eb36721060c7a5a514095  MIGRATION.md
+d0b81388ea5c01ead85ccdcd3949c942668181e1b746982d5e8bdcd48d1dd03a  README.md
+15cf46b81d613b49e574db3eff9d7689d329041e12e3a041c260a40c3a8d7f59  SKILL.md
+1e5f03be15cafac7259de8fa343c60a28bfd480b4a2292f0d56e09a439a8039a  scripts/lib_common.py
+f9cbefa72f96cef27fdb6d8e9c1ab22a90dcece74a9ed6155608aabb5ab76d76  scripts/selftest.py
+956bb01aef6f39c97aa83346d4c66ce5e12e9fafa6ad1fbac27f4dc948e7ba83  scripts/_vendor/verdict-kit/README.md
+034616f5bb72e46018a81c927a0170fa34c68c6b97f6541503b5f33f5ab5dbb1  scripts/_vendor/verdict-kit/VENDORED.sha256
+abd92c222fd2872210b4b756b1cbc1e3c447d878ac792424ca9299a3cc903b5d  scripts/_vendor/verdict-kit/smoke.py
+9dd1842fd27bb66b07f3f49a2e120d2b12e3611736e85093af33425f87df365a  scripts/_vendor/verdict-kit/verdict_kit/fixtures.py
+68cbe3d0e1cb22ab40d1e0079fa22ef80d1d7a918539235e3722d175e0f4218a  tests/fixtures/release-gate/README.md
+
+修的是什么    : 1) 脚本文件缺失时 run_case 前置抛 FixtureError -> E-SCHEMA/2
+                （原先 python 自退 2 会让 want_exit:[2] 且 want_codes:[] 的 case 假绿）；
+                2) 重复 case id 且都带 setup_dir 时 materialize 抛 FixtureError ->
+                E-SCHEMA/2（原先是未捕获 FileExistsError -> E-INTERNAL/4）。
+                对外错误码集合不变，无新增 E-*。
+
+对照证据      : 同一最小 fixture set 喂新旧两棵树：
+                缺失脚本 + want_exit:[2] -> 旧 status=ok/passed=1/exit 0（假绿），新 E-SCHEMA/2；
+                重复 id -> 旧 E-INTERNAL/4，新 E-SCHEMA/2。
+
+读数          : selftest 114/114、--fixtures 115/115、run_fixtures 37/37（与 frozen
+                逐字节相等，14514 B，A112 raw_equal=True）、claims 143/143、
+                redteam 18/16/0/2、kit smoke 35/35（33 -> 35）、VENDORED 14 项已重算、
+                validate_skill 0 error / 0 warning、复测闸 19/0/0。
+                112 条旧判据零漂移（去掉 A113+A114 后与 gate-baseline 112/112 全等）；
+                唯一判据改动是 A106 期望 33 -> 35（授权配套）。
+
+已知限制      : PDF/X 未核、真人评审 0、path 墨量不可测、cairosvg 依赖 PATH。
+                r93/r94 登记的两条既有观察本轮已清，不再列。
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r95-231files.zip = 2f1c7f362f496fb7e29bb4a662798ab1159d32a8ef9aa4fa077aa08178b32742
+
+==========================================================================
+r95（v1.26.1 / 清两条定义错误路径）
+==========================================================================
+包文件        : vector-ai-studio_r95-231files.zip
+文件数        : 231
+字节数        : 588640
+sha256        : 2f1c7f362f496fb7e29bb4a662798ab1159d32a8ef9aa4fa077aa08178b32742
+版本          : 1.26.1（SKILL.md 顶层与 metadata.version 一致）
+冻结时刻      : 2026-11-14 18:4x
+相对 r94      : 0 新增 / 0 删除 / 11 修改
+逐件 sha256   :
+7659369d554776684b4f8e8ac09552d77d94b7b86ac7f74c6793f0cac661769e  CHANGELOG.md
+884687c8dbc63fef0c499943ed4320bc4df68058703eb36721060c7a5a514095  MIGRATION.md
+d0b81388ea5c01ead85ccdcd3949c942668181e1b746982d5e8bdcd48d1dd03a  README.md
+15cf46b81d613b49e574db3eff9d7689d329041e12e3a041c260a40c3a8d7f59  SKILL.md
+1e5f03be15cafac7259de8fa343c60a28bfd480b4a2292f0d56e09a439a8039a  scripts/lib_common.py
+f9cbefa72f96cef27fdb6d8e9c1ab22a90dcece74a9ed6155608aabb5ab76d76  scripts/selftest.py
+956bb01aef6f39c97aa83346d4c66ce5e12e9fafa6ad1fbac27f4dc948e7ba83  scripts/_vendor/verdict-kit/README.md
+034616f5bb72e46018a81c927a0170fa34c68c6b97f6541503b5f33f5ab5dbb1  scripts/_vendor/verdict-kit/VENDORED.sha256
+abd92c222fd2872210b4b756b1cbc1e3c447d878ac792424ca9299a3cc903b5d  scripts/_vendor/verdict-kit/smoke.py
+9dd1842fd27bb66b07f3f49a2e120d2b12e3611736e85093af33425f87df365a  scripts/_vendor/verdict-kit/verdict_kit/fixtures.py
+68cbe3d0e1cb22ab40d1e0079fa22ef80d1d7a918539235e3722d175e0f4218a  tests/fixtures/release-gate/README.md
+
+修的是什么    : 1) 脚本文件缺失时 run_case 前置抛 FixtureError -> E-SCHEMA/2
+                （原先 python 自退 2 会让 want_exit:[2] 且 want_codes:[] 的 case 假绿）；
+                2) 重复 case id 且都带 setup_dir 时 materialize 抛 FixtureError ->
+                E-SCHEMA/2（原先是未捕获 FileExistsError -> E-INTERNAL/4）。
+                对外错误码集合不变，无新增 E-*。
+
+对照证据      : 同一最小 fixture set 喂新旧两棵树：
+                缺失脚本 + want_exit:[2] -> 旧 status=ok/passed=1/exit 0（假绿），新 E-SCHEMA/2；
+                重复 id -> 旧 E-INTERNAL/4，新 E-SCHEMA/2。
+
+读数          : selftest 114/114、--fixtures 115/115、run_fixtures 37/37（与 frozen
+                逐字节相等，14514 B，A112 raw_equal=True）、claims 143/143、
+                redteam 18/16/0/2、kit smoke 35/35（33 -> 35）、VENDORED 14 项已重算、
+                validate_skill 0 error / 0 warning、复测闸 19/0/0。
+                112 条旧判据零漂移（去掉 A113+A114 后与 gate-baseline 112/112 全等）；
+                唯一判据改动是 A106 期望 33 -> 35（授权配套）。
+
+已知限制      : PDF/X 未核、真人评审 0、path 墨量不可测、cairosvg 依赖 PATH。
+                r93/r94 登记的两条既有观察本轮已清，不再列。
+
+校验方式      : sha256sum 05-发布/vector-ai-studio_r95-231files.zip = 2f1c7f362f496fb7e29bb4a662798ab1159d32a8ef9aa4fa077aa08178b32742
