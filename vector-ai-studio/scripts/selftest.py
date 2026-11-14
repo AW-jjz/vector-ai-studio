@@ -21,6 +21,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lib_common as L
 
+# Phase 2-4 (r94): the vendored assertion harness owns the gate layer -- the
+# passed/failed/skipped tally, the A60 count guard, the A76 skip declaration,
+# the three-valued status and the exit code. Importing the package would create
+# scripts/_vendor/.../__pycache__ (A22 only ignores a cache whose parent is
+# exactly scripts/), so bytecode writing is disabled for this process. What
+# stays here: the 112 assertion bodies, EXPECTED_ASSERTIONS, CAPABILITY_SKIPS
+# and the CLI.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_vendor" / "verdict-kit"))
+import verdict_kit.assertions as VKA  # noqa: E402
+
 SCRIPT = "selftest.py"
 SCRIPTS = Path(__file__).resolve().parent
 ROOT = L.skill_root()
@@ -5178,6 +5189,64 @@ def _stage_r93(tmp, add):
             type(e).__name__ + ": " + str(e)[:140])
 
 
+def _stage_r94(tmp, add):
+    """A113: the gate layer is the vendored harness, not a hand-written tally.
+
+    r94 moved the count, the two meta-assertions, the three-valued status and
+    the exit code into `verdict_kit.assertions` (Phase 2-4, the last slice of
+    Phase 2). This assertion pins the semantics it now provides, entirely in
+    memory: no subprocess, no temp file, no host-specific path, so it reads the
+    same on every machine and cannot pass by re-running the suite it guards.
+
+    Five reports are built from scratch:
+
+    * two user assertions, both true  -> status ok, exit 0, acceptable, not partial;
+    * one true, one false             -> status fail, exit 1, not acceptable;
+    * one true, one declared skip, one true -> status partial, exit 3 (a skip is
+      neither a pass nor a failure), still acceptable, partial=true;
+    * a count that disagrees with what ran -> A60 itself goes red, exit 1;
+    * a skip that was never declared -> A76 itself goes red, exit 1.
+
+    `expected` counts the two meta-assertions, exactly as A60 does, so a report
+    with two user assertions declares 4 -- that contract is the reason the
+    declared number went 112 -> 113, not 111 -> 112.
+    """
+    def _read(expected, adds, skips=()):
+        h = VKA.Harness(expected=expected, capability_skips=skips)
+        for aid, ok, skipped in adds:
+            h.add(aid, ok, "", skipped)
+        r = h.finalize()
+        return (r.status, r.exit_code, r.ok, r.acceptable,
+                r.as_dict()["partial"], r.failed)
+
+    try:
+        ok_case = _read(4, [("X1", True, False), ("X2", True, False)])
+        fail_case = _read(4, [("X1", True, False), ("X2", False, False)])
+        part_case = _read(5, [("X1", True, False), ("X2", True, True),
+                              ("X3", True, False)], {"X2"})
+        count_case = _read(2, [("X1", True, False)])
+        skip_case = _read(4, [("X1", True, False), ("X2", True, True)], {"OTHER"})
+    except Exception as e:                      # noqa: BLE001
+        add("A113-release-gate-semantics", False,
+            type(e).__name__ + ": " + str(e)[:140])
+        return
+
+    good = (
+        ok_case[:5] == ("ok", 0, True, True, False)
+        and fail_case[:5] == ("fail", 1, False, False, False)
+        and part_case[:5] == ("partial", 3, False, True, True)
+        and count_case[0] == "fail" and count_case[1] == 1
+        and count_case[5] == ["A60-assertion-count-declared"]
+        and skip_case[0] == "fail" and skip_case[1] == 1
+        and skip_case[5] == ["A76-capability-skips-are-declared"]
+    )
+    add("A113-release-gate-semantics", good,
+        "ok=%s/%s fail=%s/%s partial=%s/%s count=%s/%s undeclared=%s/%s" % (
+            ok_case[0], ok_case[1], fail_case[0], fail_case[1],
+            part_case[0], part_case[1], count_case[0], count_case[1],
+            skip_case[0], skip_case[1]))
+
+
 def _stage_r86(tmp, add):
     """A106: the vendored verdict-kit runs and its manifest matches.
 
@@ -5390,7 +5459,12 @@ def main():
     log_dir = Path(args.log_dir) if args.log_dir else (L.default_output_root() / "selftest" / rid)
     log_dir.mkdir(parents=True, exist_ok=True)
     tmp = Path(tempfile.mkdtemp(prefix="vector-ai-selftest-"))
-    a = []
+
+    # Phase 2-4: the harness owns the tally and the two meta-assertions. The
+    # declared number INCLUDES them (A76 + A60), which is the same contract the
+    # hand-written A60 always enforced; --fixtures adds A13, so it adds 1.
+    harness = VKA.Harness(expected=EXPECTED_ASSERTIONS + (1 if args.fixtures else 0),
+                          capability_skips=CAPABILITY_SKIPS)
 
     def add(aid, ok, detail="", skipped=False):
         # ok is True / False / None. None means "not evaluated", matching how
@@ -5398,8 +5472,7 @@ def main():
         # h2_status=not_evaluated). A skip must not read as a pass to anything
         # that aggregates assertions[].ok -- that was the hole: exit 0, status
         # ok, and ok=true on an assertion that never ran.
-        a.append({"id": aid, "ok": (None if skipped else bool(ok)),
-                  "detail": str(detail)[:220], "skipped": bool(skipped)})
+        harness.add(aid, ok, detail, skipped)
         add.seen.add(aid)
 
     add.seen = set()
@@ -5499,45 +5572,40 @@ def main():
         add("A13-fixtures-regression", frc == 0 and fenv.get("data", {}).get("all_ok") is True,
             "exit=" + str(frc))
 
+    # A113: the gate semantics themselves (ok / fail / partial / count /
+    # undeclared skip), built in memory from the vendored harness.
+    _stage_r94(tmp, add)
+
+    # ---- the gate: two meta-assertions, then the tally ------------------------
     # A76: a skip is only honest for a declared capability. CI accepts exit 3
     # (capability missing), so an assertion that starts skipping for any other
     # reason would otherwise hide behind a green run; this names it.
-    _skips = [x["id"] for x in a if x.get("skipped")]
-    _extra_skips = sorted(set(_skips) - CAPABILITY_SKIPS)
-    add("A76-capability-skips-are-declared", not _extra_skips,
-        "skipped=" + (",".join(_skips) or "none")
-        + (" undeclared=" + ",".join(_extra_skips) if _extra_skips else ""))
-
-    # A60: the suite must not silently lose an assertion. This counts itself,
-    # so the declared number and the observed one are compared on equal terms:
-    # a dropped block, a duplicated block or a stale EXPECTED_ASSERTIONS all
-    # land here instead of in a human's head. Counting alone missed the
+    #
+    # A60: the suite must not silently lose an assertion. It counts itself, so
+    # the declared number and the observed one are compared on equal terms: a
+    # dropped block, a duplicated block or a stale EXPECTED_ASSERTIONS all land
+    # here instead of in a human's head. Counting alone missed the
     # delete-one-duplicate-another case (r69 audit), so ids must also be unique.
-    _expected = EXPECTED_ASSERTIONS + (1 if args.fixtures else 0)
-    _ran = len(a) + 1
-    _ids = [r["id"] for r in a]
-    _dup = sorted({i for i in _ids if _ids.count(i) > 1})
-    add("A60-assertion-count-declared", _ran == _expected and not _dup,
-        "declared=" + str(_expected) + " ran=" + str(_ran)
-        + (" duplicated=" + ",".join(_dup) if _dup else ""))
+    #
+    # Both ids, both details ("skipped=..." / "declared=N ran=N") and their
+    # order (skip guard, then count guard) are unchanged; finalize() produces
+    # them with count_id/skip_id at their defaults. Three states, not two:
+    # "partial" means at least one guard could not run, and a caller that only
+    # checks exit code or status must not read that as success (ok->0, fail->1,
+    # partial->3).
+    rep = harness.finalize()
 
-    passed = sum(1 for x in a if x["ok"] is True)
-    skipped = [x["id"] for x in a if x.get("skipped")]
-    # A skip is not a pass and not a failure: it is a capability that was not
-    # present. It is reported separately and marks the run "partial", so it
-    # can never be mistaken for coverage.
-    failed = [x["id"] for x in a if x["ok"] is False]
     doc = {
         "schema": "vector-ai-studio/selftest-v1",
-        # Three states, not two. "partial" means at least one guard could not
-        # run; a caller that only checks exit code or status must not read that
-        # as success.
-        "status": "fail" if failed else ("partial" if skipped else "ok"),
+        "status": rep.status,
         "run_id": rid,
-        "passed": passed, "failed": len(failed), "skipped": skipped,
+        "passed": rep.passed, "failed": len(rep.failed), "skipped": rep.skipped,
         "capability_skips": sorted(CAPABILITY_SKIPS),
-        "partial": bool(skipped),
-        "assertions": a,
+        "partial": rep.as_dict()["partial"],
+        # Non-empty only when a meta-guard itself is red (count mismatch or an
+        # undeclared skip): the human-readable half of the same verdict.
+        "problems": rep.problems,
+        "assertions": [x.as_dict() for x in rep.assertions],
         "chain": chain,
         "optional_deps": optional,
         "generation_budget": budget,
@@ -5545,15 +5613,16 @@ def main():
         "note": "pure-script layer only; real-machine checks in smoke_ai.py",
     }
     L.write_json_atomic(log_dir / "selftest.json", doc)
-    L.append_run_log(log_dir, SCRIPT + " passed=" + str(passed) + "/" + str(len(a)))
-    _code = L.EXIT_FAIL if failed else (L.EXIT_MISSING if skipped else L.EXIT_OK)
+    L.append_run_log(log_dir, SCRIPT + " passed=" + str(rep.passed) + "/"
+                     + str(len(rep.assertions)))
+    _code = rep.exit_code
     return L.emit(SCRIPT, status=doc["status"],
                   code=_code,
                   run_id=rid, data=doc,
-                  errors=([L.err("E-SELFTEST", "failed assertions: " + ",".join(failed))]
-                          if failed else
+                  errors=([L.err("E-SELFTEST", "failed assertions: " + ",".join(rep.failed))]
+                          if rep.failed else
                           ([L.err("E-SELFTEST", "not evaluated (missing capability): " +
-                                  ",".join(skipped))] if skipped else [])),
+                                  ",".join(rep.skipped))] if rep.skipped else [])),
                   artifacts={"selftest": "selftest.json"})
 
 

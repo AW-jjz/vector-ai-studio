@@ -44,9 +44,12 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # turns the guard into decoration.
 #
 # EXPECTED_ASSERTIONS is the number a complete selftest run must leave behind,
-# including A60 (the guard that checks this number) but excluding A13, which
-# only runs with --fixtures. Add or remove an assertion -> bump this number
-# too; A60 turns a stale count red instead of leaving it to a human.
+# including BOTH meta-assertions (A76 the skip declaration, A60 the guard that
+# checks this number) but excluding A13, which only runs with --fixtures. Add or
+# remove an assertion -> bump this number too; A60 turns a stale count red
+# instead of leaving it to a human. Since r94 the number is also the `expected`
+# handed to the vendored `verdict_kit.assertions.Harness`, which counts the same
+# way (user assertions + its own two meta-assertions).
 # r71: +A80 (registry scan catches unregistered codes), +A81 (smoke rating
 # follows the acceptance verdict) -> 79 + 2 = 81.
 # r72: +A82 (shipped attack set), +A83 (contract is the single source),
@@ -85,7 +88,10 @@ CREDENTIAL_ENV_NAMES = ("RECRAFT_API_KEY", "RECRAFT_TOKEN")
 # r92 (verdict-kit phase 2-2): +A111 (attacks adapter parity) -> 110 + 1 = 111.
 # r93 (verdict-kit phase 2-3): +A112 (fixtures runner adapter parity) ->
 # 111 + 1 = 112.
-EXPECTED_ASSERTIONS = 112
+# r94 (verdict-kit phase 2-4): +A113 (the gate semantics themselves: ok / fail /
+# partial / count / undeclared skip, read off the vendored harness) ->
+# 112 + 1 = 113.
+EXPECTED_ASSERTIONS = 113
 CAPABILITY_SKIPS = frozenset({
     "A30-vectorcraft-chain-h1-h2",
     "A31-deliverable-schema-no-drift",

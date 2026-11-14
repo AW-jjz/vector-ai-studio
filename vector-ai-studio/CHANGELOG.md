@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.26.0 — 2026-11-14 [r94]
+
+verdict-kit, phase 2-4: the release gate. `scripts/selftest.py` no longer
+tallies its own assertions or derives its own verdict. The count, the two
+meta-assertions, the three-valued status and the exit code now come from the
+already-vendored `verdict_kit.assertions` (`Harness` / `HarnessReport`). This
+is the last slice of Phase 2; the kit itself is unchanged, so
+`scripts/_vendor/verdict-kit/VENDORED.sha256` (14 entries) and `scripts/_vendor/verdict-kit/smoke.py`
+(33 checks) are untouched.
+
+- **What moved**: the passed/failed/skipped tally, `A60-assertion-count-declared`
+  (the self-counting guard, duplicates included), `A76-capability-skips-are-declared`,
+  the `ok` / `partial` / `fail` derivation and the 0 / 1 / 3 exit code.
+- **What stayed**: the 112 assertion bodies, `EXPECTED_ASSERTIONS`,
+  `CAPABILITY_SKIPS`, L.emit plus artifacts / `run_id`, and the CLI flags.
+- **Ids, order and wording are unchanged**: `A60` and `A76` keep their exact
+  ids, their detail text (`declared=N ran=N` / `skipped=...`) and their order
+  (skip declaration, then the count guard). The kit's `count_id` / `skip_id`
+  defaults are the same names, so no parameter is passed.
+- **Count contract**: `EXPECTED_ASSERTIONS` means "what a complete run leaves
+  behind, INCLUDING the two meta-assertions", which is how the hand-written
+  guard already counted. Adding A113 therefore takes 112 -> 113, not
+  111 -> 112; `--fixtures` still adds exactly 1 (114 total).
+- **New**: A113 reads the gate semantics off five in-memory reports -- ok
+  (`ok`/0), fail (`fail`/1), partial (`partial`/3), a count that disagrees
+  with what ran (A60 red, 1) and an undeclared skip (A76 red, 1). No
+  subprocess, no temp file, so the reading is host-independent and cannot pass
+  by re-running the suite it guards.
+- **New field**: `selftest.json.problems` is non-empty only when a meta-guard
+  is red; it carries the human-readable half of the same verdict.
+- **Baseline**: the 112 pre-change assertions (`id`, order, `ok`) plus the
+  `status` / `passed` / `failed` / `skipped` / `partial` readings are frozen in
+  `tests/fixtures/release-gate/` (pure data: no path, no run id, no timestamp),
+  so QA can diff old against new in the same environment.
+- **Boundary kept**: without a loadable cairo, A105 still skips, so the run is
+  `status=partial` / exit 3 / `skipped=[A105-...]` with A76 green -- never a
+  silent `ok` and never a `fail`.
+
 ## 1.25.1 — 2026-11-14 [r93.1]
 
 - A112 compared raw bytes against a golden frozen on Windows. Both Linux CI

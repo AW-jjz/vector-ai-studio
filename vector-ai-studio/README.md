@@ -127,6 +127,7 @@ python scripts/verify_install.py --json
 - Phase 2-1 起 `scripts/gen_contract.py` 的装载 / 逐字节比对 / 原子写委托给 vendored `verdict_kit.contract`，四个渲染器与 thresholds 文案键检查留在本技能；A109 用 7 组冻结 golden 做 parity（解析后 JSON + status/code），CLI 形状、信封 data、退出码与错误码一致。
 - Phase 2-2 起 `scripts/redteam.py` 的六种 mutation op、点路径取值与六类声明式期望校验委托给 vendored `verdict_kit.attacks`，基线 `base_run`、验收日志的读取、subprocess 调用与 CLI 形状留在本技能，攻击数据仍是 `tests/attacks/*.json`；A111 用两份冻结 golden 做 parity（整份信封语义全等 + 18 条逐条 exit/codes/problems）。
 - Phase 2-3 起 `scripts/run_fixtures.py` 的三占位符展开、`setup_dir` 物化、单 case 执行、精确码匹配、汇总与声明条数守卫委托给 vendored `verdict_kit.fixtures`，schema、`cases_expected` 读取、脚本目录、CLI 形状与 `E-FIXTURE-MISMATCH` 留在本技能；A112 用冻结的整份 `--json` 信封做逐字节 parity（37 条）。
+- Phase 2-4 起 `scripts/selftest.py` 的门禁层（tally、`A60` 计数守卫、`A76` 跳过声明、`ok`/`partial`/`fail` 三态与退出码 0/1/3）委托给 vendored `verdict_kit.assertions`，断言实现体、`EXPECTED_ASSERTIONS`、`CAPABILITY_SKIPS` 与 CLI 留在本技能；A60/A76 的 id、文案与顺序不变，A113 用五份内存报告验门禁语义，112 条旧断言的 `id`/顺序/`ok` 基线冻结在 `tests/fixtures/release-gate/`。至此 **Phase 2 四片（2-1 ~ 2-4）全部完成**。
 
 
 ## 自检说明

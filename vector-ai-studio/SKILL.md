@@ -3,7 +3,7 @@ name: vector-ai-studio
 description: 把一句自然语言需求变成按可断言判据达到质量阈值、可继续编辑的原生 .ai 矢量成品；用户说生成矢量图 / logo / 图标 / 插画 / 要可继续编辑 / 要原生 .ai / 装好就能用时触发；只要位图 / 照片级真实感 / 3D、已持有 SVG 仅需转格式、或纯格式考据与可行性调研时不触发。
 description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
 description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
-version: 1.25.1
+version: 1.26.0
 author: skill-lifecycle-studio
 # The four fields above (description_zh / description_en / version / author) are
 # required at top level by this project's internal contract (contract.yaml
@@ -14,7 +14,7 @@ author: skill-lifecycle-studio
 # copies stay identical, so the duplication cannot drift.
 metadata:
   author: skill-lifecycle-studio
-  version: "1.25.1"
+  version: "1.26.0"
   description_zh: 当用户要求生成可编辑矢量图、原生 .ai 文件或 Illustrator 插画时使用；也覆盖需要批量同风格矢量素材、或用户自带风格参考要求品牌一致性的场景。不适用于只需要位图或照片级真实感、3D、像素级修图、把已有 SVG 仅做格式转换，以及纯格式考据与可行性调研。
   description_en: Use when the user wants an editable vector graphic, a native .ai file, or an Illustrator illustration, including batch production of same-style vector assets or brand consistency against a supplied style reference. Do not use it for bitmap or photorealistic output, 3D, pixel retouching, pure format conversion of an existing SVG, or format research and feasibility write-ups.
 ---
@@ -327,6 +327,8 @@ H3 的取证文件是 `<RUN_DIR>/selftest.json`，由上面第一条命令产生
 **verdict-kit Phase 2-2（r92）**：`scripts/redteam.py` 的六种 mutation op、点路径取值与六类声明式期望校验改由 vendored `verdict_kit.attacks` 承担；诚实基线 `base_run`、验收日志的读取、被攻击脚本的 subprocess 调用与 CLI 形状（`--attack-dir` / `--only` / `--json`）留在本技能，攻击数据仍旧是 `tests/attacks/*.json`。A111 用改动前冻结的两份 golden 做 parity：整份 `--json` 信封语义全等（18 条结果的 id/status/codes/detail 与 summary 四项计数），外加 18 条逐条的 `id / expect / exit / codes / problems`。「达标 / pass」这个通过谓词以 `too_good` 显式注入；kit 侧无默认值，未注入而命中 `expect_no_pass` 时报 `ValueError`。
 
 **verdict-kit Phase 2-3（r93）**：`scripts/run_fixtures.py` 的三占位符展开（`@F@` / `@OUT@` / `@RUN@`）、`setup_dir` 物化、单 case 子进程执行与码匹配（去重 + 排序 + 精确相等）、汇总与声明条数守卫改由 vendored `verdict_kit.fixtures` 承担；`FIX_SCHEMA`、`tests/fixtures/fixtures.json` 的 `cases_expected` 读取、脚本目录、CLI 形状（`--json` / `--fixtures` / `--log-dir` / `--run-id`）、`E-FIXTURE-MISMATCH` 与 artifacts 写盘留在本技能。warning 的 `E-` 前缀凑不上想要的码，多一个码或少一个码都判红。A112 用改动前冻结的整份 `--json` 信封做逐字节 parity，37 条 case 的 `id` / `ok` / `exit` / `codes` / `acceptance` 摘要与「为什么没有易变字段」记在 `tests/fixtures/fixtures-run/` 的说明里。
+
+**verdict-kit Phase 2-4（r94）**：`scripts/selftest.py` 里手写的门禁层改由 vendored `verdict_kit.assertions` 的 `Harness` / `HarnessReport` 承担——passed / failed / skipped 统计、`A60-assertion-count-declared` 计数守卫（含 id 去重）、`A76-capability-skips-are-declared` 跳过声明、`ok / partial / fail` 三态与退出码 0 / 1 / 3。留在本技能的是 112 条断言的实现体、`EXPECTED_ASSERTIONS`、`CAPABILITY_SKIPS`、L.emit 与 artifacts / run_id、CLI 形状。A60 / A76 的 id、语义、detail 文案（`declared=N ran=N` / `skipped=...`）与顺序（先跳过声明、后计数守卫）逐字不变；`EXPECTED_ASSERTIONS` 的语义是「完整运行留下的条数，含两条元断言」，因此加 A113 后从 112 变 113，`--fixtures` 仍是 +1。报告新增 `problems` 字段；该字段非空仅发生在元守卫自己红（计数不符 / 未声明跳过）时。A113 用五份纯内存报告直接验门禁语义（ok / fail / partial / 计数不符 / 未声明跳过），不起子进程、不落临时文件，跨平台读数一致；换实现前的 112 条 `id` / 顺序 / `ok` 基线冻结在 `tests/fixtures/release-gate/`。
 
 `scripts/verify_install.py` 回答的是另一个问题：**这台机器上的引擎路径通不通**。自检里 A30 / A31 / A46 三条依赖真实引擎，没有引擎时它们是 *skipped*（跳过是「没测」，不是「通过」）——所以「自检全绿」并不证明引擎能用。`scripts/verify_install.py` 复用这三条断言（不另立判据），再真跑一次 `land_vc` 与 `land_craft` 留下产物证据，并核对引擎二进制哈希与 `engine.lock.json` 里钉的那一个是否一致。**引擎缺席时它只报「无法复测」并退 3，绝不报 ok**；哈希对不上则报 `E-ENGINE-DRIFT`（同版本、不同构建，之前的回归结论不再成立）。
 
