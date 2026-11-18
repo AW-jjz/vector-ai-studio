@@ -1,0 +1,118 @@
+{
+  "skill_name": "vector-ai-studio",
+  "version": "1.27.0",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我做一个可继续编辑的咖啡店 logo，最后要原生 .ai 和 SVG。",
+      "expected_output": "触发。冻结需求清单与色板，执行净化、预览、评分、VectorCraft 落地和验收；缺失能力显式降级。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 2,
+      "prompt": "Create an editable vector icon set for a developer tool and export native .ai files.",
+      "expected_output": "Trigger. Use the editable-vector workflow and produce verifiable SVG, preview, native .ai and acceptance evidence.",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 3,
+      "prompt": "参考我给的视觉风格，批量做 12 个同系列矢量插画，构图要有变化但品牌一致。",
+      "expected_output": "触发。使用参考提取与 N 个独立 run，保持冻结色板和风格规则，不逐张随意换风格。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 4,
+      "prompt": "这个 Skill 装好就能用吗？先检查依赖，再真机跑一次完整出图。",
+      "expected_output": "触发。先运行依赖探测、纯脚本自检和安装验证；真机引擎缺席时明确报告未验证。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 5,
+      "prompt": "为独立书店设计瑞士国际主义风格的矢量标识，16px 也要可辨。",
+      "expected_output": "触发。选择匹配原型，执行小尺寸与单色预检，并按判据给出三值验收结论。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 6,
+      "prompt": "把活动主视觉做成全矢量信息图，需要可编辑路径，不要位图贴进去。",
+      "expected_output": "触发。生成受约束的纯矢量 SVG，禁止 image、foreignObject 等不支持构造，再进入落地链。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 7,
+      "prompt": "做一张印刷用的矢量海报母版，含出血、裁切线和 PDF/X 预检。",
+      "expected_output": "触发。走印刷母版路线，实测页面盒子与输出意图；不将结构检查夸大为完整 PDF/X 合规。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 8,
+      "prompt": "我有三个 logo 方向，帮我匿名盲评、记录分歧并选出证据更充分的一版。",
+      "expected_output": "触发。使用评审包和评审汇总流程；内部评审与外部评审证据严格区分。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 9,
+      "prompt": "Validate this vector production run, replay its evidence journal and tell me whether the result is pass, fail or indeterminate.",
+      "expected_output": "Trigger. Recompute the acceptance evidence and preserve the three-valued verdict instead of trusting a supplied grade.",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 10,
+      "prompt": "把这段品牌需求整理成可执行的矢量设计 spec，并给每个验收项明确判据。",
+      "expected_output": "触发。先补齐必要输入并冻结 spec；无法从 brief 断言的审美项列入待复核。",
+      "files": [],
+      "expect_trigger": true
+    },
+    {
+      "id": 11,
+      "prompt": "把这张人像照片修得更清晰，去掉路人并磨皮。",
+      "expected_output": "不触发。这是位图读取与像素修图任务，应使用图像编辑能力。",
+      "files": [],
+      "expect_trigger": false
+    },
+    {
+      "id": 12,
+      "prompt": "生成一张照片级真实感的产品场景图，要真实材质和电影光效。",
+      "expected_output": "不触发。目标为照片级位图，不是可编辑矢量成品。",
+      "files": [],
+      "expect_trigger": false
+    },
+    {
+      "id": 13,
+      "prompt": "做一个可旋转的 3D 金属logo模型，输出 GLB。",
+      "expected_output": "不触发。请求是 3D 模型与 GLB，超出原生二维矢量工作流。",
+      "files": [],
+      "expect_trigger": false
+    },
+    {
+      "id": 14,
+      "prompt": "已有 final.svg，只把它转换成 AI，别做任何设计、评分或修改。",
+      "expected_output": "不触发完整 Skill。用户明确只要既有 SVG 的格式转换，应采用轻量转换路径。",
+      "files": [],
+      "expect_trigger": false
+    },
+    {
+      "id": 15,
+      "prompt": "写一篇 AI 文件格式的发展史和兼容性调研，不需要生成文件。",
+      "expected_output": "不触发。这是纯格式考据与可行性调研。",
+      "files": [],
+      "expect_trigger": false
+    },
+    {
+      "id": 16,
+      "prompt": "Upscale this PNG logo to 4K and remove its JPEG artifacts; keep it as a bitmap.",
+      "expected_output": "Do not trigger. This is bitmap enhancement, not editable-vector authoring or native .ai production.",
+      "files": [],
+      "expect_trigger": false
+    }
+  ]
+}

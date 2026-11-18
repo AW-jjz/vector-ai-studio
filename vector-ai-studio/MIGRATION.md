@@ -92,3 +92,14 @@ r94（Phase 2-4）**没有改 kit**：`verdict_kit.assertions` 从 Phase 0 起�
 
 
 r95 为 1.26.1，不是迁移片：它修的是 Phase 2-3 交出去的那段代码里的两条**定义错误路径**，不新增抽象、不改 Phase 表。一是 `scripts/_vendor/verdict-kit/verdict_kit/fixtures.py` 的 run_case 在 materialize 之前先校验脚本存在——脚本缺失时 CPython 自己会以 2 退出、stdout 为空，读数与 want_exit:[2] / want_codes:[] 的 case 完全一样，属于会假绿的形状，现在直接抛 FixtureError。二是同文件的 materialize 在 copytree 前拒绝已存在的 run_dir——同 id 且都带 setup_dir 的第二个 case 原会落未捕获的 FileExistsError，经 run_cli 变成 E-INTERNAL(4)，而「定义坏了」应统一 E-SCHEMA(2)。两条都经既有的 except FixtureError 机制接住，对外错误码集合不变；正常路径（37 个 case、冻结 golden）逐字节不变。
+
+## 8. Skill 1.27.0：元数据与文档布局
+
+本轮不改 `criteria_version`、CLI、退出码、评分阈值或产物 schema。
+
+- `description_zh`、`description_en`、`version`、`author` 从 `SKILL.md` 顶层迁到 `metadata`。读取这些字段的自定义客户端改读 `metadata.<field>`；`name` 与 `description` 仍在顶层。
+- 新增顶层 `license: MIT` 与 `compatibility`，通过 Agent Skills 官方 `skills-ref` 校验。
+- 入口只保留触发、步 0–1、交付、降级和边界。详细内容迁到 `references/authoring.md`、`references/judging.md`、`references/output-patterns.md`、`references/maintenance.md`。
+- `contract/claims.json` 的 `file` 已随原文迁移，承诺文本与哈希不变；重复出现的 PDF/X 限定按文件分别登记。
+- 新增 `scripts/skill_audit.py` 与 `evals/evals.json`。评测文件验证触发覆盖结构，不等于已经测得模型触发率。
+- A94 加入 `CAPABILITY_SKIPS`：缺 Pillow 时读数为 `partial` / exit 3，不再把声明式能力缺失误报为失败。

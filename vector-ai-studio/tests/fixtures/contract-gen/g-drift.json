@@ -9,7 +9,7 @@
       {
         "file": "scripts/_contract.py",
         "same": true,
-        "bytes": 4518
+        "bytes": 4632
       },
       {
         "file": "references/schemas/contract-enums.schema.json",

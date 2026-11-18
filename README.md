@@ -30,6 +30,7 @@ cp -r vector-ai-studio ~/.workbuddy/skills/     # 或你的技能目录
 ## 先自检，再使用
 
 ```
+python vector-ai-studio/scripts/skill_audit.py --require-evals --json
 python vector-ai-studio/scripts/selftest.py --fixtures
 python vector-ai-studio/scripts/run_fixtures.py
 ```
@@ -140,7 +141,7 @@ C 维以前只有 `len(colors) <= N` 一条：一张全用同一支灰的画，�
 ## 仓库结构
 
 ```
-vector-ai-studio/     技能本体（137 文件，与发布基线逐字节一致）
+vector-ai-studio/     技能本体（含按需引用、触发评测与契约）
 docs/                 发布说明、发布纪律、校验留痕
 ```
 

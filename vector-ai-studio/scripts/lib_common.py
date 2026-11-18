@@ -105,6 +105,7 @@ CAPABILITY_SKIPS = frozenset({
     "A45-uniform-error-envelope",
     "A46-craft-only-landing",
     "A53-legibility-fails-what-the-eye-misses",
+    "A94-fidelity-claims-measured",
     "A103-pdf-independent-preflight",
     "A104-pdfx-print-preflight",
     "A105-cross-renderer-cairosvg",

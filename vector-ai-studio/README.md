@@ -7,6 +7,7 @@
 默认链路只依赖 Python 3.10+ 标准库（CI 在 3.10 与 3.12 上跑通；本机实测 3.12.10），零付费凭据、零联网、零额外组件。安装后先跑：
 
 ```
+python scripts/skill_audit.py --require-evals --json
 python scripts/detect_deps.py --json
 python scripts/selftest.py
 python scripts/run_fixtures.py
@@ -28,6 +29,12 @@ python scripts/verify_install.py --json
 ```
 
 自检里依赖引擎的三条断言在没有引擎时是 *skipped*（没测，不是通过），所以「自检全绿」不代表引擎能用。这条命令复用那三条断言、再真跑一次落地，并把引擎二进制哈希与 `engine.lock.json` 里钉的那一个比对：退出码 0 = 引擎路径已验证，**3 = 引擎缺席（无法复测，不是通过）**，1 = 有项目失败，哈希对不上时报 `E-ENGINE-DRIFT`（同版本、不同构建）。
+
+## 按需引用与评测
+
+入口保留触发、步 0–1、交付与边界；设计、评审、命令和维护细节位于 `references/authoring.md`、`judging.md`、`output-patterns.md`、`maintenance.md`。
+
+`evals/evals.json` 含 16 条中英文触发案例（10 正 / 6 反）。`skill_audit.py` 检查其结构与覆盖；模型触发率基准尚未执行。
 
 ## 完整出图
 
@@ -61,7 +68,7 @@ python scripts/verify_install.py --json
 
 ## 需要什么
 
-- 必需：Python 3.12+ 标准库；VectorCraft CLI（`vectorcraft-cli`，格式底线；可用 `VECTORCRAFT_CLI` 指定路径）。
+- 必需：Python 3.10+ 标准库；VectorCraft CLI（`vectorcraft-cli`，格式底线；可用 `VECTORCRAFT_CLI` 指定路径）。
 - 可选增强：Pillow（读图三检与导出打印）、PNG 渲染器（resvg / cairosvg）、宿主读图、风格参考、商业生成端凭据。
 - 引擎、渲染器、宿主读图三项一律先探测，缺失显式列出 `MISSING` 与替代方案并降级，不假设已装。不依赖 Adobe / COM。
 

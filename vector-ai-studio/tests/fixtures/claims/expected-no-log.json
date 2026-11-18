@@ -9,13 +9,13 @@
     "claims": 143,
     "ok": 143,
     "by_mechanism": {
-      "unverified": 68,
       "assertion": 67,
-      "boundary-declaration": 8
+      "boundary-declaration": 8,
+      "unverified": 68
     },
     "coverage": {
-      "mandatory_sentences": 138,
-      "registered": 138,
+      "mandatory_sentences": 139,
+      "registered": 139,
       "ratio": 1.0,
       "floor": 1.0
     },

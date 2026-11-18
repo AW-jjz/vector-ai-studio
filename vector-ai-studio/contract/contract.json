@@ -92,7 +92,7 @@
   },
   "claims": {
     "registry": "contract/claims.json",
-    "scan_files": ["SKILL.md", "README.md"],
+    "scan_files": ["SKILL.md", "README.md", "references/authoring.md", "references/judging.md", "references/output-patterns.md", "references/maintenance.md"],
     "mandatory_words": ["应", "必须", "绝不", "不会", "只", "不许", "禁止", "不能", "无法", "一律", "恒"],
     "coverage_floor": 1.0,
     "note": "对外承诺句登记在 contract/claims.json：每条带原文哈希、机制与对应测试。校验器 scripts/validate_claims.py 在 CI 里跑。coverage_floor 是棘轮：承诺句的登记覆盖率只许升不许降，低于它就红。代码块里的命令行不算承诺句。"

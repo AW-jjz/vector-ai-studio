@@ -1607,8 +1607,10 @@ def _stage_pure_chain(tmp, add, th):
     skill_md = (ROOT / "SKILL.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```[^\n]*\n(.*?)```", skill_md, re.S)
     inline = sorted({f for b in blocks for f in INLINE_FEATURES if f in b})
+    reference_docs = sorted((ROOT / "references").rglob("*.md"))
+    mapping_text = "\n".join([skill_md] + [p.read_text(encoding="utf-8") for p in reference_docs])
     all_scripts = sorted(p.name for p in SCRIPTS.iterdir() if p.suffix == ".py")
-    unmentioned = [s for s in all_scripts if ("scripts/" + s) not in skill_md]
+    unmentioned = [s for s in all_scripts if ("scripts/" + s) not in mapping_text]
     add("A5-no-inline-source-and-mapping", not inline and not unmentioned,
         "inline=" + ",".join(inline) + " unmentioned=" + ",".join(unmentioned))
 
@@ -2846,38 +2848,34 @@ def _stage_contract_registry(tmp, add, w1):
     every error code the scripts emit must be registered -- checked in both
     directions, because a one-way check lets stale rows accumulate."""
 
-    # A26: the top-level contract fields and their metadata mirror must agree.
-    # Two specifications read this file (internal contract.yaml wants them at
-    # top level; the public Agent Skills spec puts author/version under
-    # metadata). Keeping both copies is only safe if a machine compares them.
-    def _fm():
-        txt = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        body = txt.split("---", 2)[1]
-        top, meta, cur = {}, {}, None
-        for raw in body.splitlines():
-            if not raw.strip() or raw.lstrip().startswith("#"):
-                continue
-            if raw[0] in " \t":
-                if cur:
-                    k, _, v = raw.strip().partition(":")
-                    meta[k.strip()] = v.strip().strip('"').strip("'")
-                continue
-            k, _, v = raw.partition(":")
-            k, v = k.strip(), v.strip().strip('"').strip("'")
-            if v == "":
-                cur = k
-            else:
-                cur = None
-                top[k] = v
-        return top, meta
-
-    _top, _meta = _fm()
-    pairs = [(k, _top.get(k), _meta.get(k)) for k in
-             ("author", "version", "description_zh", "description_en")]
-    mirror_ok = all(m is not None and t == m for _, t, m in pairs)
-    add("A26-frontmatter-metadata-mirror", mirror_ok,
-        "pairs=" + str([(k, t == m) for k, t, m in pairs]) +
-        " | 解析器仅支持扁平 YAML：若改用块标量(>- / |)等结构会在此判红，属预期")
+    # A26: the entrypoint must satisfy the public Agent Skills field contract,
+    # stay within the progressive-disclosure budget, resolve its local assets,
+    # and ship trigger evals. Keep the historical assertion id: downstream
+    # fixtures and the release-gate baseline pin it. The negative probe proves
+    # the auditor rejects drift instead of merely reporting metrics.
+    rc_a, env_a, _ = _call(
+        "skill_audit.py",
+        ["--root", str(ROOT), "--require-evals", "--max-lines", "250", "--json"], tmp)
+    bad = tmp / "bad-skill"
+    bad.mkdir(parents=True, exist_ok=True)
+    (bad / "SKILL.md").write_text(
+        "---\nname: bad-skill\ndescription: valid trigger description\n"
+        "version: 1.0.0\n---\n# Bad\n[broken](references/missing.md)\n",
+        encoding="utf-8")
+    rc_b, env_b, _ = _call(
+        "skill_audit.py",
+        ["--root", str(bad), "--require-evals", "--json"], tmp)
+    problems_a = (env_a.get("data") or {}).get("problems") or []
+    problems_b = "\n".join((env_b.get("data") or {}).get("problems") or [])
+    audit_ok = (rc_a == 0 and not problems_a and rc_b == 1
+                and "frontmatter.unexpected" in problems_b
+                and "reference.missing" in problems_b
+                and "evals.missing" in problems_b)
+    add("A26-frontmatter-metadata-mirror", audit_ok,
+        "current_exit=%d negative_exit=%d current_problems=%d negative_checks=%s" % (
+            rc_a, rc_b, len(problems_a),
+            all(x in problems_b for x in (
+                "frontmatter.unexpected", "reference.missing", "evals.missing"))))
 
     # A27: the published JSON Schema must accept a real log and reject broken
     # ones. A schema nobody validates against is documentation, not a contract.

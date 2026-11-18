@@ -91,7 +91,7 @@ class CLAIMS:
     """The outward-promise registry: which files are scanned, which words
     make a sentence a promise, and the coverage floor CI enforces."""
     REGISTRY = "contract/claims.json"
-    SCAN_FILES = ["SKILL.md", "README.md"]
+    SCAN_FILES = ["SKILL.md", "README.md", "references/authoring.md", "references/judging.md", "references/output-patterns.md", "references/maintenance.md"]
     MANDATORY_WORDS = ["应", "必须", "绝不", "不会", "只", "不许", "禁止", "不能", "无法", "一律", "恒"]
     COVERAGE_FLOOR = 1.0
 

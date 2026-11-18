@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.27.0 — 2026-11-18 [r96]
+
+主题：**Agent Skills 规范兼容、渐进披露、结构审计与触发评测资产**。
+
+- 按 Agent Skills 公开规范迁移 frontmatter：`description_zh` / `description_en` / `version` / `author` 进入 `metadata`，新增 `license` 与 `compatibility`；官方 `skills-ref 0.1.1` 实测零问题。
+- `SKILL.md` 从 547 行、约 30k 字符降到 107 行、约 7k 字符。步 0–1、交付与边界留在入口，详细内容进入 `references/authoring.md`、`judging.md`、`output-patterns.md`、`maintenance.md`。
+- 修复入口指向但随包缺失的 `references/judging.md` 与 `references/output-patterns.md`；89 条承诺随原文迁移，文本哈希保持不变，扫描覆盖率仍为 1.0。
+- 新增 `scripts/skill_audit.py`：标准库检查 frontmatter 白名单、命名、描述长度、入口行数、Markdown/反引号本地资源、JSON/Python 语法与评测覆盖；`--official` 接入可选 `skills-ref`，缺席报 degraded。
+- 新增 `evals/evals.json`：16 个中英文案例，10 个正触发、6 个反触发。当前验证的是评测资产结构与覆盖，不声称已测得模型触发率。
+- 修复基线缺陷：A94 在缺 Pillow 时会 skipped，却未列入 `CAPABILITY_SKIPS`，导致自检由预期的 partial/3 错报 fail/1；现已登记并纳入 A26 正负结构回归。
+- CI 新增结构审计与独立官方规范校验；发布文档同步当前 Python 3.10+、114/115 断言和 37 条 fixtures。
+- 兼容性：`criteria_version`、评分阈值、CLI flags、退出码、产物 schema 与 37 条 `run_fixtures.py` fixture golden 均不变。A108/A109 自检适配器的 golden 仅同步文档路径及 `scan_files` 变化，未声明跳过、承诺篡改和契约漂移负例仍拒绝。
+- 本机验证：Python 3.12.13 基础环境 `105 passed / 0 failed / 10 skipped`，隔离环境 `114 passed / 0 failed / 1 skipped`（A105 缺原生 cairo），两者均为预期 `partial / exit 3`；37/37 fixtures、18 项红队、143/143 claims、保真度矩阵和官方 `skills-ref 0.1.1` 通过。模型触发率尚未执行基准；不能把结构化 evals 资产等同于实测触发准确率。
+
 ## 1.26.1 — 2026-11-14 [r95]
 
 Two correctness debts found while reviewing r93/r94, closed together because
